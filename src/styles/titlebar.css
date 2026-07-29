@@ -1,0 +1,123 @@
+/* Electron custom titlebar — frozen, not daisyUI */
+.app-titlebar {
+  position: relative;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  height: var(--titlebar-height, 36px);
+  padding: 0 var(--titlebar-overlay-pad, 0) 0 8px;
+  background: #1c1c1c;
+  border-bottom: 1px solid #2a2a2a;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.app-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  justify-self: start;
+}
+
+.app-titlebar-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.app-titlebar-menus {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.app-titlebar-menu {
+  position: relative;
+}
+
+.app-titlebar-menu-trigger {
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: default;
+}
+
+.app-titlebar-menu.is-open .app-titlebar-menu-trigger,
+.app-titlebar-menu-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-titlebar-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 200;
+  min-width: 220px;
+}
+
+.app-titlebar-dropdown--flyout {
+  top: -4px;
+  left: 100%;
+  min-width: 240px;
+  max-width: 360px;
+}
+
+.app-titlebar-submenu {
+  position: relative;
+}
+
+.app-titlebar-submenu::after {
+  /* Keeps the pointer inside the submenu hit-box while crossing into the flush flyout. */
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 8px;
+  height: 100%;
+}
+
+.app-titlebar-submenu.is-open > :where(a, button) {
+  background-color: color-mix(in oklab, var(--color-primary) 22%, transparent);
+}
+
+.app-titlebar-submenu-chevron {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.app-titlebar-title {
+  justify-self: center;
+  max-width: min(42vw, 420px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.app-titlebar-right {
+  justify-self: end;
+  width: 0;
+  height: 1px;
+}
+
+/* Titlebar: resist Tailwind preflight */
+.app-titlebar button {
+  font-family: var(--font);
+}

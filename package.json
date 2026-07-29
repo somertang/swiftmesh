@@ -1,0 +1,119 @@
+{
+  "name": "swiftmesh",
+  "version": "0.1.4",
+  "private": true,
+  "description": "SwiftMesh — open local .glb / .gltf / .obj, inspect, record turntable",
+  "author": "Semon Tang",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/sync-gltf-vendor.mjs && vite",
+    "build": "node scripts/sync-gltf-vendor.mjs && tsc -p tsconfig.json --noEmit && vite build",
+    "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
+    "brand-icons": "node scripts/generate-brand-icons.mjs",
+    "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win",
+    "preview": "vite preview"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "ffmpeg-static"
+    ]
+  },
+  "dependencies": {
+    "@iconify/react": "^6.0.2",
+    "ffmpeg-static": "^5.2.0"
+  },
+  "devDependencies": {
+    "@react-three/drei": "^10.7.5",
+    "@react-three/fiber": "^9.1.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/three": "^0.181.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "daisyui": "^5.7.4",
+    "electron": "^35.1.2",
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^3.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.170.0",
+    "typescript": "^5.5.0",
+    "vite": "^6.2.5",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.swiftmesh.app",
+    "productName": "SwiftMesh",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+        "to": "ffmpeg/ffmpeg.exe"
+      }
+    ],
+    "asar": true,
+    "fileAssociations": [
+      {
+        "ext": "glb",
+        "name": "SwiftMesh.GLB",
+        "description": "glTF Binary 3D Model",
+        "mimeType": "model/gltf-binary",
+        "role": "Editor",
+        "icon": "build/icon.ico"
+      },
+      {
+        "ext": "gltf",
+        "name": "SwiftMesh.GLTF",
+        "description": "glTF 3D Model",
+        "mimeType": "model/gltf+json",
+        "role": "Editor",
+        "icon": "build/icon.ico"
+      },
+      {
+        "ext": "obj",
+        "name": "SwiftMesh.OBJ",
+        "description": "Wavefront OBJ 3D Model",
+        "mimeType": "model/obj",
+        "role": "Editor",
+        "icon": "build/icon.ico"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "allowElevation": true
+    }
+  }
+}
