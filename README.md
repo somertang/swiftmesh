@@ -12,6 +12,8 @@ Windows desktop app for viewing local 3D models, inspecting scene data, and reco
 
 ### Download
 
+Product page: **[somertang.github.io/swiftmesh](https://somertang.github.io/swiftmesh/)**
+
 Install the latest **Windows NSIS** build from:
 
 **[Releases](https://github.com/somertang/swiftmesh/releases)**
