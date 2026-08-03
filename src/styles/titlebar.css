@@ -121,3 +121,21 @@
 .app-titlebar button {
   font-family: var(--font);
 }
+
+/* Menu dividers — keep visible on dark dropdown surfaces */
+.app-titlebar-dropdown .MuiDivider-root,
+.app-titlebar-dropdown--flyout .MuiDivider-root,
+.MuiMenu-paper .MuiDivider-root {
+  margin: 0.35rem 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+  opacity: 1;
+}
+
+:root[data-theme='business'] .app-titlebar-dropdown .MuiDivider-root,
+:root[data-theme='business'] .app-titlebar-dropdown--flyout .MuiDivider-root,
+:root[data-theme='business'] .MuiMenu-paper .MuiDivider-root,
+html[data-mui-color-scheme='light'] .app-titlebar-dropdown .MuiDivider-root,
+html[data-mui-color-scheme='light'] .MuiMenu-paper .MuiDivider-root {
+  border-bottom-color: color-mix(in srgb, #000000 16%, transparent);
+}

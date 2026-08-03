@@ -238,7 +238,7 @@ export function AppTitleBar({
                               />
                             ))
                           )}
-                          <Divider />
+                          <Divider component="li" />
                           <TitleBarMenuItem
                             label={t('menu.clearRecent')}
                             disabled={recentPaths.length === 0}
@@ -252,13 +252,13 @@ export function AppTitleBar({
                       </Paper>
                     ) : null}
                   </li>
-                  <Divider />
+                  <Divider component="li" />
                   <TitleBarMenuItem
                     label={t('menu.preferencesOpen')}
                     shortcut="Ctrl+,"
                     onClick={() => run(onOpenPreferences)}
                   />
-                  <Divider />
+                  <Divider component="li" />
                   <TitleBarMenuItem label={t('menu.quit')} onClick={() => runWindow('quit')} />
                 </MenuList>
               </Paper>
@@ -283,7 +283,7 @@ export function AppTitleBar({
                     shortcut="Ctrl+B"
                     onClick={() => run(onToggleStatusBar)}
                   />
-                  <Divider />
+                  <Divider component="li" />
                   <TitleBarMenuItem label={t('menu.reload')} onClick={() => runWindow('reload')} />
                   {showDevTools ? (
                     <TitleBarMenuItem
@@ -291,11 +291,11 @@ export function AppTitleBar({
                       onClick={() => runWindow('toggleDevTools')}
                     />
                   ) : null}
-                  <Divider />
+                  <Divider component="li" />
                   <TitleBarMenuItem label={t('menu.resetZoom')} onClick={() => runWindow('resetZoom')} />
                   <TitleBarMenuItem label={t('menu.zoomIn')} onClick={() => runWindow('zoomIn')} />
                   <TitleBarMenuItem label={t('menu.zoomOut')} onClick={() => runWindow('zoomOut')} />
-                  <Divider />
+                  <Divider component="li" />
                   <TitleBarMenuItem
                     label={t('menu.toggleFullscreen')}
                     onClick={() => runWindow('toggleFullscreen')}
