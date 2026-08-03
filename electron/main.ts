@@ -523,7 +523,7 @@ function resolveAppIconPath() {
 
 async function showAboutDialog() {
   let version = app.getVersion()
-  let author = 'Semon Tang'
+  let author = 'Somer Tang'
   try {
     const raw = await fs.readFile(path.join(__dirname, '../package.json'), 'utf8')
     const pkg = JSON.parse(raw) as { version?: string; author?: string }
