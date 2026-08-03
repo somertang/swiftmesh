@@ -6,7 +6,7 @@ type Props = {
   'aria-label'?: string
 }
 
-/** Loadership Stripe Circular Classic — keep custom ring/stripe; daisyUI `loading loading-spinner` is a simpler fallback if this asset is dropped. */
+/** Loadership Stripe Circular Classic — keep custom ring/stripe. */
 export const StripeCircularLoader: FC<Props> = ({
   className,
   'aria-hidden': ariaHidden,

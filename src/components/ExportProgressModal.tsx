@@ -1,3 +1,8 @@
+import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogContent from '@mui/material/DialogContent'
+import LinearProgress from '@mui/material/LinearProgress'
+import Typography from '@mui/material/Typography'
 import type { FC } from 'react'
 import { useT } from '../i18n'
 
@@ -16,33 +21,45 @@ type Props = {
 export const ExportProgressModal: FC<Props> = ({ phase, canStop = false, stopLabel, onStop }) => {
   const t = useT()
 
-  if (phase.kind === 'idle') return null
+  const open = phase.kind !== 'idle'
 
-  let label: string
-  let percent: number
+  let label = ''
+  let percent = 0
 
   if (phase.kind === 'capturing') {
     label = t('export.capturing', { done: phase.done, total: phase.total })
     percent = phase.total > 0 ? Math.round((phase.done / phase.total) * 100) : 0
-  } else {
+  } else if (phase.kind === 'encoding') {
     label = phase.stage
     percent = phase.percent
   }
 
   return (
-    <div className="modal modal-open z-10000 bg-black/50">
-      <div className="modal-box max-w-sm text-center">
-        <p className="mb-3 text-sm">{label}</p>
-        <progress className="progress progress-primary w-full" value={percent} max={100} />
-        <p className="mt-2 text-xs opacity-70">{percent}%</p>
+    <Dialog
+      open={open}
+      maxWidth="xs"
+      fullWidth
+      className="z-10000"
+      onClose={(_event, reason) => {
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') return
+      }}
+    >
+      <DialogContent className="text-center">
+        <Typography variant="body2" className="mb-3">
+          {label}
+        </Typography>
+        <LinearProgress variant="determinate" value={percent} color="primary" />
+        <Typography variant="caption" color="text.secondary" className="mt-2 block">
+          {percent}%
+        </Typography>
         {canStop && onStop ? (
           <div className="mt-4">
-            <button type="button" className="btn btn-error btn-sm" onClick={onStop}>
+            <Button variant="contained" color="error" size="small" onClick={onStop}>
               {stopLabel ?? 'Stop recording'}
-            </button>
+            </Button>
           </div>
         ) : null}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

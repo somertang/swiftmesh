@@ -4,6 +4,11 @@
   "private": true,
   "description": "SwiftMesh — open local .glb / .gltf / .obj, inspect, record turntable",
   "author": "Semon Tang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somertang/swiftmesh.git"
+  },
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
@@ -12,6 +17,7 @@
     "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
     "brand-icons": "node scripts/generate-brand-icons.mjs",
     "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win",
+    "dist:win:publish": "pnpm run build && pnpm run brand-icons && electron-builder --win nsis --publish always",
     "preview": "vite preview"
   },
   "pnpm": {
@@ -23,7 +29,11 @@
     ]
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@iconify/react": "^6.0.2",
+    "@mui/material": "^9.2.0",
+    "electron-updater": "^6.8.9",
     "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
@@ -34,7 +44,6 @@
     "@types/react-dom": "^19.0.4",
     "@types/three": "^0.181.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "daisyui": "^5.7.4",
     "electron": "^35.1.2",
     "electron-builder": "^26.0.12",
     "png-to-ico": "^3.0.2",
@@ -54,6 +63,15 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "somertang",
+        "repo": "swiftmesh",
+        "private": false,
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*",

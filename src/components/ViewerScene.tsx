@@ -68,6 +68,7 @@ import { InfoPanel } from './inspect/InfoPanel'
 import type { InspectPanelId } from './inspect/InspectPanelShell'
 import { MaterialsPanel } from './inspect/MaterialsPanel'
 import { TexturesPanel } from './inspect/TexturesPanel'
+import { limitObjectTextures } from '../lib/limitObjectTextures'
 import { ViewportToolbar } from './ViewportToolbar'
 import {
   createNavGizmoOrientationRef,
@@ -156,18 +157,23 @@ type ModelRoots = {
 }
 
 /** Clone for display; keep authored transforms (no rescale / recentering). */
-function prepareDisplayRoot(source: Object3D): Object3D {
+function prepareDisplayRoot(source: Object3D, maxTextureSize: number): Object3D {
   const cloned = deepCloneScene(source)
   prepareModelMeshes(cloned)
+  limitObjectTextures(cloned, maxTextureSize)
   return cloned
 }
 
 function usePublishModelRoots(
   source: Object3D,
   onReady: () => void,
-  onRootChange: (roots: ModelRoots | null) => void
+  onRootChange: (roots: ModelRoots | null) => void,
+  maxTextureSize: number
 ) {
-  const displayRoot = useMemo(() => prepareDisplayRoot(source), [source])
+  const displayRoot = useMemo(
+    () => prepareDisplayRoot(source, maxTextureSize),
+    [source, maxTextureSize]
+  )
 
   useEffect(() => {
     onRootChange({ displayRoot, inspectRoot: source })
@@ -191,11 +197,13 @@ function findMtlBlobUrl(resourceUrls: Record<string, string>): string | null {
 function LoadedGltfModel({
   mainUrl,
   resourceUrls,
+  maxTextureSize,
   onReady,
   onRootChange,
 }: {
   mainUrl: string
   resourceUrls: Record<string, string>
+  maxTextureSize: number
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -204,7 +212,7 @@ function LoadedGltfModel({
   const gltf = useLoader(GLTFLoader, mainUrl, loader => {
     configureGltfLoader(loader, { resourceUrls, ktx2Loader })
   })
-  const displayRoot = usePublishModelRoots(gltf.scene, onReady, onRootChange)
+  const displayRoot = usePublishModelRoots(gltf.scene, onReady, onRootChange, maxTextureSize)
   return <primitive object={displayRoot} />
 }
 
@@ -212,12 +220,14 @@ function LoadedObjWithMtl({
   mainUrl,
   mtlUrl,
   resourceUrls,
+  maxTextureSize,
   onReady,
   onRootChange,
 }: {
   mainUrl: string
   mtlUrl: string
   resourceUrls: Record<string, string>
+  maxTextureSize: number
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -231,34 +241,38 @@ function LoadedObjWithMtl({
     attachResourceUrlModifier(loader.manager, resourceUrls)
     loader.setMaterials(materials)
   })
-  const displayRoot = usePublishModelRoots(object, onReady, onRootChange)
+  const displayRoot = usePublishModelRoots(object, onReady, onRootChange, maxTextureSize)
   return <primitive object={displayRoot} />
 }
 
 function LoadedObjBare({
   mainUrl,
   resourceUrls,
+  maxTextureSize,
   onReady,
   onRootChange,
 }: {
   mainUrl: string
   resourceUrls: Record<string, string>
+  maxTextureSize: number
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
   const object = useLoader(OBJLoader, mainUrl, loader => {
     attachResourceUrlModifier(loader.manager, resourceUrls)
   })
-  const displayRoot = usePublishModelRoots(object, onReady, onRootChange)
+  const displayRoot = usePublishModelRoots(object, onReady, onRootChange, maxTextureSize)
   return <primitive object={displayRoot} />
 }
 
 function LoadedModel({
   model,
+  maxTextureSize,
   onReady,
   onRootChange,
 }: {
   model: ModelSource
+  maxTextureSize: number
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -270,6 +284,7 @@ function LoadedModel({
           mainUrl={model.mainUrl}
           mtlUrl={mtlUrl}
           resourceUrls={model.resourceUrls}
+          maxTextureSize={maxTextureSize}
           onReady={onReady}
           onRootChange={onRootChange}
         />
@@ -279,6 +294,7 @@ function LoadedModel({
       <LoadedObjBare
         mainUrl={model.mainUrl}
         resourceUrls={model.resourceUrls}
+        maxTextureSize={maxTextureSize}
         onReady={onReady}
         onRootChange={onRootChange}
       />
@@ -289,6 +305,7 @@ function LoadedModel({
     <LoadedGltfModel
       mainUrl={model.mainUrl}
       resourceUrls={model.resourceUrls}
+      maxTextureSize={maxTextureSize}
       onReady={onReady}
       onRootChange={onRootChange}
     />
@@ -1027,6 +1044,8 @@ type ViewerSceneProps = {
   shadingMode: ShadingMode
   recording: boolean
   secondsPerRevolution: number
+  msaa?: boolean
+  maxTextureSize?: number
   driveRef: MutableRefObject<RecordDrive>
   onLoading: (loading: boolean) => void
   onError?: (message: string) => void
@@ -1041,6 +1060,8 @@ export function ViewerScene({
   shadingMode,
   recording,
   secondsPerRevolution,
+  msaa = true,
+  maxTextureSize = 0,
   driveRef,
   onLoading,
   onError,
@@ -1207,6 +1228,7 @@ export function ViewerScene({
         <InfoPanel open={activeTool === 'info'} stats={sceneInfo} onClose={closeActiveTool} />
       </div>
       <Canvas
+        key={`aa-${msaa ? 'on' : 'off'}`}
         className="scene-canvas"
         style={{ display: 'block', width: '100%', height: '100%', background: sceneBgCss }}
         camera={{
@@ -1216,7 +1238,7 @@ export function ViewerScene({
           far: 100,
         }}
         gl={{
-          antialias: true,
+          antialias: msaa,
           alpha: false,
           preserveDrawingBuffer: true,
           powerPreference: 'high-performance',
@@ -1264,8 +1286,9 @@ export function ViewerScene({
           <ModelLoadErrorBoundary resetKey={modelKey} onError={handleLoadError}>
             <TurntableResetOnRecordStart recording={recording} driveRef={driveRef} groupRefOut={turntableGroupRef}>
               <LoadedModel
-                key={modelKey}
+                key={`${modelKey}:tex-${maxTextureSize}`}
                 model={model}
+                maxTextureSize={maxTextureSize}
                 onReady={handleModelReady}
                 onRootChange={handleRootChange}
               />

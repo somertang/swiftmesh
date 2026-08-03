@@ -1,3 +1,5 @@
+import ButtonGroup from '@mui/material/ButtonGroup'
+import IconButton from '@mui/material/IconButton'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import type { ShadingMode } from '../lib/shadingMode'
@@ -26,10 +28,9 @@ export function ShadingToolbar({ mode, onChange, disabled, embedded }: ShadingTo
     const label = t(item.labelKey)
     const active = mode === item.id
     return (
-      <button
+      <IconButton
         key={item.id}
-        type="button"
-        className={`btn btn-square btn-sm${embedded ? ' join-item' : ''}${active ? ' btn-active btn-primary' : ' btn-ghost'}`}
+        color={active ? 'primary' : 'default'}
         title={label}
         aria-label={label}
         aria-pressed={active}
@@ -37,7 +38,7 @@ export function ShadingToolbar({ mode, onChange, disabled, embedded }: ShadingTo
         onClick={() => onChange(item.id)}
       >
         <Icon icon={item.icon} aria-hidden />
-      </button>
+      </IconButton>
     )
   })
 
@@ -46,8 +47,8 @@ export function ShadingToolbar({ mode, onChange, disabled, embedded }: ShadingTo
   }
 
   return (
-    <div className="shading-toolbar join" role="toolbar" aria-label={t('shading.aria')}>
+    <ButtonGroup className="shading-toolbar" role="toolbar" aria-label={t('shading.aria')}>
       {buttons}
-    </div>
+    </ButtonGroup>
   )
 }

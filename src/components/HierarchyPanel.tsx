@@ -1,3 +1,5 @@
+import IconButton from '@mui/material/IconButton'
+import TextField from '@mui/material/TextField'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
@@ -90,9 +92,9 @@ function TreeRow({
           onSelect(node.id)
         }}
       >
-        <button
-          type="button"
-          className={`hier-expand btn btn-ghost btn-xs btn-square${hasChildren ? '' : ' is-empty'}`}
+        <IconButton
+          className={`hier-expand${hasChildren ? '' : ' is-empty'}`}
+          size="small"
           onClick={handleExpand}
           aria-label={
             hasChildren ? (isOpen ? t('common.collapse') : t('common.expand')) : undefined
@@ -105,7 +107,7 @@ function TreeRow({
               aria-hidden
             />
           ) : null}
-        </button>
+        </IconButton>
 
         <KindIcon kind={node.kind} />
 
@@ -115,9 +117,9 @@ function TreeRow({
         </span>
 
         {node.id !== 'scene-root' ? (
-          <button
-            type="button"
-            className={`hier-eye btn btn-ghost btn-xs btn-square${node.visible ? '' : ' is-off'}`}
+          <IconButton
+            className={`hier-eye${node.visible ? '' : ' is-off'}`}
+            size="small"
             onClick={handleEye}
             title={node.visible ? t('common.hide') : t('common.show')}
             aria-label={node.visible ? t('common.hide') : t('common.show')}
@@ -126,7 +128,7 @@ function TreeRow({
               icon={node.visible ? 'material-symbols:visibility' : 'material-symbols:visibility-off'}
               aria-hidden
             />
-          </button>
+          </IconButton>
         ) : (
           <span className="hier-eye-spacer" />
         )}
@@ -237,24 +239,25 @@ export function HierarchyPanel({
   if (!open) return null
 
   return (
-    <div className="hier-panel card bg-base-200/95" style={{ width }}>
+    <div className="hier-panel" style={{ width }}>
       <div className="hier-header">
         <span className="hier-header-title">{t('tool.hierarchy')}</span>
-        <button
-          type="button"
-          className="hier-close btn btn-ghost btn-xs btn-square"
+        <IconButton
+          className="hier-close"
+          size="small"
           onClick={() => onOpenChange(false)}
           aria-label={t('common.close')}
         >
           <Icon icon="material-symbols:close" aria-hidden />
-        </button>
+        </IconButton>
       </div>
 
       <div className="hier-search">
         <Icon icon="material-symbols:search" className="hier-search-icon" aria-hidden />
-        <input
+        <TextField
           type="search"
-          className="input input-sm input-bordered w-full"
+          size="small"
+          fullWidth
           placeholder={t('hierarchy.searchPlaceholder')}
           value={query}
           onChange={e => setQuery(e.target.value)}
