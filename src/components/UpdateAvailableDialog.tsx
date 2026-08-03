@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography'
 import type { FC } from 'react'
 import { useT } from '../i18n'
 import type { UpdatePromptEvent } from '../desktopTypes'
+import { formatReleaseNotesHtml } from '../lib/formatReleaseNotes'
 
 type Props = {
   open: boolean
@@ -25,6 +26,8 @@ export const UpdateAvailableDialog: FC<Props> = ({
 }) => {
   const t = useT()
   if (!prompt) return null
+
+  const releaseNotesHtml = formatReleaseNotesHtml(prompt.releaseNotes)
 
   return (
     <Dialog
@@ -46,7 +49,10 @@ export const UpdateAvailableDialog: FC<Props> = ({
         <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
           {t('update.releaseNotes')}
         </Typography>
-        <pre className="update-release-notes">{prompt.releaseNotes}</pre>
+        <div
+          className="update-release-notes"
+          dangerouslySetInnerHTML={{ __html: releaseNotesHtml }}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onLater} disabled={busy}>
