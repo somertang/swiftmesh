@@ -7,9 +7,142 @@
     <link rel="icon" href="./favicon.ico" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.json" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #12151a;
+        color: #e8eaed;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+      }
+
+      #swiftmesh-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.25rem;
+        background: radial-gradient(ellipse at 50% 38%, #1a1f28 0%, #12151a 62%, #0d1014 100%);
+        transition: opacity 0.35s ease, visibility 0.35s ease;
+      }
+
+      #swiftmesh-splash.is-done {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      #swiftmesh-splash img {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+        border-radius: 18px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      }
+
+      #swiftmesh-splash .brand {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+        color: #f3f5f7;
+      }
+
+      #swiftmesh-splash .bar-track {
+        width: min(220px, 42vw);
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+
+      #swiftmesh-splash .bar-fill {
+        height: 100%;
+        width: 8%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #50af8e, #6bc4a4);
+        transition: width 0.25s ease;
+      }
+
+      #root {
+        min-height: 100%;
+      }
+    </style>
   </head>
   <body>
+    <div id="swiftmesh-splash" aria-busy="true" aria-live="polite">
+      <img src="/logo-512.png" alt="" width="88" height="88" />
+      <p class="brand">SwiftMesh</p>
+      <div class="bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8">
+        <div class="bar-fill" id="swiftmesh-splash-bar"></div>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      ;(function () {
+        var MIN_VISIBLE_MS = 3000
+        var FILL_MS = 280
+        var FADE_MS = 400
+        var splash = document.getElementById('swiftmesh-splash')
+        var bar = document.getElementById('swiftmesh-splash-bar')
+        var track = splash && splash.querySelector('[role="progressbar"]')
+        var progress = 8
+        var closing = false
+        var shownAt = Date.now()
+        var timer = setInterval(function () {
+          if (closing) return
+          if (progress < 86) {
+            progress += progress < 40 ? 3.2 : progress < 70 ? 1.6 : 0.7
+            setProgress(progress)
+          }
+        }, 120)
+
+        function setProgress(value) {
+          progress = value
+          if (bar) bar.style.width = value + '%'
+          if (track) track.setAttribute('aria-valuenow', String(Math.round(value)))
+        }
+
+        function fadeOut() {
+          if (!splash) return
+          splash.classList.add('is-done')
+          splash.setAttribute('aria-busy', 'false')
+          setTimeout(function () {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash)
+          }, FADE_MS)
+        }
+
+        function fillThenFade() {
+          var from = progress
+          var started = Date.now()
+          function tick() {
+            var t = Math.min(1, (Date.now() - started) / FILL_MS)
+            setProgress(from + (100 - from) * t)
+            if (t < 1) {
+              requestAnimationFrame(tick)
+              return
+            }
+            setProgress(100)
+            fadeOut()
+          }
+          requestAnimationFrame(tick)
+        }
+
+        window.__swiftmeshSplashReady = function () {
+          if (closing) return
+          closing = true
+          clearInterval(timer)
+          var wait = Math.max(0, MIN_VISIBLE_MS - (Date.now() - shownAt))
+          setTimeout(fillThenFade, wait)
+        }
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

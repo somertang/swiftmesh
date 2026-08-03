@@ -615,6 +615,7 @@ function createWindow() {
     title: 'SwiftMesh',
     icon: resolveAppIconPath(),
     show: false,
+    backgroundColor: '#12151a',
     titleBarStyle: 'hidden',
     ...(process.platform === 'win32'
       ? {

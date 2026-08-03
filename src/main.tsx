@@ -20,3 +20,9 @@ createRoot(document.getElementById('root')!).render(
     </LocaleProvider>
   </StrictMode>,
 )
+
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    window.__swiftmeshSplashReady?.()
+  })
+})
