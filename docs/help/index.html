@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwiftMesh User Guide</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #171a21;
+      --surface-2: #1e232c;
+      --border: #2a3140;
+      --text: #e8eaef;
+      --muted: #9aa3b2;
+      --accent: #ec7700;
+      --accent-soft: rgba(236, 119, 0, 0.14);
+      --link: #7dd3fc;
+      --code-bg: #0b0d11;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      --radius: 12px;
+      --max: 52rem;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(236, 119, 0, 0.12), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, 0.08), transparent 50%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+      gap: 0;
+      min-height: 100vh;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: auto;
+      padding: 1.25rem 1rem 2rem;
+      border-right: 1px solid var(--border);
+      background: rgba(15, 17, 21, 0.92);
+      backdrop-filter: blur(10px);
+    }
+
+    nav .brand {
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin: 0 0 0.25rem;
+      font-size: 1.05rem;
+    }
+
+    nav .brand span { color: var(--accent); }
+    nav .sub {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin: 0 0 1.25rem;
+    }
+
+    nav ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      padding: 0.4rem 0.55rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+    }
+
+    nav a:hover {
+      background: var(--surface-2);
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    main {
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .content {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    header.hero {
+      background: linear-gradient(180deg, var(--surface), var(--surface-2));
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 2px);
+      padding: 1.5rem 1.5rem 1.25rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+    }
+
+    header.hero h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.85rem;
+      letter-spacing: -0.02em;
+    }
+
+    header.hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 40rem;
+    }
+
+    section {
+      margin: 0 0 2.25rem;
+      scroll-margin-top: 1.25rem;
+    }
+
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.35rem;
+      padding-bottom: 0.45rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      margin: 1.35rem 0 0.5rem;
+      font-size: 1.05rem;
+    }
+
+    p, li { color: #d5dae3; }
+    ul, ol { padding-left: 1.2rem; }
+    li { margin: 0.28rem 0; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      margin: 0.85rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      margin: 0.75rem 0 1rem;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    td:first-child { white-space: nowrap; color: var(--text); font-weight: 560; }
+    tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.015); }
+
+    kbd, code {
+      font-family: var(--mono);
+      font-size: 0.84em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.08rem 0.35rem;
+    }
+
+    kbd {
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .note {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 0.75rem 0.9rem;
+      border-radius: 0 10px 10px 0;
+      color: #f0e6d8;
+      margin: 0.9rem 0;
+    }
+
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      nav {
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      nav ol {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav aria-label="Table of contents">
+      <p class="brand"><a href="../" style="color:inherit;text-decoration:none">Swift<span>Mesh</span></a></p>
+      <p class="sub">User Guide · <a href="../">Product page</a></p>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#open">Opening models</a></li>
+        <li><a href="#tabs">Tabs &amp; layout</a></li>
+        <li><a href="#viewport">Viewport &amp; camera</a></li>
+        <li><a href="#inspect">Inspect panels</a></li>
+        <li><a href="#recording">Recording</a></li>
+        <li><a href="#preferences">Preferences</a></li>
+        <li><a href="#updates">Updates</a></li>
+        <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+        <li><a href="#limits">Limitations</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <div class="content">
+        <header class="hero">
+          <h1>SwiftMesh User Guide</h1>
+          <p>
+            SwiftMesh is a Windows desktop app for viewing local 3D models,
+            inspecting scene data, and recording a one-revolution turntable video.
+            Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, and <strong>.obj</strong>.
+          </p>
+        </header>
+
+        <section id="overview">
+          <h2>1. Overview</h2>
+          <div class="card">
+            <ul>
+              <li>Open local models from the File menu, empty-state button, drag-and-drop, or Open Recent.</li>
+              <li>Work in one or more tabs; optionally split the workspace.</li>
+              <li>Inspect Hierarchy, Textures, Materials, Geometries, and Info.</li>
+              <li>Record a turntable clip as MP4 and/or WebM.</li>
+              <li>Configure language, themes, performance, recording defaults, lighting, and updates in Preferences.</li>
+            </ul>
+          </div>
+          <p class="note">
+            Prefer the <strong>NSIS installer</strong> from GitHub Releases if you want in-app auto-update.
+            Portable builds are not the update target.
+          </p>
+        </section>
+
+        <section id="open">
+          <h2>2. Opening models</h2>
+          <ul>
+            <li><strong>File → Open…</strong> (<kbd>Ctrl+O</kbd>) opens a system file dialog.</li>
+            <li>On an empty tab, use <strong>Open local file</strong>.</li>
+            <li>Drag and drop a model onto the viewport (disabled while recording or exporting).</li>
+            <li><strong>File → Open Recent</strong> lists recent absolute paths; use <strong>Clear Recent</strong> to empty the list.</li>
+            <li>Windows file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> with SwiftMesh (“Open with”).</li>
+          </ul>
+          <p>
+            For <code>.gltf</code> and <code>.obj</code> with external buffers, materials, or textures,
+            keep companion files next to the model so SwiftMesh can resolve them from the same folder.
+          </p>
+        </section>
+
+        <section id="tabs">
+          <h2>3. Tabs &amp; layout</h2>
+          <ul>
+            <li>Click <strong>+</strong> to create a new tab.</li>
+            <li>Drag tabs to reorder; you can also move tabs between split panes.</li>
+            <li>Tab context menu: Close, Close Others, Close to the Right, Close All, Split Right, Split Down, Reveal in File Explorer.</li>
+            <li><kbd>Ctrl+F4</kbd> closes the active tab.</li>
+            <li><kbd>Ctrl+\</kbd> splits right; <kbd>Ctrl+Alt+\</kbd> splits down.</li>
+            <li><kbd>Shift+Alt+R</kbd> reveals the current model in File Explorer when a local path is available.</li>
+          </ul>
+          <p>
+            If <strong>Confirm before closing tabs</strong> is enabled in Preferences,
+            SwiftMesh asks before closing tabs that still have a model loaded.
+          </p>
+        </section>
+
+        <section id="viewport">
+          <h2>4. Viewport &amp; camera</h2>
+          <h3>Navigation</h3>
+          <ul>
+            <li>Left mouse button — orbit / rotate</li>
+            <li>Middle mouse button — dolly / zoom</li>
+            <li>Right mouse button — pan</li>
+          </ul>
+
+          <h3>Shading</h3>
+          <p>Use the shading toolbar to switch between <strong>Wireframe</strong>, <strong>Solid</strong>, and <strong>Material</strong> (default).</p>
+
+          <h3>Lighting &amp; camera popovers</h3>
+          <ul>
+            <li><strong>Lighting</strong> (per tab, temporary): Studio (IBL), Classic, or Neutral; Exposure; Env intensity (Studio); Reset.</li>
+            <li><strong>Camera</strong> (per tab, temporary): position, target, FOV; Reset.</li>
+          </ul>
+          <p class="note">
+            Viewport lighting overrides are temporary and are <strong>not</strong> written back to Preferences.
+            Defaults for new tabs come from Preferences → Lighting.
+          </p>
+
+          <h3>Nav gizmo</h3>
+          <p>
+            The view-orientation gizmo (±X / ±Y / ±Z) appears when
+            <strong>Preferences → Appearance → Model Theme</strong> is set to <strong>Professional</strong>.
+            It is hidden in Simple theme and while recording.
+          </p>
+
+          <h3>Status bar</h3>
+          <p>
+            Shows Ready / Loading / Recording / Exporting / No model.
+            Toggle with <strong>View → Toggle Status Bar</strong> (<kbd>Ctrl+B</kbd>) or Preferences → Show status bar.
+          </p>
+        </section>
+
+        <section id="inspect">
+          <h2>5. Inspect panels</h2>
+          <p>Open panels from the viewport toolbar. Panels are resizable and dock beside the 3D view.</p>
+          <table>
+            <thead>
+              <tr><th>Panel</th><th>What you can do</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Hierarchy</td>
+                <td>Search the scene tree; select meshes/groups; show or hide nodes.</td>
+              </tr>
+              <tr>
+                <td>Textures</td>
+                <td>Browse textures, preview size/map slots, see materials using each texture, download PNG.</td>
+              </tr>
+              <tr>
+                <td>Materials</td>
+                <td>Inspect opacity, color, maps; clicking can select a related mesh.</td>
+              </tr>
+              <tr>
+                <td>Geometries</td>
+                <td>Review vertices, attributes, meshes, triangles; select meshes.</td>
+              </tr>
+              <tr>
+                <td>Info</td>
+                <td>Summary counts: meshes, geometries, materials, textures, vertices, triangles, estimated draw calls, animations.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="recording">
+          <h2>6. Recording</h2>
+          <p>
+            Recording requires a loaded model in the desktop app.
+            Use <strong>Record 1 rev</strong> to capture one turntable revolution; press again or use Stop to cancel when supported.
+          </p>
+          <ul>
+            <li>Short press starts recording.</li>
+            <li>Long-press or open the gear control for <strong>Recording settings</strong> on the current tab (temporary overrides).</li>
+          </ul>
+
+          <h3>Settings</h3>
+          <table>
+            <thead>
+              <tr><th>Control</th><th>Options</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Sec / rev</td><td>3–60 seconds per revolution</td></tr>
+              <tr><td>Export</td><td>MP4 (H.264), WebM, or MP4 + WebM</td></tr>
+              <tr>
+                <td>Size</td>
+                <td>Viewport; PC 720p / 1080p / 1440p / 4K; several mobile presets</td>
+              </tr>
+              <tr><td>Quality</td><td>Standard, High bitrate, Max quality (compatible)</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Saving</h3>
+          <ul>
+            <li>Preferences → Recording → <strong>Default save location</strong>: Ask each time, or Specified folder.</li>
+            <li>MP4 encoding uses the bundled ffmpeg binary.</li>
+            <li>While recording or exporting, model interaction is locked and a progress dialog may appear.</li>
+            <li>Disable <strong>Enable recording</strong> in Preferences to hide viewport record controls.</li>
+          </ul>
+        </section>
+
+        <section id="preferences">
+          <h2>7. Preferences</h2>
+          <p>Open with <strong>Preferences…</strong> (<kbd>Ctrl+,</kbd>). Use the search box to filter settings.</p>
+
+          <h3>General</h3>
+          <table>
+            <thead><tr><th>Setting</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>Language</td><td>English or 简体中文 for menus, dialogs, and labels</td></tr>
+              <tr><td>On startup</td><td>Blank window, restore last session, or open most recent file</td></tr>
+              <tr><td>Recent files limit</td><td>Maximum Open Recent entries (5–30)</td></tr>
+              <tr><td>Show status bar</td><td>Default visibility of the bottom status bar</td></tr>
+              <tr><td>Confirm before closing tabs</td><td>Ask before closing tabs that have a model</td></tr>
+              <tr><td>Updates</td><td>Check for updates / Auto-update (see next section)</td></tr>
+              <tr><td>Reset all preferences</td><td>Restore defaults; language is kept</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Appearance</h3>
+          <ul>
+            <li><strong>Interface theme</strong> — SwiftMesh (default), Dark, Business, Night</li>
+            <li><strong>Model Theme</strong> — Simple or Professional (controls nav gizmo availability)</li>
+          </ul>
+
+          <h3>Performance</h3>
+          <table>
+            <thead><tr><th>Setting</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>Anti-aliasing (MSAA)</td><td>Smoother edges; remounts the 3D view when changed</td></tr>
+              <tr><td>Maximum texture size</td><td>Automatic, or cap at 2048 / 4096 / 8192 px</td></tr>
+              <tr><td>Reload on file change</td><td>Reload a tab when its file changes on disk</td></tr>
+              <tr><td>Cache / temp folder</td><td>System temporary directory or a specified folder</td></tr>
+              <tr><td>Telemetry</td><td>Preference only — no telemetry is collected yet</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Recording</h3>
+          <p>
+            Defaults for new tabs: enable recording, sec/rev, export format, size, quality, and save location.
+            The viewport gear applies temporary overrides for the current tab only.
+          </p>
+
+          <h3>Lighting</h3>
+          <p>
+            Defaults for new tabs: Mode (Studio / Classic / Neutral), Exposure, Env intensity (Studio).
+            Viewport lighting popover overrides are temporary.
+          </p>
+
+          <h3>About</h3>
+          <ul>
+            <li>Author</li>
+            <li>Repository — open the GitHub project in your browser</li>
+            <li>Open-source license — MIT</li>
+          </ul>
+        </section>
+
+        <section id="updates">
+          <h2>8. Updates</h2>
+          <p>Updates are available in Preferences → General → Updates for packaged NSIS installs.</p>
+          <ul>
+            <li><strong>Check for updates</strong> runs a manual check and downloads when a newer release exists.</li>
+            <li>When a download finishes, use <strong>Relaunch application</strong> to install.</li>
+            <li><strong>Auto-update</strong> on: background check/download; off: only the button checks.</li>
+          </ul>
+          <p class="note">
+            Development builds (<code>pnpm run dev</code>) cannot install updates.
+            The UI reports that update checks run only in the packaged desktop app.
+          </p>
+        </section>
+
+        <section id="shortcuts">
+          <h2>9. Keyboard shortcuts</h2>
+          <table>
+            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>Ctrl+O</kbd></td><td>Open…</td></tr>
+              <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences…</td></tr>
+              <tr><td><kbd>Ctrl+B</kbd></td><td>Toggle Status Bar</td></tr>
+              <tr><td><kbd>Ctrl+F4</kbd></td><td>Close active tab</td></tr>
+              <tr><td><kbd>Ctrl+\</kbd></td><td>Split Right</td></tr>
+              <tr><td><kbd>Ctrl+Alt+\</kbd></td><td>Split Down</td></tr>
+              <tr><td><kbd>Shift+Alt+R</kbd></td><td>Reveal in File Explorer</td></tr>
+              <tr><td><kbd>Esc</kbd></td><td>Close open title-bar menus</td></tr>
+            </tbody>
+          </table>
+          <p>View menu also includes Reload, zoom, and Toggle Full Screen.</p>
+        </section>
+
+        <section id="limits">
+          <h2>10. Limitations</h2>
+          <ul>
+            <li>Local files only — no remote URL or cloud loading.</li>
+            <li>Formats limited to <code>.glb</code>, <code>.gltf</code>, and <code>.obj</code>.</li>
+            <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>
+            <li>Auto-update targets packaged NSIS installs, not portable or dev sessions.</li>
+            <li>One turntable revolution per recording pass.</li>
+            <li>Telemetry preference does not send data yet.</li>
+          </ul>
+        </section>
+
+        <footer>
+          SwiftMesh · MIT License ·
+          <a href="https://github.com/somertang/swiftmesh">github.com/somertang/swiftmesh</a>
+        </footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

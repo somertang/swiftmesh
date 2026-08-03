@@ -13,15 +13,17 @@
     :root {
       --bg: #0f1115;
       --surface: #171a21;
+      --surface-2: #1e232c;
       --border: #2a3140;
       --text: #e8eaef;
       --muted: #9aa3b2;
       --accent: #ec7700;
       --accent-hover: #ff8a1a;
       --accent-soft: rgba(236, 119, 0, 0.14);
-      --cyan: rgba(56, 189, 248, 0.55);
+      --cyan-soft: rgba(56, 189, 248, 0.12);
       --link: #7dd3fc;
       --max: 68rem;
+      --nav-h: 3.75rem;
       --font-display: "Syne", sans-serif;
       --font-body: "Figtree", sans-serif;
     }
@@ -40,14 +42,167 @@
     a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    /* —— Hero: full-bleed composition —— */
+    /* —— Top nav —— */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: var(--nav-h);
+      border-bottom: 1px solid transparent;
+      background: rgba(15, 17, 21, 0.72);
+      backdrop-filter: blur(14px);
+      transition: border-color 0.25s ease, background 0.25s ease;
+    }
+
+    .site-header.is-scrolled {
+      border-bottom-color: var(--border);
+      background: rgba(15, 17, 21, 0.92);
+    }
+
+    .nav-inner {
+      width: min(100% - 2rem, var(--max));
+      margin: 0 auto;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .nav-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .nav-brand:hover { text-decoration: none; color: var(--text); }
+    .nav-brand img { width: 1.55rem; height: 1.55rem; border-radius: 4px; }
+    .nav-brand span { color: var(--accent); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem 1.15rem;
+      margin: 0 auto;
+      padding: 0;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-github {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+    }
+
+    .nav-github:hover { color: var(--text); text-decoration: none; }
+
+    .lang-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .lang-toggle button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0.65rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .lang-toggle button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .nav-toggle {
+      display: none;
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      width: 2.4rem;
+      height: 2.4rem;
+      border-radius: 8px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .nav-toggle svg { width: 1.15rem; height: 1.15rem; }
+
+    .nav-drawer {
+      display: none;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 17, 21, 0.98);
+      padding: 0.75rem 1rem 1rem;
+    }
+
+    .nav-drawer.is-open { display: block; }
+
+    .nav-drawer ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .nav-drawer a {
+      display: block;
+      padding: 0.65rem 0.75rem;
+      color: var(--text);
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    .nav-drawer a:hover { background: var(--surface); text-decoration: none; }
+
+    /* —— Hero —— */
     .hero {
       position: relative;
-      min-height: 100svh;
-      display: grid;
-      align-items: end;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: center;
       isolation: isolate;
+      padding: 2.75rem 1.25rem 3.25rem;
+      gap: 1.75rem;
     }
 
     .hero-visual {
@@ -55,102 +210,80 @@
       inset: 0;
       z-index: 0;
       background:
-        radial-gradient(ellipse 90% 70% at 70% 40%, rgba(236, 119, 0, 0.18), transparent 55%),
-        radial-gradient(ellipse 60% 50% at 15% 80%, rgba(56, 189, 248, 0.1), transparent 50%),
-        linear-gradient(180deg, #12151c 0%, var(--bg) 100%);
-    }
-
-    .hero-visual::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(42, 49, 64, 0.45) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(42, 49, 64, 0.45) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: radial-gradient(ellipse 75% 65% at 68% 42%, black 10%, transparent 70%);
-      -webkit-mask-image: radial-gradient(ellipse 75% 65% at 68% 42%, black 10%, transparent 70%);
-      opacity: 0.7;
-    }
-
-    .hero-orb {
-      position: absolute;
-      width: min(52vw, 28rem);
-      height: min(52vw, 28rem);
-      right: 8%;
-      top: 18%;
-      border-radius: 50%;
-      background:
-        radial-gradient(circle at 35% 30%, rgba(236, 119, 0, 0.35), transparent 55%),
-        radial-gradient(circle at 70% 70%, rgba(56, 189, 248, 0.2), transparent 50%),
-        rgba(23, 26, 33, 0.6);
-      border: 1px solid rgba(42, 49, 64, 0.8);
-      box-shadow:
-        0 0 80px rgba(236, 119, 0, 0.15),
-        inset 0 0 60px rgba(0, 0, 0, 0.35);
-      display: grid;
-      place-items: center;
-      animation: float-orb 7s ease-in-out infinite;
-    }
-
-    .hero-orb img {
-      width: 42%;
-      height: auto;
-      filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+        radial-gradient(ellipse 70% 45% at 50% 0%, rgba(236, 119, 0, 0.14), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 10% 85%, var(--cyan-soft), transparent 55%),
+        linear-gradient(180deg, #12151c 0%, var(--bg) 72%, var(--bg) 100%);
+      pointer-events: none;
     }
 
     .hero-content {
       position: relative;
       z-index: 1;
-      width: min(100% - 2.5rem, var(--max));
-      margin: 0 auto;
-      padding: 4.5rem 0 5rem;
-      max-width: 36rem;
-      animation: fade-up 0.9s ease-out both;
+      width: min(100%, 40rem);
+      flex-shrink: 0;
+      animation: fade-up 0.85s ease-out both;
+    }
+
+    .hero-shot {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 52rem);
+      flex-shrink: 0;
+      animation: fade-up 1s ease-out 0.12s both;
+    }
+
+    .media-frame {
+      display: block;
+      width: 100%;
+      margin: 0;
+      border-radius: 14px;
+      border: 1px solid rgba(42, 49, 64, 0.95);
+      background: #0b0d11;
+      box-shadow:
+        0 28px 64px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+      overflow: hidden;
+    }
+
+    .media-frame img,
+    .media-frame video {
+      display: block;
+      width: 100%;
+      height: auto;
     }
 
     .brand {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: clamp(2.75rem, 8vw, 4.25rem);
+      font-size: clamp(2.6rem, 8vw, 4rem);
       letter-spacing: -0.03em;
       line-height: 1.05;
-      margin: 0 0 1rem;
+      margin: 0 0 0.85rem;
     }
 
     .brand span { color: var(--accent); }
 
-    .headline {
-      font-family: var(--font-display);
-      font-weight: 600;
-      font-size: clamp(1.2rem, 2.8vw, 1.55rem);
-      letter-spacing: -0.02em;
-      line-height: 1.3;
-      margin: 0 0 0.75rem;
-      color: var(--text);
-    }
-
-    .lede {
+    .tagline {
       margin: 0 0 1.75rem;
       color: var(--muted);
-      font-size: 1.05rem;
-      max-width: 32rem;
+      font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+      font-weight: 500;
     }
 
     .cta-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem 1rem;
-      align-items: center;
+      gap: 0.75rem;
+      justify-content: center;
     }
 
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.45rem;
-      padding: 0.8rem 1.35rem;
-      border-radius: 8px;
+      gap: 0.4rem;
+      padding: 0.78rem 1.35rem;
+      border-radius: 999px;
       font-family: var(--font-body);
       font-weight: 600;
       font-size: 0.95rem;
@@ -175,27 +308,80 @@
     }
 
     .btn-ghost {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.02);
       color: var(--text);
       border-color: var(--border);
     }
 
     .btn-ghost:hover {
       border-color: var(--muted);
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* —— Value props —— */
+    .values {
+      width: min(100% - 2.5rem, var(--max));
+      margin: 0 auto;
+      padding: 1.5rem 0 3.5rem;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem 2.25rem;
+    }
+
+    .value {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem 1rem;
+      align-items: start;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .value.in-view {
+      opacity: 1;
+      transform: none;
+    }
+
+    .value-icon {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(236, 119, 0, 0.22);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+    }
+
+    .value-icon svg { width: 1.35rem; height: 1.35rem; }
+
+    .value h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin: 0 0 0.25rem;
+      letter-spacing: -0.01em;
+    }
+
+    .value p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
     }
 
     /* —— Sections —— */
-    section {
+    section.block {
       width: min(100% - 2.5rem, var(--max));
       margin: 0 auto;
       padding: 4.5rem 0;
+      border-top: 1px solid var(--border);
     }
 
     .section-label {
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--accent);
@@ -205,65 +391,132 @@
     .section-title {
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: clamp(1.6rem, 3.5vw, 2.1rem);
+      font-size: clamp(1.55rem, 3.5vw, 2.05rem);
       letter-spacing: -0.02em;
-      margin: 0 0 0.6rem;
+      margin: 0 0 0.55rem;
     }
 
     .section-lead {
-      margin: 0 0 2.5rem;
+      margin: 0 0 2.25rem;
       color: var(--muted);
       max-width: 36rem;
     }
 
-    .features {
-      border-top: 1px solid var(--border);
+    .showcase-grid {
+      display: grid;
+      gap: 1.5rem;
     }
 
-    .feature-list {
+    .showcase-item {
       display: grid;
-      gap: 0;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .feature-list li {
-      display: grid;
-      grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
-      gap: 1rem 2rem;
-      padding: 1.5rem 0;
-      border-top: 1px solid var(--border);
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+      gap: 1.5rem 2rem;
+      align-items: center;
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(14px);
       transition: opacity 0.55s ease, transform 0.55s ease;
     }
 
-    .feature-list li.in-view {
+    .showcase-item.in-view {
       opacity: 1;
       transform: none;
     }
 
-    .feature-list li:last-child {
-      border-bottom: 1px solid var(--border);
-    }
+    .showcase-item:nth-child(even) .showcase-copy { order: 2; }
+    .showcase-item:nth-child(even) .showcase-visual { order: 1; }
 
-    .feature-list h3 {
+    .showcase-copy h3 {
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: 1.05rem;
-      margin: 0;
-      letter-spacing: -0.01em;
+      font-size: 1.25rem;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.015em;
     }
 
-    .feature-list p {
+    .showcase-copy p {
       margin: 0;
       color: var(--muted);
-      font-size: 0.98rem;
     }
 
-    .formats {
+    .showcase-visual {
+      min-width: 0;
+    }
+
+    .theme-compare {
+      margin-top: 3rem;
+      padding-top: 2.75rem;
       border-top: 1px solid var(--border);
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .theme-compare.in-view {
+      opacity: 1;
+      transform: none;
+    }
+
+    .theme-compare > h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.015em;
+    }
+
+    .theme-compare > p {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      max-width: 40rem;
+    }
+
+    .theme-compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem 1.25rem;
+    }
+
+    .theme-card {
+      margin: 0;
+      min-width: 0;
+    }
+
+    .theme-card figcaption {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: -0.01em;
+      margin: 0 0 0.55rem;
+      color: var(--text);
+    }
+
+    .theme-card .media-frame {
+      box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+
+    .showcase-stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .showcase-stack .media-frame {
+      box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+
+    .showcase-stack .media-frame:last-of-type {
+      /* Video sits under settings shot */
+      border-radius: 12px;
+    }
+
+    .video-caption {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
     }
 
     .format-row {
@@ -292,17 +545,14 @@
     .req-grid dt {
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--muted);
       margin: 0 0 0.35rem;
     }
 
-    .req-grid dd {
-      margin: 0;
-      font-size: 1.05rem;
-    }
+    .req-grid dd { margin: 0; font-size: 1.05rem; }
 
     footer {
       border-top: 1px solid var(--border);
@@ -328,56 +578,37 @@
     }
 
     @keyframes fade-up {
-      from {
-        opacity: 0;
-        transform: translateY(18px);
-      }
-      to {
-        opacity: 1;
-        transform: none;
-      }
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: none; }
     }
 
-    @keyframes float-orb {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-12px); }
-    }
-
-    @media (max-width: 800px) {
-      .hero-orb {
-        width: min(70vw, 18rem);
-        height: min(70vw, 18rem);
-        right: 50%;
-        top: 6%;
-        transform: translateX(50%);
-        animation: float-orb-mobile 7s ease-in-out infinite;
-      }
-
-      .hero-content {
-        padding-top: min(58vw, 16rem);
-        max-width: none;
-      }
-
-      .feature-list li {
+    @media (max-width: 900px) {
+      .values { grid-template-columns: 1fr; gap: 1.25rem; }
+      .showcase-item,
+      .showcase-item:nth-child(even) {
         grid-template-columns: 1fr;
-        gap: 0.35rem;
       }
-
-      .req-grid {
-        grid-template-columns: 1fr;
-        gap: 1.25rem;
-      }
+      .showcase-item:nth-child(even) .showcase-copy,
+      .showcase-item:nth-child(even) .showcase-visual { order: unset; }
+      .theme-compare-grid { grid-template-columns: 1fr; }
+      .req-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+      .hero { padding: 2rem 1.15rem 2.5rem; gap: 1.35rem; }
+      .hero-shot { width: min(100%, 40rem); }
     }
 
-    @keyframes float-orb-mobile {
-      0%, 100% { transform: translateX(50%) translateY(0); }
-      50% { transform: translateX(50%) translateY(-10px); }
+    @media (max-width: 760px) {
+      .nav-links,
+      .nav-github { display: none; }
+      .nav-toggle { display: inline-flex; }
+      .nav-actions { gap: 0.5rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .hero-content,
-      .hero-orb,
-      .feature-list li {
+      .hero-shot,
+      .value,
+      .showcase-item,
+      .theme-compare {
         animation: none !important;
         transition: none !important;
         opacity: 1 !important;
@@ -387,51 +618,246 @@
   </style>
 </head>
 <body>
-  <header class="hero">
-    <div class="hero-visual" aria-hidden="true">
-      <div class="hero-orb">
-        <img src="assets/logo.png" width="512" height="512" alt="" />
+  <header class="site-header" id="site-header">
+    <div class="nav-inner">
+      <a class="nav-brand" href="./">
+        <img src="assets/logo.png" width="32" height="32" alt="" />
+        Swift<span>Mesh</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
+        <li><a href="#features" data-i18n="nav.features">Features</a></li>
+        <li><a href="#formats" data-i18n="nav.formats">Formats</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a class="nav-github" href="https://github.com/somertang/swiftmesh" data-i18n="nav.github">GitHub</a>
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button type="button" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+        </div>
+        <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-drawer" data-i18n-aria="nav.menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
       </div>
     </div>
-    <div class="hero-content">
-      <h1 class="brand">Swift<span>Mesh</span></h1>
-      <p class="headline">Open local 3D models. Inspect. Record a turntable.</p>
-      <p class="lede">A Windows desktop app for viewing .glb, .gltf, and .obj files — inspect scene data and export a one-revolution turntable video.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/somertang/swiftmesh/releases/latest">Download for Windows</a>
-        <a class="btn btn-ghost" href="https://github.com/somertang/swiftmesh">View on GitHub</a>
-      </div>
+    <div class="nav-drawer" id="nav-drawer" hidden>
+      <ul>
+        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
+        <li><a href="#features" data-i18n="nav.features">Features</a></li>
+        <li><a href="#formats" data-i18n="nav.formats">Formats</a></li>
+        <li><a href="https://github.com/somertang/swiftmesh" data-i18n="nav.github">GitHub</a></li>
+      </ul>
     </div>
   </header>
 
-  <section class="features" id="features" aria-labelledby="features-title">
-    <p class="section-label">Features</p>
-    <h2 class="section-title" id="features-title">Built for local model work</h2>
-    <p class="section-lead">No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable clip.</p>
-    <ul class="feature-list">
-      <li>
-        <h3>Open local models</h3>
-        <p>File → Open, drag-and-drop, or Open Recent. Remote URL and cloud loading are not included.</p>
-      </li>
-      <li>
-        <h3>Inspect the scene</h3>
-        <p>Multi-tab viewing with hierarchy, textures, materials, geometries, and model info panels.</p>
-      </li>
-      <li>
-        <h3>Record a turntable</h3>
-        <p>One-revolution clips in MP4 or WebM, with size and quality presets. MP4 uses bundled ffmpeg.</p>
-      </li>
-      <li>
-        <h3>Preferences that fit</h3>
-        <p>Appearance themes, lighting, recording folder, performance options, English / 中文, and optional auto-update.</p>
-      </li>
-    </ul>
+  <header class="hero">
+    <div class="hero-visual" aria-hidden="true"></div>
+    <div class="hero-content">
+      <h1 class="brand">Swift<span>Mesh</span></h1>
+      <p class="tagline" data-i18n="hero.tagline">Open local 3D models. Inspect. Record a turntable.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/somertang/swiftmesh/releases/latest" data-i18n="hero.download">Download for Windows</a>
+        <a class="btn btn-ghost" href="help/index.html" data-i18n="hero.guide">Guide</a>
+      </div>
+    </div>
+    <div class="hero-shot">
+      <figure class="media-frame">
+        <img
+          src="assets/shots/hero.png"
+          width="1600"
+          height="900"
+          alt="SwiftMesh app window with a 3D model in the viewport"
+          data-i18n-alt="shots.hero"
+          decoding="async"
+        />
+      </figure>
+    </div>
+  </header>
+
+  <div class="values" aria-label="Highlights">
+    <article class="value">
+      <div class="value-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" />
+          <path d="M12 12v9M12 12 4 7.5M12 12l8-4.5" />
+        </svg>
+      </div>
+      <div>
+        <h3 data-i18n="values.local.title">Local-first</h3>
+        <p data-i18n="values.local.desc">Open files from disk — no cloud uploads.</p>
+      </div>
+    </article>
+    <article class="value">
+      <div class="value-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4 4" />
+          <path d="M9 11h4M11 9v4" />
+        </svg>
+      </div>
+      <div>
+        <h3 data-i18n="values.inspect.title">Inspect deeply</h3>
+        <p data-i18n="values.inspect.desc">Hierarchy, textures, materials, and geometries.</p>
+      </div>
+    </article>
+    <article class="value">
+      <div class="value-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 5a7 7 0 0 1 7 7" />
+          <path d="M5 12a7 7 0 0 1 7-7" />
+          <path d="m17.5 7.5 1.5-2M6.5 16.5 5 18.5" />
+        </svg>
+      </div>
+      <div>
+        <h3 data-i18n="values.record.title">Record turntables</h3>
+        <p data-i18n="values.record.desc">One-revolution clips in MP4 or WebM.</p>
+      </div>
+    </article>
+  </div>
+
+  <section class="block" id="features" aria-labelledby="features-title">
+    <p class="section-label" data-i18n="features.label">Features</p>
+    <h2 class="section-title" id="features-title" data-i18n="features.title">Built for local model work</h2>
+    <p class="section-lead" data-i18n="features.lead">No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable clip.</p>
+    <div class="showcase-grid">
+      <article class="showcase-item">
+        <div class="showcase-copy">
+          <h3 data-i18n="features.open.title">Open &amp; multi-tab</h3>
+          <p data-i18n="features.open.desc">File → Open, drag-and-drop, or Open Recent. Work across multiple models with camera controls that stay out of the way.</p>
+        </div>
+        <div class="showcase-visual">
+          <figure class="media-frame">
+            <img
+              src="assets/shots/open.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh with multiple model tabs open"
+              data-i18n-alt="shots.open"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        </div>
+      </article>
+      <article class="showcase-item">
+        <div class="showcase-copy">
+          <h3 data-i18n="features.inspect.title">Inspect panels</h3>
+          <p data-i18n="features.inspect.desc">Hierarchy, textures, materials, geometries, and model info — see what the file actually contains.</p>
+        </div>
+        <div class="showcase-visual">
+          <figure class="media-frame">
+            <img
+              src="assets/shots/inspect.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh inspect panel open beside the 3D viewport"
+              data-i18n-alt="shots.inspect"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        </div>
+      </article>
+      <article class="showcase-item">
+        <div class="showcase-copy">
+          <h3 data-i18n="features.record.title">Turntable recording</h3>
+          <p data-i18n="features.record.desc">Export one-revolution clips with size and quality presets. MP4 uses bundled ffmpeg; WebM is available too.</p>
+        </div>
+        <div class="showcase-visual">
+          <div class="showcase-stack">
+            <figure class="media-frame">
+              <img
+                src="assets/shots/record.png"
+                width="1280"
+                height="720"
+                alt="SwiftMesh recording settings open in the app window"
+                data-i18n-alt="shots.record"
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <figure class="media-frame">
+              <video
+                id="record-demo"
+                poster="assets/shots/record.png"
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                aria-label="Turntable recording demo"
+                data-i18n-aria="shots.recordVideo"
+              >
+                <source src="assets/shots/record.mp4" type="video/mp4" />
+              </video>
+            </figure>
+            <p class="video-caption" data-i18n="shots.recordCaption">Turntable output preview</p>
+          </div>
+        </div>
+      </article>
+      <article class="showcase-item">
+        <div class="showcase-copy">
+          <h3 data-i18n="features.prefs.title">Preferences that fit</h3>
+          <p data-i18n="features.prefs.desc">Themes, lighting, recording folder, performance options, English / 中文 UI, and optional auto-update from Releases.</p>
+        </div>
+        <div class="showcase-visual">
+          <figure class="media-frame">
+            <img
+              src="assets/shots/prefs.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh Preferences dialog"
+              data-i18n-alt="shots.prefs"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        </div>
+      </article>
+    </div>
+
+    <div class="theme-compare">
+      <h3 data-i18n="features.theme.title">Model Theme</h3>
+      <p data-i18n="features.theme.desc">Choose how the viewport presents your model: a light studio look, or a darker professional stage with floor grid and a navigation gizmo.</p>
+      <div class="theme-compare-grid">
+        <figure class="theme-card">
+          <figcaption data-i18n="features.theme.simple">Simple</figcaption>
+          <div class="media-frame">
+            <img
+              src="assets/shots/model-theme-simple.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh Simple model theme with a light studio viewport"
+              data-i18n-alt="shots.themeSimple"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        </figure>
+        <figure class="theme-card">
+          <figcaption data-i18n="features.theme.professional">Professional</figcaption>
+          <div class="media-frame">
+            <img
+              src="assets/shots/model-theme-professional.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh Professional model theme with a dark viewport and navigation gizmo"
+              data-i18n-alt="shots.themeProfessional"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        </figure>
+      </div>
+    </div>
   </section>
 
-  <section class="formats" id="formats" aria-labelledby="formats-title">
-    <p class="section-label">Formats &amp; requirements</p>
-    <h2 class="section-title" id="formats-title">What you need</h2>
-    <p class="section-lead">Install the latest Windows NSIS build from Releases. Portable builds may appear in some releases; in-app auto-update targets the NSIS install.</p>
+  <section class="block" id="formats" aria-labelledby="formats-title">
+    <p class="section-label" data-i18n="formats.label">Formats &amp; requirements</p>
+    <h2 class="section-title" id="formats-title" data-i18n="formats.title">What you need</h2>
+    <p class="section-lead" data-i18n="formats.lead">Install the latest Windows NSIS build from Releases. Portable builds may appear in some releases; in-app auto-update targets the NSIS install.</p>
     <div class="format-row" aria-label="Supported formats">
       <code>.glb</code>
       <code>.gltf</code>
@@ -439,15 +865,15 @@
     </div>
     <dl class="req-grid">
       <div>
-        <dt>Platform</dt>
-        <dd>Windows x64</dd>
+        <dt data-i18n="formats.platform">Platform</dt>
+        <dd data-i18n="formats.platformValue">Windows x64</dd>
       </div>
       <div>
-        <dt>License</dt>
+        <dt data-i18n="formats.license">License</dt>
         <dd><a href="https://github.com/somertang/swiftmesh/blob/main/LICENSE">MIT</a></dd>
       </div>
       <div>
-        <dt>Installer</dt>
+        <dt data-i18n="formats.installer">Installer</dt>
         <dd>SwiftMesh Setup.exe</dd>
       </div>
     </dl>
@@ -455,37 +881,252 @@
 
   <footer>
     <div class="footer-inner">
-      <p>MIT © <a href="https://github.com/somertang">Somer Tang</a></p>
+      <p data-i18n-html="footer.copy">MIT © <a href="https://github.com/somertang">Somer Tang</a></p>
       <div class="footer-links">
-        <a href="https://github.com/somertang/swiftmesh">Repository</a>
-        <a href="https://github.com/somertang/swiftmesh/releases">Releases</a>
-        <a href="https://github.com/somertang/swiftmesh/blob/main/LICENSE">License</a>
+        <a href="help/index.html" data-i18n="footer.guide">Guide</a>
+        <a href="https://github.com/somertang/swiftmesh" data-i18n="footer.repo">Repository</a>
+        <a href="https://github.com/somertang/swiftmesh/releases" data-i18n="footer.releases">Releases</a>
+        <a href="https://github.com/somertang/swiftmesh/blob/main/LICENSE" data-i18n="footer.license">License</a>
       </div>
     </div>
   </footer>
 
   <script>
     (function () {
-      var items = document.querySelectorAll(".feature-list li");
-      if (!items.length || !("IntersectionObserver" in window)) {
-        items.forEach(function (el) { el.classList.add("in-view"); });
-        return;
-      }
-      var io = new IntersectionObserver(
-        function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("in-view");
-              io.unobserve(entry.target);
-            }
-          });
+      var MESSAGES = {
+        en: {
+          "nav.guide": "Guide",
+          "nav.features": "Features",
+          "nav.formats": "Formats",
+          "nav.github": "GitHub",
+          "nav.menu": "Menu",
+          "hero.tagline": "Open local 3D models. Inspect. Record a turntable.",
+          "hero.download": "Download for Windows",
+          "hero.guide": "Guide",
+          "values.local.title": "Local-first",
+          "values.local.desc": "Open files from disk — no cloud uploads.",
+          "values.inspect.title": "Inspect deeply",
+          "values.inspect.desc": "Hierarchy, textures, materials, and geometries.",
+          "values.record.title": "Record turntables",
+          "values.record.desc": "One-revolution clips in MP4 or WebM.",
+          "features.label": "Features",
+          "features.title": "Built for local model work",
+          "features.lead": "No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable clip.",
+          "features.open.title": "Open & multi-tab",
+          "features.open.desc": "File → Open, drag-and-drop, or Open Recent. Work across multiple models with camera controls that stay out of the way.",
+          "features.inspect.title": "Inspect panels",
+          "features.inspect.desc": "Hierarchy, textures, materials, geometries, and model info — see what the file actually contains.",
+          "features.record.title": "Turntable recording",
+          "features.record.desc": "Export one-revolution clips with size and quality presets. MP4 uses bundled ffmpeg; WebM is available too.",
+          "features.prefs.title": "Preferences that fit",
+          "features.prefs.desc": "Themes, lighting, recording folder, performance options, English / 中文 UI, and optional auto-update from Releases.",
+          "features.theme.title": "Model Theme",
+          "features.theme.desc": "Choose how the viewport presents your model: a light studio look, or a darker professional stage with floor grid and a navigation gizmo.",
+          "features.theme.simple": "Simple",
+          "features.theme.professional": "Professional",
+          "formats.label": "Formats & requirements",
+          "formats.title": "What you need",
+          "formats.lead": "Install the latest Windows NSIS build from Releases. Portable builds may appear in some releases; in-app auto-update targets the NSIS install.",
+          "formats.platform": "Platform",
+          "formats.platformValue": "Windows x64",
+          "formats.license": "License",
+          "formats.installer": "Installer",
+          "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
+          "footer.guide": "Guide",
+          "footer.repo": "Repository",
+          "footer.releases": "Releases",
+          "footer.license": "License",
+          "shots.hero": "SwiftMesh app window with a 3D model in the viewport",
+          "shots.open": "SwiftMesh with multiple model tabs open",
+          "shots.inspect": "SwiftMesh inspect panel open beside the 3D viewport",
+          "shots.record": "SwiftMesh recording settings open in the app window",
+          "shots.prefs": "SwiftMesh Preferences dialog",
+          "shots.recordVideo": "Turntable recording demo",
+          "shots.recordCaption": "Turntable output preview",
+          "shots.themeSimple": "SwiftMesh Simple model theme with a light studio viewport",
+          "shots.themeProfessional": "SwiftMesh Professional model theme with a dark viewport and navigation gizmo",
+          "meta.title": "SwiftMesh — Local 3D Model Viewer",
+          "meta.description": "SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows."
         },
-        { rootMargin: "0px 0px -8% 0px", threshold: 0.15 }
-      );
-      items.forEach(function (el, i) {
-        el.style.transitionDelay = i * 80 + "ms";
-        io.observe(el);
+        zh: {
+          "nav.guide": "指南",
+          "nav.features": "功能",
+          "nav.formats": "格式",
+          "nav.github": "GitHub",
+          "nav.menu": "菜单",
+          "hero.tagline": "打开本地 3D 模型。检查。录制转台动画。",
+          "hero.download": "下载 Windows 版",
+          "hero.guide": "指南",
+          "values.local.title": "本地优先",
+          "values.local.desc": "从磁盘打开文件——无需上传云端。",
+          "values.inspect.title": "深度检查",
+          "values.inspect.desc": "层级、贴图、材质与几何体一览。",
+          "values.record.title": "转台录制",
+          "values.record.desc": "一圈旋转，导出 MP4 或 WebM。",
+          "features.label": "功能",
+          "features.title": "为本地模型工作流而生",
+          "features.lead": "无需云端。从磁盘打开文件，检查内容，并导出干净的转台片段。",
+          "features.open.title": "打开与多标签",
+          "features.open.desc": "文件 → 打开、拖放或最近打开。多模型并行查看，相机控制不挡视线。",
+          "features.inspect.title": "检查面板",
+          "features.inspect.desc": "层级、贴图、材质、几何体与模型信息——看清文件里到底有什么。",
+          "features.record.title": "转台录制",
+          "features.record.desc": "按尺寸与质量预设导出一圈片段。MP4 使用内置 ffmpeg，也支持 WebM。",
+          "features.prefs.title": "贴合的偏好设置",
+          "features.prefs.desc": "主题、光照、录制目录、性能选项、中英文界面，以及可选的 Releases 自动更新。",
+          "features.theme.title": "模型主题",
+          "features.theme.desc": "选择视口如何呈现模型：浅色工作室风格，或带地面网格与导航 gizmo 的深色专业舞台。",
+          "features.theme.simple": "简洁",
+          "features.theme.professional": "专业",
+          "formats.label": "格式与要求",
+          "formats.title": "你需要准备什么",
+          "formats.lead": "从 Releases 安装最新 Windows NSIS 安装包。部分版本可能含便携版；应用内自动更新仅针对 NSIS 安装。",
+          "formats.platform": "平台",
+          "formats.platformValue": "Windows x64",
+          "formats.license": "许可证",
+          "formats.installer": "安装包",
+          "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
+          "footer.guide": "指南",
+          "footer.repo": "仓库",
+          "footer.releases": "发布",
+          "footer.license": "许可证",
+          "shots.hero": "SwiftMesh 应用窗口，视口中显示 3D 模型",
+          "shots.open": "SwiftMesh 多标签打开多个模型",
+          "shots.inspect": "SwiftMesh 检查面板在 3D 视口旁打开",
+          "shots.record": "SwiftMesh 录制设置在应用窗口中打开",
+          "shots.prefs": "SwiftMesh 偏好设置对话框",
+          "shots.recordVideo": "转台录制演示",
+          "shots.recordCaption": "转台成片预览",
+          "shots.themeSimple": "SwiftMesh 简洁模型主题，浅色工作室视口",
+          "shots.themeProfessional": "SwiftMesh 专业模型主题，深色视口与导航 gizmo",
+          "meta.title": "SwiftMesh — 本地 3D 模型查看器",
+          "meta.description": "SwiftMesh — 在 Windows 上打开本地 .glb / .gltf / .obj，检查场景数据，并录制转台视频。"
+        }
+      };
+
+      var STORAGE_KEY = "swiftmesh-landing-lang";
+
+      function detectLang() {
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY);
+          if (saved === "en" || saved === "zh") return saved;
+        } catch (e) {}
+        var nav = (navigator.language || "en").toLowerCase();
+        return nav.indexOf("zh") === 0 ? "zh" : "en";
+      }
+
+      function applyLang(lang) {
+        var dict = MESSAGES[lang] || MESSAGES.en;
+        document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+        document.title = dict["meta.title"];
+        var meta = document.querySelector('meta[name="description"]');
+        if (meta) meta.setAttribute("content", dict["meta.description"]);
+
+        document.querySelectorAll("[data-i18n]").forEach(function (el) {
+          var key = el.getAttribute("data-i18n");
+          if (dict[key] != null) el.textContent = dict[key];
+        });
+        document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
+          var key = el.getAttribute("data-i18n-html");
+          if (dict[key] != null) el.innerHTML = dict[key];
+        });
+        document.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
+          var key = el.getAttribute("data-i18n-aria");
+          if (dict[key] != null) el.setAttribute("aria-label", dict[key]);
+        });
+        document.querySelectorAll("[data-i18n-alt]").forEach(function (el) {
+          var key = el.getAttribute("data-i18n-alt");
+          if (dict[key] != null) el.setAttribute("alt", dict[key]);
+        });
+
+        document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
+          btn.setAttribute("aria-pressed", btn.getAttribute("data-lang") === lang ? "true" : "false");
+        });
+
+        try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
+      }
+
+      var current = detectLang();
+      applyLang(current);
+
+      document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          applyLang(btn.getAttribute("data-lang"));
+        });
       });
+
+      /* Mobile nav */
+      var toggle = document.getElementById("nav-toggle");
+      var drawer = document.getElementById("nav-drawer");
+      if (toggle && drawer) {
+        toggle.addEventListener("click", function () {
+          var open = toggle.getAttribute("aria-expanded") === "true";
+          toggle.setAttribute("aria-expanded", open ? "false" : "true");
+          drawer.hidden = open;
+          drawer.classList.toggle("is-open", !open);
+        });
+        drawer.querySelectorAll("a").forEach(function (link) {
+          link.addEventListener("click", function () {
+            toggle.setAttribute("aria-expanded", "false");
+            drawer.hidden = true;
+            drawer.classList.remove("is-open");
+          });
+        });
+      }
+
+      /* Sticky header border */
+      var header = document.getElementById("site-header");
+      function onScroll() {
+        if (!header) return;
+        header.classList.toggle("is-scrolled", window.scrollY > 8);
+      }
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+
+      /* Reveal on scroll */
+      var reveal = document.querySelectorAll(".value, .showcase-item, .theme-compare");
+      if (!reveal.length || !("IntersectionObserver" in window)) {
+        reveal.forEach(function (el) { el.classList.add("in-view"); });
+      } else {
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("in-view");
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
+        );
+        reveal.forEach(function (el, i) {
+          el.style.transitionDelay = (i % 4) * 70 + "ms";
+          io.observe(el);
+        });
+      }
+
+      /* Record demo: play when in view */
+      var recordVideo = document.getElementById("record-demo");
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (recordVideo && !reduceMotion) {
+        if (!("IntersectionObserver" in window)) {
+          recordVideo.play().catch(function () {});
+        } else {
+          var vio = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  recordVideo.play().catch(function () {});
+                } else {
+                  recordVideo.pause();
+                }
+              });
+            },
+            { threshold: 0.35 }
+          );
+          vio.observe(recordVideo);
+        }
+      }
     })();
   </script>
 </body>
