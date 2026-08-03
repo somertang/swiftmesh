@@ -50,6 +50,8 @@ import {
 import {
   bindUpdaterContext,
   checkForAppUpdates,
+  dismissPendingUpdate,
+  downloadPendingUpdate,
   getAppVersion,
   getUpdateStatus,
   quitAndInstallUpdate,
@@ -952,6 +954,15 @@ ipcMain.handle('desktop:get-app-version', async () => getAppVersion())
 ipcMain.handle('desktop:get-update-status', async () => getUpdateStatus())
 
 ipcMain.handle('desktop:install-update', async () => quitAndInstallUpdate())
+
+ipcMain.handle('desktop:download-update', async () => {
+  const result = await downloadPendingUpdate()
+  return result.ok === true
+})
+
+ipcMain.handle('desktop:dismiss-update', async () => {
+  dismissPendingUpdate()
+})
 
 ipcMain.handle('desktop:set-auto-update-enabled', async (_event, enabled: boolean) => {
   setAutoUpdateEnabled(enabled === true)

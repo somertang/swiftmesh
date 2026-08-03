@@ -2,7 +2,11 @@ import { app, type BrowserWindow } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { translate, type Locale, type MessageKey } from '../src/i18n/messages'
-import type { UpdateProgressEvent, UpdateStatus } from '../src/desktopTypes'
+import type {
+  UpdateProgressEvent,
+  UpdatePromptEvent,
+  UpdateStatus,
+} from '../src/desktopTypes'
 
 type AutoUpdater = {
   autoDownload: boolean
@@ -14,13 +18,23 @@ type AutoUpdater = {
   on: (event: string, listener: (...args: any[]) => void) => void
 }
 
+type UpdateInfoLike = {
+  version?: string
+  releaseName?: string | null
+  releaseNotes?: string | Array<{ version: string; note: string | null }> | null
+}
+
 let getMainWindow: () => BrowserWindow | null = () => null
 let getLocale: () => Locale = () => 'en'
 let autoUpdater: AutoUpdater | null = null
 let wired = false
 let checking = false
+let downloading = false
 let autoUpdateEnabled = true
 let status: UpdateStatus = { phase: 'idle' }
+let pendingVersion = ''
+let pendingNotes = ''
+let lastPromptedVersion = ''
 
 function t(key: MessageKey, vars?: Record<string, string | number>) {
   return translate(getLocale(), key, vars)
@@ -29,6 +43,10 @@ function t(key: MessageKey, vars?: Record<string, string | number>) {
 function emitStatus(next: UpdateStatus) {
   status = next
   getMainWindow()?.webContents.send('desktop:update-status', next)
+}
+
+function emitPrompt(prompt: UpdatePromptEvent) {
+  getMainWindow()?.webContents.send('desktop:update-prompt', prompt)
 }
 
 function resolveGithubToken(): string | undefined {
@@ -40,6 +58,44 @@ function resolveGithubToken(): string | undefined {
     return raw || undefined
   } catch {
     return undefined
+  }
+}
+
+function notesFromUpdateInfo(info: UpdateInfoLike): string {
+  const rn = info.releaseNotes
+  if (typeof rn === 'string' && rn.trim()) return rn.trim()
+  if (Array.isArray(rn)) {
+    return rn
+      .map(item => {
+        const ver = item.version ? `## ${item.version}\n` : ''
+        return `${ver}${item.note || ''}`.trim()
+      })
+      .filter(Boolean)
+      .join('\n\n')
+  }
+  if (typeof info.releaseName === 'string' && info.releaseName.trim()) {
+    return info.releaseName.trim()
+  }
+  return ''
+}
+
+async function fetchGithubReleaseNotes(version: string): Promise<string> {
+  const tag = version.startsWith('v') ? version : `v${version}`
+  const url = `https://api.github.com/repos/somertang/swiftmesh/releases/tags/${encodeURIComponent(tag)}`
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'SwiftMesh',
+  }
+  const token = resolveGithubToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+  try {
+    const res = await fetch(url, { headers })
+    if (!res.ok) return ''
+    const data = (await res.json()) as { body?: string | null }
+    return typeof data.body === 'string' ? data.body.trim() : ''
+  } catch (error) {
+    console.warn('[updater] failed to fetch release notes', error)
+    return ''
   }
 }
 
@@ -72,6 +128,7 @@ function wireEvents(updater: AutoUpdater) {
 
   updater.on('error', (error: Error) => {
     checking = false
+    downloading = false
     getMainWindow()?.setProgressBar(-1)
     const message = error instanceof Error ? error.message : String(error)
     emitStatus({ phase: 'error', message })
@@ -80,22 +137,13 @@ function wireEvents(updater: AutoUpdater) {
 
   updater.on('update-not-available', () => {
     checking = false
+    pendingVersion = ''
+    pendingNotes = ''
     emitStatus({ phase: 'upToDate', version: app.getVersion() })
   })
 
-  updater.on('update-available', (info: { version?: string }) => {
-    const version = info.version || ''
-    emitStatus({ phase: 'available', version })
-    if (!updater.autoDownload) {
-      void updater.downloadUpdate().catch((error: unknown) => {
-        checking = false
-        getMainWindow()?.setProgressBar(-1)
-        emitStatus({
-          phase: 'error',
-          message: error instanceof Error ? error.message : String(error),
-        })
-      })
-    }
+  updater.on('update-available', (info: UpdateInfoLike) => {
+    void handleUpdateAvailable(info)
   })
 
   updater.on('download-progress', (progress: UpdateProgressEvent) => {
@@ -112,15 +160,42 @@ function wireEvents(updater: AutoUpdater) {
 
   updater.on('update-downloaded', (info: { version?: string }) => {
     checking = false
+    downloading = false
     getMainWindow()?.setProgressBar(-1)
-    emitStatus({ phase: 'ready', version: info.version || '' })
+    emitStatus({ phase: 'ready', version: info.version || pendingVersion || '' })
+  })
+}
+
+async function handleUpdateAvailable(info: UpdateInfoLike) {
+  checking = false
+  const version = info.version || ''
+  let releaseNotes = notesFromUpdateInfo(info)
+  if (!releaseNotes && version) {
+    releaseNotes = await fetchGithubReleaseNotes(version)
+  }
+  if (!releaseNotes) {
+    releaseNotes = t('update.notesUnavailable')
+  }
+
+  pendingVersion = version
+  pendingNotes = releaseNotes
+  emitStatus({ phase: 'available', version, releaseNotes })
+
+  // Avoid stacking duplicate prompts for the same version in one session.
+  if (version && version === lastPromptedVersion) return
+  lastPromptedVersion = version
+  emitPrompt({
+    version,
+    currentVersion: app.getVersion(),
+    releaseNotes,
   })
 }
 
 async function ensureConfigured(): Promise<AutoUpdater | null> {
   const updater = await loadAutoUpdater()
   if (!updater) return null
-  updater.autoDownload = autoUpdateEnabled
+  // Always require explicit user confirmation before downloading.
+  updater.autoDownload = false
   updater.autoInstallOnAppQuit = true
   const token = resolveGithubToken()
   updater.setFeedURL({
@@ -153,12 +228,12 @@ export function getAppVersion(): string {
 
 export function setAutoUpdateEnabled(enabled: boolean) {
   autoUpdateEnabled = enabled
-  if (autoUpdater) autoUpdater.autoDownload = enabled
+  // Keep autoDownload false; downloads only start after the user confirms.
+  if (autoUpdater) autoUpdater.autoDownload = false
 }
 
-/** Manual check from Preferences, or silent check when auto-update is on. */
+/** Manual check from Preferences, or background check when auto-update is on. */
 export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
-  // Silent checks skip UI dialogs (none currently); reserved for future prompts.
   void options.silent
 
   if (!app.isPackaged) {
@@ -166,8 +241,12 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
     return { ok: false as const, reason: 'dev' as const }
   }
 
-  if (checking) {
-    emitStatus({ phase: 'checking' })
+  if (checking || downloading) {
+    if (downloading) {
+      /* leave current downloading status */
+    } else {
+      emitStatus({ phase: 'checking' })
+    }
     return { ok: false as const, reason: 'busy' as const }
   }
 
@@ -178,9 +257,9 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
   }
 
   checking = true
+  lastPromptedVersion = ''
   emitStatus({ phase: 'checking' })
-  // Manual checks always download when an update exists.
-  updater.autoDownload = true
+  updater.autoDownload = false
   try {
     await updater.checkForUpdates()
     return { ok: true as const }
@@ -189,13 +268,52 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
     const message = error instanceof Error ? error.message : String(error)
     emitStatus({ phase: 'error', message })
     return { ok: false as const, reason: 'error' as const }
-  } finally {
-    updater.autoDownload = autoUpdateEnabled
   }
+}
+
+export async function downloadPendingUpdate() {
+  if (!autoUpdater || !pendingVersion) {
+    return { ok: false as const, reason: 'none' as const }
+  }
+  if (downloading) {
+    return { ok: false as const, reason: 'busy' as const }
+  }
+  downloading = true
+  emitStatus({ phase: 'downloading', percent: 0 })
+  try {
+    await autoUpdater.downloadUpdate()
+    return { ok: true as const }
+  } catch (error) {
+    downloading = false
+    checking = false
+    getMainWindow()?.setProgressBar(-1)
+    const message = error instanceof Error ? error.message : String(error)
+    emitStatus({ phase: 'error', message })
+    return { ok: false as const, reason: 'error' as const }
+  }
+}
+
+export function dismissPendingUpdate() {
+  if (pendingVersion) {
+    emitStatus({
+      phase: 'available',
+      version: pendingVersion,
+      releaseNotes: pendingNotes,
+    })
+  } else if (status.phase === 'available') {
+    /* keep */
+  } else {
+    emitStatus({ phase: 'idle' })
+  }
+  return true
 }
 
 export function quitAndInstallUpdate() {
   if (!autoUpdater || status.phase !== 'ready') return false
   autoUpdater.quitAndInstall(false, true)
   return true
+}
+
+export function isAutoUpdateEnabled() {
+  return autoUpdateEnabled
 }

@@ -10,6 +10,7 @@ import type {
   StartRecordingSessionPayload,
   StartRecordingSessionResult,
   UpdateProgressEvent,
+  UpdatePromptEvent,
   UpdateStatus,
   WindowChromeInfo,
   WindowMenuAction,
@@ -113,6 +114,16 @@ const desktop: DesktopApi = {
   },
 
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('desktop:check-for-updates'),
+
+  downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('desktop:download-update'),
+
+  dismissUpdate: (): Promise<void> => ipcRenderer.invoke('desktop:dismiss-update'),
+
+  onUpdatePrompt: (handler: (event: UpdatePromptEvent) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: UpdatePromptEvent) => handler(data)
+    ipcRenderer.on('desktop:update-prompt', listener)
+    return () => ipcRenderer.removeListener('desktop:update-prompt', listener)
+  },
 
   installUpdate: (): Promise<boolean> => ipcRenderer.invoke('desktop:install-update'),
 
