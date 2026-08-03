@@ -21,6 +21,7 @@ import { ExportProgressModal } from './components/ExportProgressModal'
 import { ModelTabBar } from './components/ModelTabBar'
 import { AppTitleBar } from './components/AppTitleBar'
 import { PreferencesModal } from './components/PreferencesModal'
+import { UpdateAvailableDialog } from './components/UpdateAvailableDialog'
 import { SceneSettingsPanels } from './components/SceneSettingsPanels'
 import { DEFAULT_CAMERA } from './config/cameraDefaults'
 import { captureFrameSequence } from './lib/recordCanvas'
@@ -40,7 +41,7 @@ import {
   readSession,
   writeSession,
 } from './lib/sessionRestore'
-import type { OpenedModel, RecordingExportFormat } from './desktopTypes'
+import type { OpenedModel, RecordingExportFormat, UpdatePromptEvent } from './desktopTypes'
 import { MODEL_FILE_ACCEPT } from './lib/modelSource'
 import { ModelResolveError, modelSourceFromFiles, modelSourceFromOpened } from './lib/resolveModelSource'
 import {
@@ -105,6 +106,9 @@ export default function App() {
   )
   const [recordPopoverGroupId, setRecordPopoverGroupId] = useState<string | null>(null)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [updatePrompt, setUpdatePrompt] = useState<UpdatePromptEvent | null>(null)
+  const [updatePromptOpen, setUpdatePromptOpen] = useState(false)
+  const [updatePromptBusy, setUpdatePromptBusy] = useState(false)
   const [recordingEnabled, setRecordingEnabled] = useState(
     () => readPreferences().recording.enabled
   )
@@ -389,6 +393,15 @@ export default function App() {
   useEffect(() => {
     if (!window.desktop?.setAutoUpdateEnabled) return
     void window.desktop.setAutoUpdateEnabled(readPreferences().general.autoUpdate)
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.onUpdatePrompt) return
+    return window.desktop.onUpdatePrompt(prompt => {
+      setUpdatePrompt(prompt)
+      setUpdatePromptBusy(false)
+      setUpdatePromptOpen(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -1196,6 +1209,24 @@ export default function App() {
           canStop={recording && !exporting}
           stopLabel={t('record.stopRecording')}
           onStop={stopRecording}
+        />
+        <UpdateAvailableDialog
+          open={updatePromptOpen}
+          prompt={updatePrompt}
+          busy={updatePromptBusy}
+          onLater={() => {
+            setUpdatePromptOpen(false)
+            setUpdatePromptBusy(false)
+            void window.desktop?.dismissUpdate?.()
+          }}
+          onUpdateNow={() => {
+            setUpdatePromptBusy(true)
+            void (async () => {
+              const ok = await window.desktop?.downloadUpdate?.()
+              setUpdatePromptBusy(false)
+              if (ok !== false) setUpdatePromptOpen(false)
+            })()
+          }}
         />
         {statusBarVisible ? (
           <div className="viewport-status">

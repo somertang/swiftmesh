@@ -91,10 +91,16 @@ export type UpdateStatus =
   | { phase: 'dev' }
   | { phase: 'checking' }
   | { phase: 'upToDate'; version: string }
-  | { phase: 'available'; version: string }
+  | { phase: 'available'; version: string; releaseNotes?: string }
   | { phase: 'downloading'; percent: number }
   | { phase: 'ready'; version: string }
   | { phase: 'error'; message: string }
+
+export type UpdatePromptEvent = {
+  version: string
+  currentVersion: string
+  releaseNotes: string
+}
 
 export type WindowChromeInfo = {
   titleBarOverlay: boolean
@@ -154,6 +160,12 @@ export type DesktopApi = {
   onUpdateStatus: (handler: (status: UpdateStatus) => void) => () => void
   /** Manual update check from Preferences. */
   checkForUpdates: () => Promise<void>
+  /** Download a pending update after the user confirms. */
+  downloadUpdate: () => Promise<boolean>
+  /** Dismiss the update confirmation (Later). */
+  dismissUpdate: () => Promise<void>
+  /** Fired when an update is available and needs user confirmation. */
+  onUpdatePrompt: (handler: (event: UpdatePromptEvent) => void) => () => void
   /** Quit and install a downloaded update. */
   installUpdate: () => Promise<boolean>
   /** Sync auto-update preference to the main process. */

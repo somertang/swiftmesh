@@ -362,6 +362,12 @@ export const en = {
   'update.readyMessage': 'Version {version} has been downloaded. Restart SwiftMesh to install?',
   'update.restart': 'Restart and install',
   'update.later': 'Later',
+  'update.now': 'Update now',
+  'update.availableDialogTitle': 'Update available',
+  'update.availableDialogIntro':
+    'Version {version} is available (you have {current}). Review the release notes and choose whether to download it.',
+  'update.releaseNotes': 'Release notes',
+  'update.notesUnavailable': 'No release notes were provided for this version.',
   'update.errorTitle': 'Update failed',
   'update.errorMessage':
     'Could not check for or download updates. Confirm a GitHub Release exists for this version channel, then try again.',
@@ -375,7 +381,8 @@ export const en = {
   'prefs.desc.autoUpdate':
     'When on, the packaged app checks and downloads updates in the background. When off, only the button above checks.',
   'prefs.updateStatus.checking': 'Checking for updates…',
-  'prefs.updateStatus.available': 'Version {version} is available and will download shortly.',
+  'prefs.updateStatus.available':
+    'Version {version} is available. Confirm in the dialog to download.',
   'prefs.updateStatus.downloading': 'Downloading update… {percent}%',
   'prefs.updateStatus.ready': 'Version {version} is ready. Relaunch to install.',
   'prefs.group.project': 'Project',
@@ -720,6 +727,12 @@ export const zh: Record<MessageKey, string> = {
   'update.readyMessage': '版本 {version} 已下载完成。是否重启 SwiftMesh 以安装？',
   'update.restart': '重启并安装',
   'update.later': '稍后',
+  'update.now': '立即更新',
+  'update.availableDialogTitle': '发现新版本',
+  'update.availableDialogIntro':
+    '可用版本 {version}（当前 {current}）。请查看更新说明后选择是否下载。',
+  'update.releaseNotes': '更新说明',
+  'update.notesUnavailable': '该版本未提供更新说明。',
   'update.errorTitle': '更新失败',
   'update.errorMessage':
     '无法检查或下载更新。请确认对应版本通道已有 GitHub Release，然后重试。',
@@ -733,7 +746,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.desc.autoUpdate':
     '开启后，打包应用会在后台检查并下载更新；关闭后仅可通过上方按钮检查。',
   'prefs.updateStatus.checking': '正在检查更新…',
-  'prefs.updateStatus.available': '发现新版本 {version}，即将开始下载。',
+  'prefs.updateStatus.available': '发现新版本 {version}。请在弹窗中确认是否下载。',
   'prefs.updateStatus.downloading': '正在下载更新… {percent}%',
   'prefs.updateStatus.ready': '版本 {version} 已就绪，重新启动即可安装。',
   'prefs.group.project': '项目',
