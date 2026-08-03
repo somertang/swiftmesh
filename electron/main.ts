@@ -527,27 +527,64 @@ function resolveAppIconPath() {
 }
 
 function resolveUserGuidePath() {
-  return app.isPackaged
-    ? path.join(__dirname, '../dist/help/index.html')
-    : path.join(__dirname, '../public/help/index.html')
+  if (app.isPackaged) {
+    // Prefer extraResources (outside asar) so the system browser can open the file.
+    return path.join(process.resourcesPath, 'help', 'index.html')
+  }
+  return path.join(__dirname, '../public/help/index.html')
 }
 
 async function openUserGuide() {
-  const guidePath = resolveUserGuidePath()
+  let guidePath = resolveUserGuidePath()
   try {
     await fs.access(guidePath, fsConstants.F_OK)
   } catch {
-    await dialog.showMessageBox({
-      type: 'warning',
-      title: t('help.missingTitle'),
-      message: t('help.missingMessage'),
-      buttons: [t('common.close')],
-      defaultId: 0,
-      noLink: true,
-    })
-    return
+    if (app.isPackaged) {
+      const fallback = path.join(__dirname, '../dist/help/index.html')
+      try {
+        await fs.access(fallback, fsConstants.F_OK)
+        guidePath = fallback
+      } catch {
+        await dialog.showMessageBox({
+          type: 'warning',
+          title: t('help.missingTitle'),
+          message: t('help.missingMessage'),
+          buttons: [t('common.close')],
+          defaultId: 0,
+          noLink: true,
+        })
+        return
+      }
+    } else {
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: t('help.missingTitle'),
+        message: t('help.missingMessage'),
+        buttons: [t('common.close')],
+        defaultId: 0,
+        noLink: true,
+      })
+      return
+    }
   }
-  await shell.openExternal(pathToFileURL(guidePath).href)
+
+  // openPath uses the OS default handler for .html (browser). file:// via openExternal
+  // is unreliable for packaged/local paths on Windows.
+  const openError = await shell.openPath(guidePath)
+  if (openError) {
+    try {
+      await shell.openExternal(pathToFileURL(guidePath).href)
+    } catch (error) {
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: t('help.missingTitle'),
+        message: openError || (error instanceof Error ? error.message : String(error)),
+        buttons: [t('common.close')],
+        defaultId: 0,
+        noLink: true,
+      })
+    }
+  }
 }
 
 async function showAboutDialog() {
