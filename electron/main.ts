@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   convertWebmToMp4,
   encodePngFramesToMp4,
@@ -468,6 +468,9 @@ async function runWindowMenuAction(action: WindowMenuAction) {
     case 'showAbout':
       await showAboutDialog()
       break
+    case 'openUserGuide':
+      await openUserGuide()
+      break
   }
 }
 
@@ -519,6 +522,30 @@ function resolveAppIconPath() {
   return app.isPackaged
     ? path.join(__dirname, '../dist/favicon.ico')
     : path.join(__dirname, '../src/assets/logo.png')
+}
+
+function resolveUserGuidePath() {
+  return app.isPackaged
+    ? path.join(__dirname, '../dist/help/index.html')
+    : path.join(__dirname, '../public/help/index.html')
+}
+
+async function openUserGuide() {
+  const guidePath = resolveUserGuidePath()
+  try {
+    await fs.access(guidePath, fsConstants.F_OK)
+  } catch {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: t('help.missingTitle'),
+      message: t('help.missingMessage'),
+      buttons: [t('common.close')],
+      defaultId: 0,
+      noLink: true,
+    })
+    return
+  }
+  await shell.openExternal(pathToFileURL(guidePath).href)
 }
 
 async function showAboutDialog() {
