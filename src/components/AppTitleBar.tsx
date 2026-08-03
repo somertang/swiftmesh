@@ -318,6 +318,10 @@ export function AppTitleBar({
             {openMenu === 'help' ? (
               <Paper className="app-titlebar-dropdown" elevation={8}>
                 <MenuList dense>
+                  <TitleBarMenuItem
+                    label={t('menu.userGuide')}
+                    onClick={() => runWindow('openUserGuide')}
+                  />
                   <TitleBarMenuItem label={t('menu.about')} onClick={() => runWindow('showAbout')} />
                 </MenuList>
               </Paper>

@@ -77,6 +77,7 @@ export type WindowMenuAction =
   | 'zoomOut'
   | 'toggleFullscreen'
   | 'showAbout'
+  | 'openUserGuide'
 
 export type UpdateProgressEvent = {
   percent: number
