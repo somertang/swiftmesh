@@ -1,3 +1,5 @@
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
 import { useMemo, useState, type MouseEvent } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
@@ -45,9 +47,10 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
     >
       <div className="inspect-search">
         <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <input
+        <TextField
           type="search"
-          className="input input-sm input-bordered w-full"
+          size="small"
+          fullWidth
           placeholder={t('geometries.searchPlaceholder')}
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -61,7 +64,7 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
         </div>
       ) : (
         <div className="inspect-table-wrap">
-          <table className="inspect-table table table-zebra table-xs">
+          <table className="inspect-table">
             <thead>
               <tr>
                 <th scope="col">{t('common.name')}</th>
@@ -113,14 +116,14 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
                       </td>
                       <td className="inspect-table-meshes">
                         {item.meshIds.length > 0 ? (
-                          <button
-                            type="button"
-                            className="inspect-table-mesh-btn btn btn-xs"
+                          <Button
+                            className="inspect-table-mesh-btn"
+                            size="small"
                             title={item.meshNames.join(', ')}
                             onClick={selectFirstMesh}
                           >
                             {meshLabel}
-                          </button>
+                          </Button>
                         ) : (
                           <span className="inspect-table-muted">{meshLabel}</span>
                         )}
@@ -141,14 +144,14 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
                             {item.meshIds.length > 0 ? (
                               <div className="inspect-mesh-links">
                                 {item.meshIds.map((meshId, index) => (
-                                  <button
+                                  <Button
                                     key={meshId}
-                                    type="button"
-                                    className="inspect-link-btn btn btn-xs"
+                                    className="inspect-link-btn"
+                                    size="small"
                                     onClick={() => onSelectMesh(meshId)}
                                   >
                                     {item.meshNames[index] ?? meshId}
-                                  </button>
+                                  </Button>
                                 ))}
                               </div>
                             ) : null}

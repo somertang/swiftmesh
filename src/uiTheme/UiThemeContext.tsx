@@ -1,3 +1,5 @@
+import CssBaseline from '@mui/material/CssBaseline'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
 import {
   createContext,
   useCallback,
@@ -7,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { getMuiTheme } from '../lib/muiThemes'
 import {
   applyUiThemeToDocument,
   isUiTheme,
@@ -45,8 +48,16 @@ export function UiThemeProvider({ children }: { children: ReactNode }) {
   }, [uiTheme])
 
   const value = useMemo(() => ({ uiTheme, setUiTheme }), [uiTheme, setUiTheme])
+  const muiTheme = useMemo(() => getMuiTheme(uiTheme), [uiTheme])
 
-  return <UiThemeContext.Provider value={value}>{children}</UiThemeContext.Provider>
+  return (
+    <UiThemeContext.Provider value={value}>
+      <MuiThemeProvider theme={muiTheme}>
+        <CssBaseline enableColorScheme />
+        {children}
+      </MuiThemeProvider>
+    </UiThemeContext.Provider>
+  )
 }
 
 export function useUiTheme() {

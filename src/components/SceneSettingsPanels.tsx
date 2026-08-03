@@ -1,4 +1,8 @@
-import { useState, type ChangeEvent, type FC } from 'react'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
+import { useState, type FC } from 'react'
 import { DEFAULT_CAMERA, type CameraSettings } from '../config/cameraDefaults'
 import {
   DEFAULT_LIGHTING,
@@ -69,15 +73,13 @@ function NumInput({
 }) {
   return (
     <FieldRow id={id} label={label}>
-      <input
+      <TextField
         id={id}
         type="number"
-        className="input input-sm input-bordered"
-        step={step}
-        min={min}
-        max={max}
-        value={value}
+        size="small"
         disabled={disabled}
+        slotProps={{ htmlInput: { step, min, max } }}
+        value={value}
         onChange={e => {
           const n = Number(e.target.value)
           onChange(Number.isFinite(n) ? n : value)
@@ -115,9 +117,9 @@ export const SceneSettingsPanels: FC<Props> = ({
           embedded
         />
         <span className="scene-settings-toolbar-sep" aria-hidden />
-        <button
-          type="button"
-          className={`scene-settings-btn btn btn-square btn-sm${openPanel === 'lighting' ? ' is-active btn-active btn-primary' : ''}`}
+        <IconButton
+          className={`scene-settings-btn${openPanel === 'lighting' ? ' is-active' : ''}`}
+          color={openPanel === 'lighting' ? 'primary' : 'default'}
           disabled={disabled}
           title={t('lighting.title')}
           aria-label={t('lighting.title')}
@@ -125,10 +127,10 @@ export const SceneSettingsPanels: FC<Props> = ({
           onClick={() => toggle('lighting')}
         >
           <Icon icon="material-symbols:adjust" aria-hidden />
-        </button>
-        <button
-          type="button"
-          className={`scene-settings-btn btn btn-square btn-sm${openPanel === 'camera' ? ' is-active btn-active btn-primary' : ''}`}
+        </IconButton>
+        <IconButton
+          className={`scene-settings-btn${openPanel === 'camera' ? ' is-active' : ''}`}
+          color={openPanel === 'camera' ? 'primary' : 'default'}
           disabled={disabled}
           title={t('camera.title')}
           aria-label={t('camera.title')}
@@ -136,44 +138,38 @@ export const SceneSettingsPanels: FC<Props> = ({
           onClick={() => toggle('camera')}
         >
           <Icon icon="material-symbols:view-in-ar" aria-hidden />
-        </button>
+        </IconButton>
       </div>
 
       {openPanel === 'lighting' ? (
-        <div className="scene-settings-panel card" role="dialog" aria-label={t('lighting.title')}>
+        <div className="scene-settings-panel" role="dialog" aria-label={t('lighting.title')}>
           <div className="scene-settings-panel-header">
             <strong>{t('lighting.title')}</strong>
             <div className="scene-settings-panel-actions">
-              <button type="button" className="btn btn-ghost btn-xs" disabled={disabled} onClick={onLightingReset}>
+              <Button variant="text" size="small" disabled={disabled} onClick={onLightingReset}>
                 {t('app.reset')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs"
-                onClick={() => setOpenPanel(null)}
-                aria-label={t('common.close')}
-              >
+              </Button>
+              <IconButton size="small" onClick={() => setOpenPanel(null)} aria-label={t('common.close')}>
                 <Icon icon="material-symbols:close" aria-hidden />
-              </button>
+              </IconButton>
             </div>
           </div>
           <p className="scene-settings-hint">{t('sceneSettings.lighting.hint')}</p>
           <FieldRow id="scene-light-mode" label={t('lighting.mode')}>
-            <select
+            <TextField
               id="scene-light-mode"
-              className="select select-sm select-bordered"
+              select
+              size="small"
               value={lighting.mode}
               disabled={disabled}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                onLightingChange({ mode: e.target.value as LightingMode })
-              }
+              onChange={e => onLightingChange({ mode: e.target.value as LightingMode })}
             >
               {LIGHTING_MODE_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
+                <MenuItem key={opt.value} value={opt.value}>
                   {t(`lighting.mode.${opt.value}` as MessageKey)}
-                </option>
+                </MenuItem>
               ))}
-            </select>
+            </TextField>
           </FieldRow>
           <NumInput
             id="scene-exposure"
@@ -199,21 +195,16 @@ export const SceneSettingsPanels: FC<Props> = ({
       ) : null}
 
       {openPanel === 'camera' ? (
-        <div className="scene-settings-panel card" role="dialog" aria-label={t('camera.title')}>
+        <div className="scene-settings-panel" role="dialog" aria-label={t('camera.title')}>
           <div className="scene-settings-panel-header">
             <strong>{t('camera.title')}</strong>
             <div className="scene-settings-panel-actions">
-              <button type="button" className="btn btn-ghost btn-xs" disabled={disabled} onClick={onCameraReset}>
+              <Button variant="text" size="small" disabled={disabled} onClick={onCameraReset}>
                 {t('app.reset')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs"
-                onClick={() => setOpenPanel(null)}
-                aria-label={t('common.close')}
-              >
+              </Button>
+              <IconButton size="small" onClick={() => setOpenPanel(null)} aria-label={t('common.close')}>
                 <Icon icon="material-symbols:close" aria-hidden />
-              </button>
+              </IconButton>
             </div>
           </div>
           <NumInput

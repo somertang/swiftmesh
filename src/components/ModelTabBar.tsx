@@ -1,3 +1,8 @@
+import IconButton from '@mui/material/IconButton'
+import Divider from '@mui/material/Divider'
+import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import type { ModelFormat } from '../lib/modelSource'
@@ -151,7 +156,6 @@ export function ModelTabBar({
 }: ModelTabBarProps) {
   const t = useT()
   const listRef = useRef<HTMLDivElement>(null)
-  const menuRef = useRef<HTMLUListElement>(null)
   const sessionRef = useRef<DragSession | null>(null)
   const tabsLenRef = useRef(tabs.length)
   tabsLenRef.current = tabs.length
@@ -187,27 +191,6 @@ export function ModelTabBar({
   }
 
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
-
-  useEffect(() => {
-    if (!contextMenu) return
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null
-      if (menuRef.current?.contains(target)) return
-      closeContextMenu()
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeContextMenu()
-    }
-    const onBlur = () => closeContextMenu()
-    window.addEventListener('pointerdown', onPointerDown, true)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('blur', onBlur)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true)
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('blur', onBlur)
-    }
-  }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
     const list = listRef.current
@@ -399,13 +382,6 @@ export function ModelTabBar({
     return indicatorOffset(list, foreignInsertBefore, null)
   })()
 
-  const menuStyle = contextMenu
-    ? {
-        left: Math.min(contextMenu.x, window.innerWidth - 260),
-        top: Math.min(contextMenu.y, window.innerHeight - 220),
-      }
-    : undefined
-
   return (
     <div
       className="model-tab-bar"
@@ -483,19 +459,17 @@ export function ModelTabBar({
         ) : null}
       </div>
       <div className="model-tab-actions">
-        <button
-          type="button"
-          className="model-tab-add btn btn-ghost btn-square btn-sm"
+        <IconButton
+          className="model-tab-add"
           disabled={locked}
           aria-label={t('app.tab.new')}
           title={t('app.tab.new')}
           onClick={addTab}
         >
           <Icon icon="material-symbols:add" width="1.1rem" height="1.1rem" aria-hidden />
-        </button>
-        <button
-          type="button"
-          className="model-tab-split btn btn-ghost btn-square btn-sm"
+        </IconButton>
+        <IconButton
+          className="model-tab-split"
           disabled={locked || !canSplit}
           aria-label={t('app.tab.splitRight')}
           title={t('app.tab.splitRightTooltip')}
@@ -506,7 +480,7 @@ export function ModelTabBar({
           }}
         >
           <Icon icon="material-symbols:split-scene-outline-sharp" width="1.1rem" height="1.1rem" aria-hidden />
-        </button>
+        </IconButton>
       </div>
       {drag ? (
         <div
@@ -525,90 +499,70 @@ export function ModelTabBar({
           </span>
         </div>
       ) : null}
-      {contextMenu && contextTab ? (
-        <ul
-          ref={menuRef}
-          className="model-tab-context-menu menu menu-sm bg-base-200 rounded-box shadow-lg border border-base-300 p-1"
-          role="menu"
-          style={menuStyle}
-        >
-          <li>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full justify-between gap-6"
+      <Menu
+        open={Boolean(contextMenu && contextTab)}
+        onClose={closeContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu
+            ? {
+                top: Math.min(contextMenu.y, window.innerHeight - 220),
+                left: Math.min(contextMenu.x, window.innerWidth - 260),
+              }
+            : undefined
+        }
+        slotProps={{
+          list: { dense: true, className: 'model-tab-context-menu' },
+        }}
+      >
+        {contextTab ? (
+          <>
+            <MenuItem
               disabled={!canCloseContext}
               onClick={() => runMenuAction(() => onClose(contextTab.id))}
             >
-              <span>{t('app.tab.closeMenu')}</span>
-              <kbd className="font-sans text-xs opacity-60">Ctrl+F4</kbd>
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              role="menuitem"
+              <ListItemText primary={t('app.tab.closeMenu')} />
+              <kbd className="ml-6 font-sans text-xs opacity-60">Ctrl+F4</kbd>
+            </MenuItem>
+            <MenuItem
               disabled={!canCloseOthers}
               onClick={() => runMenuAction(() => onCloseOthers(contextTab.id))}
             >
-              <span>{t('app.tab.closeOthers')}</span>
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              role="menuitem"
+              {t('app.tab.closeOthers')}
+            </MenuItem>
+            <MenuItem
               disabled={!canCloseToRight}
               onClick={() => runMenuAction(() => onCloseToRight(contextTab.id))}
             >
-              <span>{t('app.tab.closeToRight')}</span>
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => runMenuAction(() => onCloseAll())}
-            >
-              <span>{t('app.tab.closeAll')}</span>
-            </button>
-          </li>
-          <li role="separator" />
-          <li>
-            <button
-              type="button"
-              role="menuitem"
+              {t('app.tab.closeToRight')}
+            </MenuItem>
+            <MenuItem onClick={() => runMenuAction(() => onCloseAll())}>
+              {t('app.tab.closeAll')}
+            </MenuItem>
+            <Divider />
+            <MenuItem
               disabled={locked || !canSplit}
               onClick={() => runMenuAction(() => onSplitRight(contextTab.id))}
             >
-              <span>{t('app.tab.splitRight')}</span>
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              role="menuitem"
+              {t('app.tab.splitRight')}
+            </MenuItem>
+            <MenuItem
               disabled={locked || !canSplit}
               onClick={() => runMenuAction(() => onSplitDown(contextTab.id))}
             >
-              <span>{t('app.tab.splitDown')}</span>
-            </button>
-          </li>
-          <li role="separator" />
-          <li>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full justify-between gap-6"
+              {t('app.tab.splitDown')}
+            </MenuItem>
+            <Divider />
+            <MenuItem
               disabled={!canReveal}
               onClick={() => runMenuAction(() => onRevealInExplorer(contextTab.id))}
             >
-              <span>{t('app.tab.revealInExplorer')}</span>
-              <kbd className="font-sans text-xs opacity-60">Shift+Alt+R</kbd>
-            </button>
-          </li>
-        </ul>
-      ) : null}
+              <ListItemText primary={t('app.tab.revealInExplorer')} />
+              <kbd className="ml-6 font-sans text-xs opacity-60">Shift+Alt+R</kbd>
+            </MenuItem>
+          </>
+        ) : null}
+      </Menu>
     </div>
   )
 }

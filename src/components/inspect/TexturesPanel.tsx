@@ -1,3 +1,5 @@
+import IconButton from '@mui/material/IconButton'
+import TextField from '@mui/material/TextField'
 import { useMemo, useState } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
@@ -34,9 +36,10 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
     >
       <div className="inspect-search">
         <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <input
+        <TextField
           type="search"
-          className="input input-sm input-bordered w-full"
+          size="small"
+          fullWidth
           placeholder={t('textures.searchPlaceholder')}
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -51,7 +54,7 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
       ) : (
         <ul className="inspect-list">
           {filtered.map(item => (
-            <li key={item.id} className="inspect-card card card-compact">
+            <li key={item.id} className="inspect-card">
               <div className="inspect-thumb-wrap">
                 {item.previewUrl ? (
                   <img src={item.previewUrl} alt="" className="inspect-thumb" />
@@ -69,16 +72,16 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
                   <div className="inspect-card-sub">{item.materialNames.join(', ')}</div>
                 ) : null}
               </div>
-              <button
-                type="button"
-                className="inspect-icon-btn btn btn-xs btn-square"
+              <IconButton
+                className="inspect-icon-btn"
+                size="small"
                 title={t('textures.download', { name: item.name })}
                 aria-label={t('textures.download', { name: item.name })}
                 disabled={!item.previewUrl}
                 onClick={() => downloadTexturePng(item.texture, item.name)}
               >
                 <Icon icon="material-symbols:download" aria-hidden />
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>

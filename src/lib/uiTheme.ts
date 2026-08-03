@@ -1,3 +1,5 @@
+import { getChromeCssVars } from './muiThemes'
+
 export const UI_THEMES = ['swiftmesh', 'dark', 'business', 'night'] as const
 
 export type UiTheme = (typeof UI_THEMES)[number]
@@ -30,5 +32,10 @@ export function writeStoredUiTheme(theme: UiTheme) {
 
 export function applyUiThemeToDocument(theme: UiTheme) {
   if (typeof document === 'undefined') return
-  document.documentElement.setAttribute('data-theme', theme)
+  const root = document.documentElement
+  root.setAttribute('data-theme', theme)
+  const vars = getChromeCssVars(theme)
+  for (const [key, value] of Object.entries(vars)) {
+    root.style.setProperty(key, value)
+  }
 }

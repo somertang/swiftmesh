@@ -1,3 +1,5 @@
+import ButtonGroup from '@mui/material/ButtonGroup'
+import IconButton from '@mui/material/IconButton'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import type { InspectPanelId } from './inspect/InspectPanelShell'
@@ -23,15 +25,19 @@ type ViewportToolbarProps = {
 export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarProps) {
   const t = useT()
   return (
-    <div className="viewport-toolbar join join-vertical" role="toolbar" aria-label={t('toolbar.aria')}>
+    <ButtonGroup
+      className="viewport-toolbar"
+      orientation="vertical"
+      role="toolbar"
+      aria-label={t('toolbar.aria')}
+    >
       {TOOLS.map(tool => {
         const isActive = active === tool.id
         const label = t(tool.labelKey)
         return (
-          <button
+          <IconButton
             key={tool.id}
-            type="button"
-            className={`btn btn-square btn-sm join-item${isActive ? ' btn-active btn-primary' : ' btn-ghost'}`}
+            color={isActive ? 'primary' : 'default'}
             title={label}
             aria-label={label}
             aria-pressed={isActive}
@@ -39,9 +45,9 @@ export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarP
             onClick={() => onToggle(tool.id)}
           >
             <Icon icon={tool.icon} aria-hidden />
-          </button>
+          </IconButton>
         )
       })}
-    </div>
+    </ButtonGroup>
   )
 }

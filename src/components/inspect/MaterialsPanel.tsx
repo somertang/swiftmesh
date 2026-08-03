@@ -1,3 +1,5 @@
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
 import { useMemo, useState } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
@@ -36,9 +38,10 @@ export function MaterialsPanel({ open, items, onClose, onSelectMesh }: Materials
     >
       <div className="inspect-search">
         <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <input
+        <TextField
           type="search"
-          className="input input-sm input-bordered w-full"
+          size="small"
+          fullWidth
           placeholder={t('materials.searchPlaceholder')}
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -55,7 +58,7 @@ export function MaterialsPanel({ open, items, onClose, onSelectMesh }: Materials
           {filtered.map(item => {
             const expanded = expandedId === item.id
             return (
-              <li key={item.id} className="inspect-card is-stack card card-compact">
+              <li key={item.id} className="inspect-card is-stack">
                 <button
                   type="button"
                   className="inspect-card-toggle"
@@ -104,14 +107,14 @@ export function MaterialsPanel({ open, items, onClose, onSelectMesh }: Materials
                     {item.meshIds.length > 0 ? (
                       <div className="inspect-mesh-links">
                         {item.meshIds.map((meshId, index) => (
-                          <button
+                          <Button
                             key={meshId}
-                            type="button"
-                            className="inspect-link-btn btn btn-xs"
+                            className="inspect-link-btn"
+                            size="small"
                             onClick={() => onSelectMesh(meshId)}
                           >
                             {item.meshNames[index] ?? meshId}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     ) : null}
