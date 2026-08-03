@@ -78,6 +78,23 @@ export type WindowMenuAction =
   | 'toggleFullscreen'
   | 'showAbout'
 
+export type UpdateProgressEvent = {
+  percent: number
+  bytesPerSecond: number
+  transferred: number
+  total: number
+}
+
+export type UpdateStatus =
+  | { phase: 'idle' }
+  | { phase: 'dev' }
+  | { phase: 'checking' }
+  | { phase: 'upToDate'; version: string }
+  | { phase: 'available'; version: string }
+  | { phase: 'downloading'; percent: number }
+  | { phase: 'ready'; version: string }
+  | { phase: 'error'; message: string }
+
 export type WindowChromeInfo = {
   titleBarOverlay: boolean
   overlayHeight: number
@@ -99,6 +116,10 @@ export type DesktopApi = {
   ) => Promise<SaveRecordingResult>
   /** Pick a folder for default recording output (null if canceled). */
   chooseRecordingOutputDir: () => Promise<string | null>
+  /** Pick a folder for cache / temporary files (null if canceled). */
+  chooseCacheDir: () => Promise<string | null>
+  /** Sync preferred cache root to the main process (empty = OS temp). */
+  setCacheDir: (dir: string) => Promise<void>
   showItemInFolder: (filePath: string) => Promise<void>
   /** Record an absolute local path in File → Open Recent (no-op if not absolute). */
   rememberRecentPath: (filePath: string) => Promise<void>
@@ -116,8 +137,30 @@ export type DesktopApi = {
   onOpenPreferences: (handler: () => void) => () => void
   /** Recent model absolute paths for the custom File menu. */
   getRecentPaths: () => Promise<string[]>
+  /** Persist Open Recent max length and trim the stored list. */
+  setRecentMax: (max: number) => Promise<string[]>
   clearRecentPaths: () => Promise<string[]>
   onRecentPathsChanged: (handler: (paths: string[]) => void) => () => void
+  /** Replace the set of absolute model paths watched for auto-reload. */
+  setWatchedModelPaths: (paths: string[]) => Promise<void>
+  /** Fired when a watched model file changes on disk. */
+  onModelFileChanged: (handler: (filePath: string) => void) => () => void
+  /** Current app version from the main process. */
+  getAppVersion: () => Promise<string>
+  /** Latest known update status. */
+  getUpdateStatus: () => Promise<UpdateStatus>
+  /** Subscribe to update status changes (Preferences UI). */
+  onUpdateStatus: (handler: (status: UpdateStatus) => void) => () => void
+  /** Manual update check from Preferences. */
+  checkForUpdates: () => Promise<void>
+  /** Quit and install a downloaded update. */
+  installUpdate: () => Promise<boolean>
+  /** Sync auto-update preference to the main process. */
+  setAutoUpdateEnabled: (enabled: boolean) => Promise<void>
+  /** Download progress while an update is being fetched. */
+  onUpdateProgress: (handler: (event: UpdateProgressEvent) => void) => () => void
+  /** Open an https URL in the system browser. */
+  openExternalUrl: (url: string) => Promise<void>
   /** Run a window/menu action that lives in the main process. */
   windowMenuAction: (action: WindowMenuAction) => Promise<void>
   getWindowChrome: () => Promise<WindowChromeInfo>

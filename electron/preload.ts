@@ -9,6 +9,8 @@ import type {
   SaveRecordingResult,
   StartRecordingSessionPayload,
   StartRecordingSessionResult,
+  UpdateProgressEvent,
+  UpdateStatus,
   WindowChromeInfo,
   WindowMenuAction,
 } from '../src/desktopTypes'
@@ -38,6 +40,10 @@ const desktop: DesktopApi = {
 
   chooseRecordingOutputDir: (): Promise<string | null> =>
     ipcRenderer.invoke('desktop:choose-recording-output-dir'),
+
+  chooseCacheDir: (): Promise<string | null> => ipcRenderer.invoke('desktop:choose-cache-dir'),
+
+  setCacheDir: (dir: string): Promise<void> => ipcRenderer.invoke('desktop:set-cache-dir', dir),
 
   showItemInFolder: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('desktop:show-item-in-folder', filePath),
@@ -76,12 +82,50 @@ const desktop: DesktopApi = {
 
   getRecentPaths: (): Promise<string[]> => ipcRenderer.invoke('desktop:get-recent-paths'),
 
+  setRecentMax: (max: number): Promise<string[]> =>
+    ipcRenderer.invoke('desktop:set-recent-max', max),
+
   clearRecentPaths: (): Promise<string[]> => ipcRenderer.invoke('desktop:clear-recent-paths'),
 
   onRecentPathsChanged: (handler: (paths: string[]) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, paths: string[]) => handler(paths)
     ipcRenderer.on('desktop:recent-paths-changed', listener)
     return () => ipcRenderer.removeListener('desktop:recent-paths-changed', listener)
+  },
+
+  setWatchedModelPaths: (paths: string[]): Promise<void> =>
+    ipcRenderer.invoke('desktop:set-watched-model-paths', paths),
+
+  onModelFileChanged: (handler: (filePath: string) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, filePath: string) => handler(filePath)
+    ipcRenderer.on('desktop:model-file-changed', listener)
+    return () => ipcRenderer.removeListener('desktop:model-file-changed', listener)
+  },
+
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('desktop:get-app-version'),
+
+  getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('desktop:get-update-status'),
+
+  onUpdateStatus: (handler: (status: UpdateStatus) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => handler(status)
+    ipcRenderer.on('desktop:update-status', listener)
+    return () => ipcRenderer.removeListener('desktop:update-status', listener)
+  },
+
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('desktop:check-for-updates'),
+
+  installUpdate: (): Promise<boolean> => ipcRenderer.invoke('desktop:install-update'),
+
+  setAutoUpdateEnabled: (enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke('desktop:set-auto-update-enabled', enabled),
+
+  openExternalUrl: (url: string): Promise<void> =>
+    ipcRenderer.invoke('desktop:open-external-url', url),
+
+  onUpdateProgress: (handler: (event: UpdateProgressEvent) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: UpdateProgressEvent) => handler(data)
+    ipcRenderer.on('desktop:update-progress', listener)
+    return () => ipcRenderer.removeListener('desktop:update-progress', listener)
   },
 
   windowMenuAction: (action: WindowMenuAction): Promise<void> =>

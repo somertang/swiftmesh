@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { constants as fsConstants } from 'node:fs'
+import { constants as fsConstants, watch as fsWatch, type FSWatcher } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import crypto from 'node:crypto'
@@ -20,6 +20,7 @@ import type {
   RecordingQuality,
   SaveRecordingPayload,
   StartRecordingSessionPayload,
+  WindowMenuAction,
 } from '../src/desktopTypes'
 import {
   collectGltfSidecarUris,
@@ -44,13 +45,95 @@ import {
   clearRecentPaths,
   loadRecentPaths,
   removeRecentPath,
+  setRecentMax,
 } from './recentFiles'
+import {
+  bindUpdaterContext,
+  checkForAppUpdates,
+  getAppVersion,
+  getUpdateStatus,
+  quitAndInstallUpdate,
+  setAutoUpdateEnabled,
+} from './updater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 let appLocale: Locale = 'en'
 let appPreviewTheme: PreviewTheme = DEFAULT_PREVIEW_THEME
+/** Preferred cache/temp root from renderer prefs; empty = OS temp. */
+let appCacheDir = ''
+
+type ModelWatchEntry = {
+  watcher: FSWatcher
+  timer: ReturnType<typeof setTimeout> | null
+}
+
+const modelWatchers = new Map<string, ModelWatchEntry>()
+
+function normalizeWatchPath(filePath: string): string {
+  return path.normalize(filePath.trim())
+}
+
+function clearModelWatchers() {
+  for (const entry of modelWatchers.values()) {
+    if (entry.timer) clearTimeout(entry.timer)
+    entry.watcher.close()
+  }
+  modelWatchers.clear()
+}
+
+function syncModelWatchers(paths: string[]) {
+  const wanted = new Set(
+    paths
+      .filter(p => typeof p === 'string' && p.trim() && path.isAbsolute(p))
+      .map(normalizeWatchPath)
+  )
+
+  for (const [watched, entry] of modelWatchers) {
+    if (wanted.has(watched)) continue
+    if (entry.timer) clearTimeout(entry.timer)
+    entry.watcher.close()
+    modelWatchers.delete(watched)
+  }
+
+  for (const filePath of wanted) {
+    if (modelWatchers.has(filePath)) continue
+    try {
+      const watcher = fsWatch(filePath, () => {
+        const entry = modelWatchers.get(filePath)
+        if (!entry) return
+        if (entry.timer) clearTimeout(entry.timer)
+        entry.timer = setTimeout(() => {
+          entry.timer = null
+          mainWindow?.webContents.send('desktop:model-file-changed', filePath)
+        }, 400)
+      })
+      watcher.on('error', () => {
+        const entry = modelWatchers.get(filePath)
+        if (!entry) return
+        if (entry.timer) clearTimeout(entry.timer)
+        entry.watcher.close()
+        modelWatchers.delete(filePath)
+      })
+      modelWatchers.set(filePath, { watcher, timer: null })
+    } catch {
+      /* Missing path or unsupported watch — skip. */
+    }
+  }
+}
+
+async function resolveTempRoot(): Promise<string> {
+  const dir = appCacheDir.trim()
+  if (!dir) return os.tmpdir()
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    await fs.access(dir, fsConstants.W_OK)
+    return dir
+  } catch {
+    return os.tmpdir()
+  }
+}
 
 function t(key: MessageKey, vars?: Record<string, string | number>) {
   return translate(appLocale, key, vars)
@@ -354,16 +437,6 @@ async function rebuildApplicationMenu() {
   notifyRecentPathsChanged()
 }
 
-export type WindowMenuAction =
-  | 'quit'
-  | 'reload'
-  | 'toggleDevTools'
-  | 'resetZoom'
-  | 'zoomIn'
-  | 'zoomOut'
-  | 'toggleFullscreen'
-  | 'showAbout'
-
 async function runWindowMenuAction(action: WindowMenuAction) {
   if (!mainWindow && action !== 'quit') return
   switch (action) {
@@ -575,7 +648,7 @@ async function saveRecordingFiles(
   const webmPath = `${stemPath}.webm`
   const mp4Path = `${stemPath}.mp4`
   const written: string[] = []
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'swiftmesh-rec-'))
+  const tempDir = await fs.mkdtemp(path.join(await resolveTempRoot(), 'swiftmesh-rec-'))
   const tempWebm = path.join(tempDir, 'recording.webm')
 
   try {
@@ -613,6 +686,10 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     void rebuildApplicationMenu()
+    bindUpdaterContext({
+      getMainWindow: () => mainWindow,
+      getLocale: () => appLocale,
+    })
     createWindow()
     const shellPaths = collectModelPathsFromArgv(process.argv)
     if (shellPaths.length > 0) {
@@ -626,6 +703,7 @@ if (!gotSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
+  clearModelWatchers()
   if (process.platform !== 'darwin') app.quit()
 })
 
@@ -639,7 +717,7 @@ ipcMain.handle(
     if (!mainWindow) return { ok: false as const, reason: 'No window' }
 
     const sessionId = crypto.randomUUID()
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'swiftmesh-frames-'))
+    const tempDir = await fs.mkdtemp(path.join(await resolveTempRoot(), 'swiftmesh-frames-'))
     const framesDir = path.join(tempDir, 'frames')
     await fs.mkdir(framesDir, { recursive: true })
 
@@ -789,6 +867,24 @@ ipcMain.handle('desktop:choose-recording-output-dir', async () => {
   return result.filePaths[0]
 })
 
+ipcMain.handle('desktop:choose-cache-dir', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: t('prefs.cacheDir.chooseTitle'),
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle('desktop:set-cache-dir', async (_event, dir: string) => {
+  appCacheDir = typeof dir === 'string' ? dir.trim() : ''
+})
+
+ipcMain.handle('desktop:set-watched-model-paths', async (_event, paths: string[]) => {
+  syncModelWatchers(Array.isArray(paths) ? paths : [])
+})
+
 ipcMain.handle('desktop:read-model-path', async (_event, filePath: string) => {
   return readModelFileAndRemember(filePath)
 })
@@ -804,6 +900,12 @@ ipcMain.handle('desktop:remember-recent-path', async (_event, filePath: string) 
 
 ipcMain.handle('desktop:get-recent-paths', async () => loadRecentPaths())
 
+ipcMain.handle('desktop:set-recent-max', async (_event, max: number) => {
+  const paths = await setRecentMax(max)
+  notifyRecentPathsChanged()
+  return paths
+})
+
 ipcMain.handle('desktop:clear-recent-paths', async () => {
   const paths = await clearRecentPaths()
   notifyRecentPathsChanged()
@@ -812,6 +914,35 @@ ipcMain.handle('desktop:clear-recent-paths', async () => {
 
 ipcMain.handle('desktop:window-menu-action', async (_event, action: WindowMenuAction) => {
   await runWindowMenuAction(action)
+})
+
+ipcMain.handle('desktop:check-for-updates', async () => {
+  await checkForAppUpdates({ silent: false })
+})
+
+ipcMain.handle('desktop:get-app-version', async () => getAppVersion())
+
+ipcMain.handle('desktop:get-update-status', async () => getUpdateStatus())
+
+ipcMain.handle('desktop:install-update', async () => quitAndInstallUpdate())
+
+ipcMain.handle('desktop:set-auto-update-enabled', async (_event, enabled: boolean) => {
+  setAutoUpdateEnabled(enabled === true)
+  if (enabled === true && app.isPackaged) {
+    void checkForAppUpdates({ silent: true })
+  }
+})
+
+ipcMain.handle('desktop:open-external-url', async (_event, url: string) => {
+  if (typeof url !== 'string') return
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return
+  await shell.openExternal(parsed.toString())
 })
 
 ipcMain.handle('desktop:get-window-chrome', async () => ({
