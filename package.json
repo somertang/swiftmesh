@@ -16,8 +16,10 @@
     "build": "node scripts/sync-gltf-vendor.mjs && tsc -p tsconfig.json --noEmit && vite build",
     "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
     "brand-icons": "node scripts/generate-brand-icons.mjs",
+    "prepare-ffmpeg-mac": "node scripts/prepare-ffmpeg-mac.mjs",
     "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win",
     "dist:win:publish": "pnpm run build && pnpm run brand-icons && electron-builder --win nsis --publish always",
+    "dist:mac": "pnpm run build && pnpm run brand-icons && pnpm run prepare-ffmpeg-mac && electron-builder --mac dmg zip --arm64 --x64",
     "preview": "vite preview"
   },
   "pnpm": {
@@ -79,12 +81,6 @@
       "dist-electron/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
-        "to": "ffmpeg/ffmpeg.exe"
-      }
-    ],
     "asar": true,
     "fileAssociations": [
       {
@@ -126,6 +122,41 @@
           "arch": [
             "x64"
           ]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+          "to": "ffmpeg/ffmpeg.exe"
+        }
+      ]
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.graphics-design",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extraResources": [
+        {
+          "from": "build/ffmpeg/darwin-${arch}/ffmpeg",
+          "to": "ffmpeg/ffmpeg"
         }
       ]
     },

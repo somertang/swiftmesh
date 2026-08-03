@@ -1,8 +1,9 @@
 # SwiftMesh
 
-Windows desktop app for viewing local 3D models, inspecting scene data, and recording a one-revolution turntable video.
+Desktop app for viewing local 3D models, inspecting scene data, and recording a one-revolution turntable video.
 
 **Formats:** `.glb` / `.gltf` / `.obj`  
+**Platforms:** Windows x64 · macOS (Apple Silicon + Intel)  
 **Stack:** Electron · React · Three.js · Vite · Material UI  
 **License:** [MIT](./LICENSE)
 
@@ -14,21 +15,37 @@ Windows desktop app for viewing local 3D models, inspecting scene data, and reco
 
 Product page: **[somertang.github.io/swiftmesh](https://somertang.github.io/swiftmesh/)**
 
-Install the latest **Windows NSIS** build from:
+Install the latest build from:
 
 **[Releases](https://github.com/somertang/swiftmesh/releases)**
 
-Use the `SwiftMesh Setup x.y.z.exe` installer. Portable builds may be present in some releases; **in-app auto-update targets the NSIS install**.
+| Platform | Asset | Notes |
+| --- | --- | --- |
+| Windows | `SwiftMesh Setup x.y.z.exe` | NSIS installer; **in-app auto-update targets this** |
+| Windows | portable `.exe` | Optional; may appear in some releases |
+| macOS Apple Silicon | `SwiftMesh-x.y.z-arm64.dmg` | Prefer this on M1/M2/M3/M4 |
+| macOS Intel | `SwiftMesh-x.y.z-x64.dmg` | Intel Macs |
+
+macOS builds are **not code-signed**. On first launch Gatekeeper may block the app. Use one of:
+
+1. Right-click the app → **Open** → confirm, or  
+2. Remove quarantine after mounting the DMG:
+
+```bash
+xattr -cr /Applications/SwiftMesh.app
+```
+
+(Adjust the path if you dragged the app elsewhere.)
 
 ### Features
 
-- Open local models via **File → Open…** (Ctrl+O), drag-and-drop, or Open Recent
+- Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
 - Multi-tab viewing and camera controls
 - Inspect hierarchy, textures, materials, geometries, and model info
 - Record a turntable clip (MP4 / WebM) with size and quality presets (MP4 via bundled ffmpeg)
 - Preferences: appearance themes, lighting, recording output folder, performance options, updates, and About
 - UI language: English / 中文
-- Optional auto-update from GitHub Releases (NSIS builds)
+- Optional auto-update from GitHub Releases (Windows NSIS; macOS zip channel)
 
 ### Quick usage
 
@@ -37,7 +54,7 @@ Use the `SwiftMesh Setup x.y.z.exe` installer. Portable builds may be present in
 3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info.
 4. Adjust lighting and camera as needed.
 5. In **Record**, pick export format, size, and quality, then record one revolution.
-6. Open **Preferences** (Ctrl+,) for themes, performance, recording save location, updates, and license/repo info.
+6. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording save location, updates, and license/repo info.
 
 Remote URL / cloud loading is not included.
 
@@ -49,7 +66,8 @@ Remote URL / cloud loading is not included.
 
 - Node.js 20+
 - [pnpm](https://pnpm.io/) 9+
-- Windows x64 (packaging targets NSIS + portable)
+- **Windows packaging:** Windows x64 (or CI `windows-latest`)
+- **macOS packaging:** macOS host (or CI `macos-latest`); needs `iconutil` for `.icns`
 
 ### Setup
 
@@ -65,9 +83,11 @@ pnpm run dev          # Vite + Electron
 | `pnpm run dev` | Development app (syncs glTF vendor assets, then Vite + Electron) |
 | `pnpm run build` | Typecheck + production renderer / Electron bundles |
 | `pnpm run sync:vendor` | Copy Draco / Basis transcoder assets into `public/vendor` |
-| `pnpm run brand-icons` | Generate Windows app icons |
+| `pnpm run brand-icons` | Generate Windows `.ico` (and `.icns` on macOS) |
+| `pnpm run prepare-ffmpeg-mac` | Download darwin arm64/x64 ffmpeg into `build/ffmpeg/` |
 | `pnpm run dist:win` | Build NSIS installer + portable exe under `release/` |
-| `pnpm run dist:win:publish` | Build **NSIS only** and publish to GitHub Releases |
+| `pnpm run dist:win:publish` | Build **NSIS only** and publish to GitHub Releases (local) |
+| `pnpm run dist:mac` | Build arm64 + x64 DMG and ZIP under `release/` |
 | `pnpm run preview` | Vite preview of the renderer build |
 
 ### Project layout
@@ -82,24 +102,41 @@ swiftmesh/
 │   ├── uiTheme/       # Material UI theme wiring
 │   └── previewTheme/  # Model preview theme
 ├── public/vendor/     # Draco / Basis assets used by glTF loaders
-├── scripts/           # Vendor sync + brand icon generation
+├── scripts/           # Vendor sync, brand icons, mac ffmpeg prep
 ├── build/             # Packaging icons / resources
+├── .github/workflows/ # Tag-triggered release builds
 └── release/           # electron-builder output (gitignored locally)
 ```
 
 ### Releases & auto-update
 
-1. Bump `version` in `package.json`.
-2. Tag and push (for example `v0.2.0`).
-3. Publish with a GitHub token that can create releases:
+Preferred path: **push a version tag** and let GitHub Actions build Windows + macOS, then attach artifacts to the same Release.
+
+1. Bump `version` in `package.json` and commit.
+2. Tag and push:
 
 ```bash
-# PowerShell
-$env:GH_TOKEN = "…"   # or rely on an already configured token
-pnpm run dist:win:publish
+git tag v0.2.5
+git push origin v0.2.5
 ```
 
-That uploads the NSIS installer, blockmap, and `latest.yml` so installed NSIS builds can check for updates from Preferences → Updates.
+3. Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) runs two jobs:
+   - `windows-latest` → `pnpm run dist:win` → uploads `.exe`, blockmaps, `latest.yml`
+   - `macos-latest` → `pnpm run dist:mac` → uploads `.dmg` / `.zip`, blockmaps, `latest-mac.yml`
+
+In-app updates:
+
+- **Windows NSIS** reads `latest.yml`
+- **macOS** reads `latest-mac.yml` (zip artifacts)
+
+Local packaging (optional, for debugging):
+
+```bash
+pnpm run dist:win    # on Windows
+pnpm run dist:mac    # on macOS
+```
+
+`pnpm run dist:win:publish` remains available for a Windows-only local publish with `GH_TOKEN`.
 
 Repository: [somertang/swiftmesh](https://github.com/somertang/swiftmesh)
 

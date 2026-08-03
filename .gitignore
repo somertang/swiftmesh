@@ -2,6 +2,9 @@ node_modules/
 dist/
 dist-electron/
 release/
+build/ffmpeg/
+build/icon.iconset/
+build/icon.icns
 *.log
 .DS_Store
 .env
