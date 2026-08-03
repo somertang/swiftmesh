@@ -1,3 +1,9 @@
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import IconButton from '@mui/material/IconButton'
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
 import {
   useCallback,
   useEffect,
@@ -28,7 +34,12 @@ import {
   toEvenDimension,
   resolveRecordingOutputSize,
 } from './lib/recordingPresets'
-import { readPreferences } from './lib/preferences'
+import { patchPreferences, readPreferences } from './lib/preferences'
+import {
+  captureSessionFromTabs,
+  readSession,
+  writeSession,
+} from './lib/sessionRestore'
 import type { OpenedModel, RecordingExportFormat } from './desktopTypes'
 import { MODEL_FILE_ACCEPT } from './lib/modelSource'
 import { ModelResolveError, modelSourceFromFiles, modelSourceFromOpened } from './lib/resolveModelSource'
@@ -46,6 +57,7 @@ import {
   patchActiveTab,
   patchTab,
   reorderTabs,
+  replaceTabModel,
   revokeAllTabModels,
   revokeTabModel,
   selectTabInGroup,
@@ -88,9 +100,21 @@ export default function App() {
   const t = useT()
   const [tabState, setTabState] = useState<TabState>(createInitialTabState)
   const [dragOver, setDragOver] = useState(false)
-  const [statusBarVisible, setStatusBarVisible] = useState(false)
+  const [statusBarVisible, setStatusBarVisible] = useState(
+    () => readPreferences().general.statusBarVisible
+  )
   const [recordPopoverGroupId, setRecordPopoverGroupId] = useState<string | null>(null)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [recordingEnabled, setRecordingEnabled] = useState(
+    () => readPreferences().recording.enabled
+  )
+  const [performancePrefs, setPerformancePrefs] = useState(
+    () => readPreferences().performance
+  )
+  const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
+  const sessionPersistReadyRef = useRef(false)
+  const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
+  autoReloadRef.current = performancePrefs.autoReloadOnChange
 
   const activeTab = getActiveTab(tabState)
   const {
@@ -128,6 +152,46 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!sessionPersistReadyRef.current) return
+    writeSession(captureSessionFromTabs(tabState.tabs))
+  }, [tabState.tabs])
+
+  useEffect(() => {
+    if (window.desktop) return
+    sessionPersistReadyRef.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.setRecentMax) return
+    void window.desktop.setRecentMax(readPreferences().general.recentFilesMax)
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.setCacheDir) return
+    void window.desktop.setCacheDir(readPreferences().performance.cacheDir)
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.setWatchedModelPaths) return
+    if (!performancePrefs.autoReloadOnChange) {
+      void window.desktop.setWatchedModelPaths([])
+      return
+    }
+    const paths = tabState.tabs
+      .map(tab => tab.model?.path)
+      .filter((p): p is string => Boolean(p && canRevealModelPath(p)))
+    void window.desktop.setWatchedModelPaths([...new Set(paths)])
+  }, [tabState.tabs, performancePrefs.autoReloadOnChange])
+
+  const confirmCloseTabsWithModels = useCallback(
+    (tabs: ModelTab[]) => {
+      if (!confirmCloseTabsRef.current) return true
+      if (!tabs.some(tab => tab.model)) return true
+      return window.confirm(t('prefs.confirmCloseTabs.message'))
+    },
+    [t]
+  )
 
   const patchActive = useCallback((patch: Partial<(typeof activeTab)>) => {
     setTabState(prev => patchActiveTab(prev, patch))
@@ -185,6 +249,34 @@ export default function App() {
     [recording, exporting, applyOpenedModel, patchActive, t]
   )
 
+  const reloadModelPath = useCallback(
+    async (filePath: string) => {
+      if (!window.desktop?.readModelPath || !autoReloadRef.current) return
+      const normalize = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+      const target = normalize(filePath)
+      const tab = tabStateRef.current.tabs.find(
+        candidate => candidate.model?.path && normalize(candidate.model.path) === target
+      )
+      if (!tab || tab.recording || tab.exporting) return
+      try {
+        const file = await window.desktop.readModelPath(filePath)
+        const source = modelSourceFromOpened(file)
+        setTabState(prev => replaceTabModel(prev, tab.id, source))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : t('error.openFileFailed')
+        setTabState(prev => patchTab(prev, tab.id, { error: message, loading: false }))
+      }
+    },
+    [t]
+  )
+
+  useEffect(() => {
+    if (!window.desktop?.onModelFileChanged) return
+    return window.desktop.onModelFileChanged(filePath => {
+      void reloadModelPath(filePath)
+    })
+  }, [reloadModelPath])
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
@@ -214,16 +306,13 @@ export default function App() {
 
     let cancelled = false
     void (async () => {
-      if (!window.desktop?.takePendingOpenPaths) return
-      try {
-        const paths = await window.desktop.takePendingOpenPaths()
-        if (cancelled || paths.length === 0) return
+      const openPaths = async (paths: string[]) => {
         for (const filePath of paths) {
           if (cancelled) return
           const tab = getActiveTab(tabStateRef.current)
           if (tab.recording || tab.exporting) return
           try {
-            const file = await window.desktop.readModelPath(filePath)
+            const file = await window.desktop!.readModelPath(filePath)
             if (cancelled) return
             applyOpenedModel(file)
           } catch (err) {
@@ -232,8 +321,40 @@ export default function App() {
             setTabState(prev => openErrorInTabs(prev, message))
           }
         }
+      }
+
+      try {
+        const pending =
+          window.desktop?.takePendingOpenPaths != null
+            ? await window.desktop.takePendingOpenPaths()
+            : []
+        if (cancelled) return
+        if (pending.length > 0) {
+          await openPaths(pending)
+          return
+        }
+
+        const { startupBehavior } = readPreferences().general
+        if (startupBehavior === 'blank') return
+
+        if (startupBehavior === 'restoreSession') {
+          const { modelPaths } = readSession()
+          if (modelPaths.length > 0) await openPaths(modelPaths)
+          return
+        }
+
+        if (startupBehavior === 'openRecent' && window.desktop?.getRecentPaths) {
+          const recent = await window.desktop.getRecentPaths()
+          if (cancelled || recent.length === 0) return
+          await openPaths([recent[0]!])
+        }
       } catch {
         /* ignore */
+      } finally {
+        if (!cancelled) {
+          sessionPersistReadyRef.current = true
+          writeSession(captureSessionFromTabs(tabStateRef.current.tabs))
+        }
       }
     })()
 
@@ -253,13 +374,22 @@ export default function App() {
   }, [])
 
   const toggleStatusBar = useCallback(() => {
-    setStatusBarVisible(prev => !prev)
+    setStatusBarVisible(prev => {
+      const next = !prev
+      patchPreferences({ general: { statusBarVisible: next } })
+      return next
+    })
   }, [])
 
   useEffect(() => {
     if (!window.desktop?.onToggleStatusBar) return
     return window.desktop.onToggleStatusBar(toggleStatusBar)
   }, [toggleStatusBar])
+
+  useEffect(() => {
+    if (!window.desktop?.setAutoUpdateEnabled) return
+    void window.desktop.setAutoUpdateEnabled(readPreferences().general.autoUpdate)
+  }, [])
 
   useEffect(() => {
     if (!window.desktop?.onOpenPreferences) return
@@ -297,13 +427,17 @@ export default function App() {
   }, [recording, exporting])
 
   const closeTab = useCallback((groupId: string, id: string) => {
+    const closing = tabStateRef.current.tabs.find(tab => tab.id === id)
+    if (!closing) return
+    if (closing.recording || closing.exporting) return
+    if (!confirmCloseTabsWithModels([closing])) return
     setTabState(prev => {
       const group = getGroup(prev, groupId)
       const idx = group.tabIds.indexOf(id)
-      const closing = prev.tabs.find(tab => tab.id === id)
-      if (idx < 0 || !closing) return prev
-      if (closing.recording || closing.exporting) return prev
-      revokeTabModel(closing)
+      const current = prev.tabs.find(tab => tab.id === id)
+      if (idx < 0 || !current) return prev
+      if (current.recording || current.exporting) return prev
+      revokeTabModel(current)
       const tabs = prev.tabs.filter(tab => tab.id !== id)
       const tabIds = group.tabIds.filter(tabId => tabId !== id)
       if (tabIds.length === 0 && prev.groups.length === 1) {
@@ -326,15 +460,23 @@ export default function App() {
       })
     })
     canvasRefs.current[groupId] = null
-  }, [])
+  }, [confirmCloseTabsWithModels])
 
   const closeTabsByPredicate = useCallback((groupId: string, shouldClose: (tab: ModelTab, index: number) => boolean) => {
+    const group = getGroup(tabStateRef.current, groupId)
+    const groupTabs = getGroupTabs(tabStateRef.current, group.id)
+    const candidates = groupTabs.filter((tab, index) => {
+      if (tab.recording || tab.exporting) return false
+      return shouldClose(tab, index)
+    })
+    if (candidates.length === 0) return
+    if (!confirmCloseTabsWithModels(candidates)) return
     setTabState(prev => {
-      const group = getGroup(prev, groupId)
-      const groupTabs = getGroupTabs(prev, group.id)
+      const currentGroup = getGroup(prev, groupId)
+      const currentGroupTabs = getGroupTabs(prev, currentGroup.id)
       const kept: ModelTab[] = []
-      for (let i = 0; i < groupTabs.length; i++) {
-        const tab = groupTabs[i]!
+      for (let i = 0; i < currentGroupTabs.length; i++) {
+        const tab = currentGroupTabs[i]!
         const busy = tab.recording || tab.exporting
         if (busy || !shouldClose(tab, i)) {
           kept.push(tab)
@@ -346,27 +488,27 @@ export default function App() {
         const empty = createEmptyTab()
         return {
           ...prev,
-          tabs: prev.tabs.filter(tab => !group.tabIds.includes(tab.id)).concat(empty),
-          groups: [{ ...group, tabIds: [empty.id], activeTabId: empty.id }],
+          tabs: prev.tabs.filter(tab => !currentGroup.tabIds.includes(tab.id)).concat(empty),
+          groups: [{ ...currentGroup, tabIds: [empty.id], activeTabId: empty.id }],
         }
       }
       const keptIds = kept.map(tab => tab.id)
-      const activeIndex = group.tabIds.indexOf(group.activeTabId)
+      const activeIndex = currentGroup.tabIds.indexOf(currentGroup.activeTabId)
       const nextGroup = {
-        ...group,
+        ...currentGroup,
         tabIds: keptIds,
-        activeTabId: keptIds.includes(group.activeTabId)
-          ? group.activeTabId
+        activeTabId: keptIds.includes(currentGroup.activeTabId)
+          ? currentGroup.activeTabId
           : keptIds[Math.min(Math.max(activeIndex, 0), keptIds.length - 1)]!,
       }
       return unsplitIfNeeded({
         ...prev,
-        tabs: prev.tabs.filter(tab => !group.tabIds.includes(tab.id) || keptIds.includes(tab.id)),
-        groups: prev.groups.map(candidate => (candidate.id === group.id ? nextGroup : candidate)),
+        tabs: prev.tabs.filter(tab => !currentGroup.tabIds.includes(tab.id) || keptIds.includes(tab.id)),
+        groups: prev.groups.map(candidate => (candidate.id === currentGroup.id ? nextGroup : candidate)),
       })
     })
     canvasRefs.current[groupId] = null
-  }, [])
+  }, [confirmCloseTabsWithModels])
 
   const closeOtherTabs = useCallback(
     (groupId: string, id: string) => {
@@ -725,14 +867,15 @@ export default function App() {
   )
 
   const openButton = (
-    <button
-      type="button"
-      className="btn btn-primary model-pick-btn"
+    <Button
+      variant="contained"
+      color="primary"
+      className="model-pick-btn"
       disabled={pickerDisabled}
       onClick={() => void handleOpenModel()}
     >
       {t('app.openFile')}
-    </button>
+    </Button>
   )
   const getCaptureRef = (groupId: string) =>
     (captureHandleRefs.current[groupId] ??= { current: null })
@@ -805,20 +948,15 @@ export default function App() {
                 />
                 <div className="viewport-body">
                   {groupTab.error ? (
-                    <div className="viewport-error-banner alert alert-error" role="alert">
+                    <Alert
+                      severity="error"
+                      className="viewport-error-banner"
+                      onClose={() =>
+                        setTabState(prev => patchTab(prev, groupTab.id, { error: null }))
+                      }
+                    >
                       <span className="viewport-error-banner-text">{groupTab.error}</span>
-                      <button
-                        type="button"
-                        className="viewport-error-banner-close"
-                        aria-label={t('common.close')}
-                        title={t('common.close')}
-                        onClick={() =>
-                          setTabState(prev => patchTab(prev, groupTab.id, { error: null }))
-                        }
-                      >
-                        <Icon icon="material-symbols:close" aria-hidden />
-                      </button>
-                    </div>
+                    </Alert>
                   ) : null}
                   {groupTab.model ? (
                     <>
@@ -830,6 +968,8 @@ export default function App() {
                         shadingMode={groupTab.shadingMode}
                         recording={groupTab.recording || groupTab.exporting}
                         secondsPerRevolution={groupTab.secondsPerRevolution}
+                        msaa={performancePrefs.msaa}
+                        maxTextureSize={performancePrefs.maxTextureSize}
                         driveRef={getDriveRef(group.id)}
                         onLoading={nextLoading =>
                           setTabState(prev => patchTab(prev, groupTab.id, { loading: nextLoading }))
@@ -879,132 +1019,136 @@ export default function App() {
                           <span>{t('app.loadingModel')}</span>
                         </div>
                       ) : null}
-                      {groupTab.recording ? <div className="badge badge-error rec-badge">REC</div> : null}
-                      <div className="record-fab-wrap">
-                        <button
-                          type="button"
-                          className="record-fab btn btn-circle"
-                          disabled={groupLocked || groupTab.loading}
-                          aria-label={t('record.start')}
-                          title={t('record.start')}
-                          onPointerDown={() => onRecordButtonPointerDown(group.id)}
-                          onPointerUp={() => onRecordButtonPointerUp(group.id)}
-                          onPointerCancel={onRecordButtonPointerLeave}
-                          onPointerLeave={onRecordButtonPointerLeave}
-                        >
-                          <span className="record-fab-inner" aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          className="record-fab-settings"
-                          disabled={groupLocked || groupTab.loading}
-                          aria-label={t('record.settings')}
-                          title={t('record.settings')}
-                          onClick={() => {
-                            setTabState(prev => focusGroup(prev, group.id))
-                            setRecordPopoverGroupId(id => (id === group.id ? null : group.id))
-                          }}
-                        >
-                          <Icon icon="material-symbols:adjust" aria-hidden />
-                        </button>
-                        {recordPopoverGroupId === group.id && !groupLocked ? (
-                          <div className="record-popover" role="dialog" aria-label={t('record.settings')}>
-                            <div className="record-popover-header">
-                              <strong>{t('record.settings')}</strong>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => setRecordPopoverGroupId(null)}
-                                aria-label={t('common.close')}
-                                title={t('common.close')}
-                              >
-                                <Icon icon="material-symbols:close" aria-hidden />
-                              </button>
+                      {groupTab.recording ? (
+                        <Chip label="REC" color="error" size="small" className="rec-badge" />
+                      ) : null}
+                      {recordingEnabled ? (
+                        <div className="record-fab-wrap">
+                          <IconButton
+                            className="record-fab"
+                            color="error"
+                            disabled={groupLocked || groupTab.loading}
+                            aria-label={t('record.start')}
+                            title={t('record.start')}
+                            onPointerDown={() => onRecordButtonPointerDown(group.id)}
+                            onPointerUp={() => onRecordButtonPointerUp(group.id)}
+                            onPointerCancel={onRecordButtonPointerLeave}
+                            onPointerLeave={onRecordButtonPointerLeave}
+                          >
+                            <span className="record-fab-inner" aria-hidden />
+                          </IconButton>
+                          <button
+                            type="button"
+                            className="record-fab-settings"
+                            disabled={groupLocked || groupTab.loading}
+                            aria-label={t('record.settings')}
+                            title={t('record.settings')}
+                            onClick={() => {
+                              setTabState(prev => focusGroup(prev, group.id))
+                              setRecordPopoverGroupId(id => (id === group.id ? null : group.id))
+                            }}
+                          >
+                            <Icon icon="material-symbols:adjust" aria-hidden />
+                          </button>
+                          {recordPopoverGroupId === group.id && !groupLocked ? (
+                            <div className="record-popover" role="dialog" aria-label={t('record.settings')}>
+                              <div className="record-popover-header">
+                                <strong>{t('record.settings')}</strong>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setRecordPopoverGroupId(null)}
+                                  aria-label={t('common.close')}
+                                  title={t('common.close')}
+                                >
+                                  <Icon icon="material-symbols:close" aria-hidden />
+                                </IconButton>
+                              </div>
+                              <div className="record-popover-summary">
+                                {`${groupTab.secondsPerRevolution}s/rev · ${groupTab.recordingExportFormat.toUpperCase()} · ${groupTab.recordingSizeId} · ${normalizeRecordingQuality(groupTab.recordingQuality)}`}
+                              </div>
+                              <p className="scene-settings-hint">{t('prefs.recording.hint')}</p>
+                              <FieldRow id={`record-pop-seconds-${group.id}`} label={t('record.secPerRev')}>
+                                <TextField
+                                  id={`record-pop-seconds-${group.id}`}
+                                  type="number"
+                                  size="small"
+                                  slotProps={{ htmlInput: { min: 3, max: 60, step: 1 } }}
+                                  value={groupTab.secondsPerRevolution}
+                                  onChange={e =>
+                                    setTabState(prev =>
+                                      patchTab(prev, groupTab.id, {
+                                        secondsPerRevolution:
+                                          Number(e.target.value) || DEFAULT_SECONDS_PER_REV,
+                                      })
+                                    )
+                                  }
+                                />
+                              </FieldRow>
+                              <FieldRow id={`record-pop-format-${group.id}`} label={t('record.export')}>
+                                <TextField
+                                  id={`record-pop-format-${group.id}`}
+                                  select
+                                  size="small"
+                                  value={groupTab.recordingExportFormat}
+                                  onChange={e =>
+                                    setTabState(prev =>
+                                      patchTab(prev, groupTab.id, {
+                                        recordingExportFormat: e.target.value as RecordingExportFormat,
+                                      })
+                                    )
+                                  }
+                                >
+                                  {RECORDING_EXPORT_FORMAT_OPTIONS.map(opt => (
+                                    <MenuItem key={opt.value} value={opt.value}>
+                                      {t(`record.format.${opt.value}` as MessageKey)}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </FieldRow>
+                              <FieldRow id={`record-pop-size-${group.id}`} label={t('record.size')}>
+                                <TextField
+                                  id={`record-pop-size-${group.id}`}
+                                  select
+                                  size="small"
+                                  value={groupTab.recordingSizeId}
+                                  onChange={e =>
+                                    setTabState(prev =>
+                                      patchTab(prev, groupTab.id, { recordingSizeId: e.target.value })
+                                    )
+                                  }
+                                >
+                                  {RECORDING_SIZE_PRESETS.map(preset => (
+                                    <MenuItem key={preset.id} value={preset.id}>
+                                      {t(`record.size.${preset.id}` as MessageKey)}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </FieldRow>
+                              <FieldRow id={`record-pop-quality-${group.id}`} label={t('record.quality')}>
+                                <TextField
+                                  id={`record-pop-quality-${group.id}`}
+                                  select
+                                  size="small"
+                                  value={normalizeRecordingQuality(groupTab.recordingQuality)}
+                                  onChange={e =>
+                                    setTabState(prev =>
+                                      patchTab(prev, groupTab.id, {
+                                        recordingQuality: normalizeRecordingQuality(e.target.value),
+                                      })
+                                    )
+                                  }
+                                >
+                                  {RECORDING_QUALITY_OPTIONS.map(opt => (
+                                    <MenuItem key={opt.value} value={opt.value}>
+                                      {t(`record.quality.${opt.value}` as MessageKey)}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </FieldRow>
                             </div>
-                            <div className="record-popover-summary">
-                              {`${groupTab.secondsPerRevolution}s/rev · ${groupTab.recordingExportFormat.toUpperCase()} · ${groupTab.recordingSizeId} · ${normalizeRecordingQuality(groupTab.recordingQuality)}`}
-                            </div>
-                            <p className="scene-settings-hint">{t('prefs.recording.hint')}</p>
-                            <FieldRow id={`record-pop-seconds-${group.id}`} label={t('record.secPerRev')}>
-                              <input
-                                id={`record-pop-seconds-${group.id}`}
-                                type="number"
-                                className="input input-bordered input-sm"
-                                min={3}
-                                max={60}
-                                step={1}
-                                value={groupTab.secondsPerRevolution}
-                                onChange={e =>
-                                  setTabState(prev =>
-                                    patchTab(prev, groupTab.id, {
-                                      secondsPerRevolution:
-                                        Number(e.target.value) || DEFAULT_SECONDS_PER_REV,
-                                    })
-                                  )
-                                }
-                              />
-                            </FieldRow>
-                            <FieldRow id={`record-pop-format-${group.id}`} label={t('record.export')}>
-                              <select
-                                id={`record-pop-format-${group.id}`}
-                                className="select select-bordered select-sm"
-                                value={groupTab.recordingExportFormat}
-                                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                                  setTabState(prev =>
-                                    patchTab(prev, groupTab.id, {
-                                      recordingExportFormat: e.target.value as RecordingExportFormat,
-                                    })
-                                  )
-                                }
-                              >
-                                {RECORDING_EXPORT_FORMAT_OPTIONS.map(opt => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {t(`record.format.${opt.value}` as MessageKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            </FieldRow>
-                            <FieldRow id={`record-pop-size-${group.id}`} label={t('record.size')}>
-                              <select
-                                id={`record-pop-size-${group.id}`}
-                                className="select select-bordered select-sm"
-                                value={groupTab.recordingSizeId}
-                                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                                  setTabState(prev =>
-                                    patchTab(prev, groupTab.id, { recordingSizeId: e.target.value })
-                                  )
-                                }
-                              >
-                                {RECORDING_SIZE_PRESETS.map(preset => (
-                                  <option key={preset.id} value={preset.id}>
-                                    {t(`record.size.${preset.id}` as MessageKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            </FieldRow>
-                            <FieldRow id={`record-pop-quality-${group.id}`} label={t('record.quality')}>
-                              <select
-                                id={`record-pop-quality-${group.id}`}
-                                className="select select-bordered select-sm"
-                                value={normalizeRecordingQuality(groupTab.recordingQuality)}
-                                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                                  setTabState(prev =>
-                                    patchTab(prev, groupTab.id, {
-                                      recordingQuality: normalizeRecordingQuality(e.target.value),
-                                    })
-                                  )
-                                }
-                              >
-                                {RECORDING_QUALITY_OPTIONS.map(opt => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {t(`record.quality.${opt.value}` as MessageKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            </FieldRow>
-                          </div>
-                        ) : null}
-                      </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <div className="empty flex flex-col items-center justify-center gap-3">
@@ -1082,7 +1226,17 @@ export default function App() {
         ) : null}
       </main>
 
-      <PreferencesModal open={preferencesOpen} onClose={() => setPreferencesOpen(false)} />
+      <PreferencesModal
+        open={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
+        onPreferencesChange={prefs => {
+          setRecordingEnabled(prefs.recording.enabled)
+          if (!prefs.recording.enabled) setRecordPopoverGroupId(null)
+          setStatusBarVisible(prefs.general.statusBarVisible)
+          confirmCloseTabsRef.current = prefs.general.confirmCloseTabs
+          setPerformancePrefs(prefs.performance)
+        }}
+      />
     </div>
   )
 }

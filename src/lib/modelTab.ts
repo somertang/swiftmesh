@@ -161,6 +161,21 @@ export function patchTab(state: TabState, tabId: string, patch: Partial<ModelTab
   }
 }
 
+/** Reload a model into an existing tab (revokes the previous source). */
+export function replaceTabModel(state: TabState, tabId: string, source: ModelSource): TabState {
+  const tab = state.tabs.find(candidate => candidate.id === tabId)
+  if (!tab || tab.recording || tab.exporting) {
+    revokeModelSource(source)
+    return state
+  }
+  revokeTabModel(tab)
+  return patchTab(state, tabId, {
+    model: source,
+    error: null,
+    loading: true,
+  })
+}
+
 export function patchActiveTab(state: TabState, patch: Partial<ModelTab>): TabState {
   return patchTab(state, getActiveTab(state).id, patch)
 }
