@@ -1,8 +1,8 @@
 {
   "name": "swiftmesh",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
-  "description": "SwiftMesh — open local .glb / .gltf / .obj, inspect, record turntable",
+  "description": "SwiftMesh \u2014 open local .glb / .gltf / .obj, inspect, record turntable",
   "author": "Somer Tang",
   "license": "MIT",
   "repository": {
