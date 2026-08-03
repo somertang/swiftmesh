@@ -26,16 +26,23 @@ Install the latest build from:
 | macOS Apple Silicon | `SwiftMesh-x.y.z-arm64.dmg` | Prefer this on M1/M2/M3/M4 |
 | macOS Intel | `SwiftMesh-x.y.z-x64.dmg` | Intel Macs |
 
-macOS builds are **not code-signed**. On first launch Gatekeeper may block the app. Use one of:
+#### macOS: “SwiftMesh.app is damaged and can’t be opened”
 
-1. Right-click the app → **Open** → confirm, or  
-2. Remove quarantine after mounting the DMG:
+macOS builds are **not code-signed or notarized**. After a browser download, Gatekeeper attaches a quarantine flag. On recent macOS versions this often appears as **“已损坏 / is damaged”** (not a corrupt download).
+
+Clear quarantine, then open the app:
 
 ```bash
+# If you copied the app to Applications:
 xattr -cr /Applications/SwiftMesh.app
+
+# Or point at the .app wherever you placed it, for example:
+# xattr -cr /path/to/SwiftMesh.app
 ```
 
-(Adjust the path if you dragged the app elsewhere.)
+Then launch SwiftMesh normally (Spotlight, Finder, or Dock).
+
+Right-click → **Open** sometimes works for “unidentified developer”, but for the **“damaged”** dialog, `xattr -cr` is the reliable fix.
 
 ### Features
 
