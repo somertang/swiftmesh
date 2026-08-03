@@ -17,9 +17,9 @@
     "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
     "brand-icons": "node scripts/generate-brand-icons.mjs",
     "prepare-ffmpeg-mac": "node scripts/prepare-ffmpeg-mac.mjs",
-    "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win",
+    "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win --publish never",
     "dist:win:publish": "pnpm run build && pnpm run brand-icons && electron-builder --win nsis --publish always",
-    "dist:mac": "pnpm run build && pnpm run brand-icons && pnpm run prepare-ffmpeg-mac && electron-builder --mac dmg zip --arm64 --x64",
+    "dist:mac": "pnpm run build && pnpm run brand-icons && pnpm run prepare-ffmpeg-mac && electron-builder --mac dmg zip --arm64 --x64 --publish never",
     "preview": "vite preview"
   },
   "pnpm": {
