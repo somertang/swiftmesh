@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import {
   convertWebmToMp4,
   encodePngFramesToMp4,
@@ -526,64 +526,23 @@ function resolveAppIconPath() {
     : path.join(__dirname, '../src/assets/logo.png')
 }
 
-function resolveUserGuidePath() {
-  if (app.isPackaged) {
-    // Prefer extraResources (outside asar) so the system browser can open the file.
-    return path.join(process.resourcesPath, 'help', 'index.html')
-  }
-  return path.join(__dirname, '../public/help/index.html')
-}
+const USER_GUIDE_URL = 'https://somertang.github.io/swiftmesh/help/'
 
 async function openUserGuide() {
-  let guidePath = resolveUserGuidePath()
   try {
-    await fs.access(guidePath, fsConstants.F_OK)
-  } catch {
-    if (app.isPackaged) {
-      const fallback = path.join(__dirname, '../dist/help/index.html')
-      try {
-        await fs.access(fallback, fsConstants.F_OK)
-        guidePath = fallback
-      } catch {
-        await dialog.showMessageBox({
-          type: 'warning',
-          title: t('help.missingTitle'),
-          message: t('help.missingMessage'),
-          buttons: [t('common.close')],
-          defaultId: 0,
-          noLink: true,
-        })
-        return
-      }
-    } else {
-      await dialog.showMessageBox({
-        type: 'warning',
-        title: t('help.missingTitle'),
-        message: t('help.missingMessage'),
-        buttons: [t('common.close')],
-        defaultId: 0,
-        noLink: true,
-      })
-      return
-    }
-  }
-
-  // openPath uses the OS default handler for .html (browser). file:// via openExternal
-  // is unreliable for packaged/local paths on Windows.
-  const openError = await shell.openPath(guidePath)
-  if (openError) {
-    try {
-      await shell.openExternal(pathToFileURL(guidePath).href)
-    } catch (error) {
-      await dialog.showMessageBox({
-        type: 'warning',
-        title: t('help.missingTitle'),
-        message: openError || (error instanceof Error ? error.message : String(error)),
-        buttons: [t('common.close')],
-        defaultId: 0,
-        noLink: true,
-      })
-    }
+    await shell.openExternal(USER_GUIDE_URL)
+  } catch (error) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: t('help.openFailedTitle'),
+      message:
+        error instanceof Error
+          ? error.message
+          : t('help.openFailedMessage'),
+      buttons: [t('common.close')],
+      defaultId: 0,
+      noLink: true,
+    })
   }
 }
 

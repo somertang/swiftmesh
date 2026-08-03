@@ -318,9 +318,9 @@ export const en = {
   'menu.lang.zh': '简体中文',
   'menu.help': 'Help',
   'menu.userGuide': 'User Guide…',
-  'help.missingTitle': 'User Guide unavailable',
-  'help.missingMessage':
-    'The local User Guide file was not found. Reinstall SwiftMesh or rebuild the app so public/help is included.',
+  'help.openFailedTitle': 'User Guide unavailable',
+  'help.openFailedMessage':
+    'Unable to open the online User Guide. Check your network connection and try again.',
   'menu.quit': 'Quit',
   'menu.reload': 'Reload',
   'menu.toggleDevTools': 'Toggle Developer Tools',
@@ -686,8 +686,8 @@ export const zh: Record<MessageKey, string> = {
   'menu.lang.zh': '简体中文',
   'menu.help': '帮助',
   'menu.userGuide': '用户指南…',
-  'help.missingTitle': '无法打开用户指南',
-  'help.missingMessage': '未找到本地用户指南文件。请重新安装 SwiftMesh，或重新构建应用以确保包含 public/help。',
+  'help.openFailedTitle': '无法打开用户指南',
+  'help.openFailedMessage': '无法打开在线用户指南。请检查网络连接后重试。',
   'menu.quit': '退出',
   'menu.reload': '重新加载',
   'menu.toggleDevTools': '切换开发者工具',
