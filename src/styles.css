@@ -2350,9 +2350,41 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   border: 1px solid color-mix(in srgb, var(--text, #e8eaef) 14%, transparent);
   background: color-mix(in srgb, var(--bg, #0f1115) 65%, #000);
   color: inherit;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
+  font-size: 0.85rem;
+  line-height: 1.55;
   word-break: break-word;
+}
+
+.update-release-notes :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0 0 0.55em;
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.update-release-notes :where(p, ul, ol) {
+  margin: 0 0 0.7em;
+}
+
+.update-release-notes :where(ul, ol) {
+  padding-left: 1.25em;
+}
+
+.update-release-notes :where(li + li) {
+  margin-top: 0.25em;
+}
+
+.update-release-notes :where(a) {
+  color: var(--accent, #f28c38);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.update-release-notes :where(code) {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.update-release-notes :where(:last-child) {
+  margin-bottom: 0;
 }
