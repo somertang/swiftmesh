@@ -539,7 +539,7 @@ export function ModelTabBar({
             <MenuItem onClick={() => runMenuAction(() => onCloseAll())}>
               {t('app.tab.closeAll')}
             </MenuItem>
-            <Divider />
+            <Divider component="li" />
             <MenuItem
               disabled={locked || !canSplit}
               onClick={() => runMenuAction(() => onSplitRight(contextTab.id))}
@@ -552,7 +552,7 @@ export function ModelTabBar({
             >
               {t('app.tab.splitDown')}
             </MenuItem>
-            <Divider />
+            <Divider component="li" />
             <MenuItem
               disabled={!canReveal}
               onClick={() => runMenuAction(() => onRevealInExplorer(contextTab.id))}
