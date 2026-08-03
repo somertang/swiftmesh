@@ -1,50 +1,108 @@
 # SwiftMesh
 
-Standalone Windows desktop app for viewing local `.glb` models, inspecting scene data, and recording a one-revolution turntable video.
+Windows desktop app for viewing local 3D models, inspecting scene data, and recording a one-revolution turntable video.
 
-## Requirements
+**Formats:** `.glb` / `.gltf` / `.obj`  
+**Stack:** Electron · React · Three.js · Vite · Material UI  
+**License:** [MIT](./LICENSE)
+
+---
+
+## For users
+
+### Download
+
+Install the latest **Windows NSIS** build from:
+
+**[Releases](https://github.com/somertang/swiftmesh/releases)**
+
+Use the `SwiftMesh Setup x.y.z.exe` installer. Portable builds may be present in some releases; **in-app auto-update targets the NSIS install**.
+
+### Features
+
+- Open local models via **File → Open…** (Ctrl+O), drag-and-drop, or Open Recent
+- Multi-tab viewing and camera controls
+- Inspect hierarchy, textures, materials, geometries, and model info
+- Record a turntable clip (MP4 / WebM) with size and quality presets (MP4 via bundled ffmpeg)
+- Preferences: appearance themes, lighting, recording output folder, performance options, updates, and About
+- UI language: English / 中文
+- Optional auto-update from GitHub Releases (NSIS builds)
+
+### Quick usage
+
+1. Install and launch SwiftMesh.
+2. Open a `.glb`, `.gltf`, or `.obj` file.
+3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info.
+4. Adjust lighting and camera as needed.
+5. In **Record**, pick export format, size, and quality, then record one revolution.
+6. Open **Preferences** (Ctrl+,) for themes, performance, recording save location, updates, and license/repo info.
+
+Remote URL / cloud loading is not included.
+
+---
+
+## For developers
+
+### Requirements
 
 - Node.js 20+
 - [pnpm](https://pnpm.io/) 9+
 - Windows x64 (packaging targets NSIS + portable)
 
-## Scripts
+### Setup
 
 ```bash
 pnpm install
-pnpm run icons    # generate Material Symbols CSS
-pnpm run dev      # Vite + Electron
-pnpm run build    # production renderer + electron bundles
-pnpm run dist:win # NSIS installer + portable exe under release/
+pnpm run dev          # Vite + Electron
 ```
 
-## Usage
+### Scripts
 
-- **File → Open…** (Ctrl+O) or the Open button / file picker / drag-drop a `.glb`
-- Tune camera in the left panel
-- Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info
-- In **Record**, choose **Export** (MP4 / WebM / MP4 + WebM), **Size** (viewport or PC/mobile presets), and **Quality** (Low / Medium / High), then **Record 1 rev**
-- After recording, pick a save path; MP4 uses bundled ffmpeg (H.264), cover-cropped to the selected size. Higher quality increases file size and export time.
+| Script | Description |
+| --- | --- |
+| `pnpm run dev` | Development app (syncs glTF vendor assets, then Vite + Electron) |
+| `pnpm run build` | Typecheck + production renderer / Electron bundles |
+| `pnpm run sync:vendor` | Copy Draco / Basis transcoder assets into `public/vendor` |
+| `pnpm run brand-icons` | Generate Windows app icons |
+| `pnpm run dist:win` | Build NSIS installer + portable exe under `release/` |
+| `pnpm run dist:win:publish` | Build **NSIS only** and publish to GitHub Releases |
+| `pnpm run preview` | Vite preview of the renderer build |
 
-Remote URL / S3 loading is intentionally not included in this MVP.
+### Project layout
 
-## Rename local clone (optional)
+```text
+swiftmesh/
+├── electron/          # Main process (window, IPC, ffmpeg, updater, recent files)
+├── src/               # Renderer (React UI + Three.js viewer)
+│   ├── components/    # App shell, viewer, preferences, inspect panels
+│   ├── lib/           # Preferences, recording, themes, loaders, session
+│   ├── i18n/          # en / zh messages
+│   ├── uiTheme/       # Material UI theme wiring
+│   └── previewTheme/  # Model preview theme
+├── public/vendor/     # Draco / Basis assets used by glTF loaders
+├── scripts/           # Vendor sync + brand icon generation
+├── build/             # Packaging icons / resources
+└── release/           # electron-builder output (gitignored locally)
+```
 
-If your checkout folder or remote URL still uses the old name (`model-viewer-desktop`), you can align them without changing app behavior:
+### Releases & auto-update
 
-1. **Close the app and any terminals** using this directory.
-2. **Rename the folder** (example on Windows PowerShell, one level above the repo):
+1. Bump `version` in `package.json`.
+2. Tag and push (for example `v0.2.0`).
+3. Publish with a GitHub token that can create releases:
 
-   ```powershell
-   Rename-Item -Path "model-viewer-desktop" -NewName "swiftmesh"
-   ```
+```bash
+# PowerShell
+$env:GH_TOKEN = "…"   # or rely on an already configured token
+pnpm run dist:win:publish
+```
 
-3. **Open the project** from the new path and run `pnpm install` if needed.
-4. **Update git remote** (only if your hosting URL changed), e.g.:
+That uploads the NSIS installer, blockmap, and `latest.yml` so installed NSIS builds can check for updates from Preferences → Updates.
 
-   ```bash
-   git remote -v
-   git remote set-url origin https://github.com/YOUR_ORG/swiftmesh.git
-   ```
+Repository: [somertang/swiftmesh](https://github.com/somertang/swiftmesh)
 
-5. **Note on installs:** `appId` is now `com.swiftmesh.app`. An older build installed under `com.alvanon.model-viewer-desktop` is treated as a separate app; uninstall the old one if you no longer need it.
+---
+
+## License
+
+MIT © [Somer Tang](https://github.com/somertang) — see [LICENSE](./LICENSE).

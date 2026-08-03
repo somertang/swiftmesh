@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "SwiftMesh — open local .glb / .gltf / .obj, inspect, record turntable",
-  "author": "Semon Tang",
+  "author": "Somer Tang",
   "license": "MIT",
   "repository": {
     "type": "git",
