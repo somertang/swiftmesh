@@ -72,12 +72,12 @@ type Props = {
 }
 
 const NAV: { id: PreferencesSection; labelKey: MessageKey; icon: string }[] = [
-  { id: 'general', labelKey: 'prefs.nav.general', icon: 'material-symbols:adjust' },
-  { id: 'appearance', labelKey: 'prefs.nav.appearance', icon: 'material-symbols:palette' },
-  { id: 'performance', labelKey: 'prefs.nav.performance', icon: 'material-symbols:blur-circular-outline' },
-  { id: 'recording', labelKey: 'prefs.nav.recording', icon: 'material-symbols:circle' },
-  { id: 'lighting', labelKey: 'prefs.nav.lighting', icon: 'material-symbols:contrast' },
-  { id: 'about', labelKey: 'prefs.nav.about', icon: 'material-symbols:info' },
+  { id: 'general', labelKey: 'prefs.nav.general', icon: 'material-symbols:settings-outline' },
+  { id: 'appearance', labelKey: 'prefs.nav.appearance', icon: 'material-symbols:palette-outline' },
+  { id: 'performance', labelKey: 'prefs.nav.performance', icon: 'material-symbols:speed-outline' },
+  { id: 'recording', labelKey: 'prefs.nav.recording', icon: 'material-symbols:videocam-outline' },
+  { id: 'lighting', labelKey: 'prefs.nav.lighting', icon: 'material-symbols:wb-sunny-outline' },
+  { id: 'about', labelKey: 'prefs.nav.about', icon: 'material-symbols:info-outline' },
 ]
 
 type SettingId =
