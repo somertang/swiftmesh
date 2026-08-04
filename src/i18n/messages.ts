@@ -92,7 +92,7 @@ export const en = {
   'record.outputDir.invalidMessage':
     'The default save folder is missing or not writable. Please choose where to save this recording.',
   'record.outputDir.hint':
-    'When set, finished recordings are saved here automatically using a timestamped filename.',
+    'When set, finished recordings are saved here automatically using a filename with size and quality (e.g. model-turntable_mobile-1080x1920_high). Duplicates get a numeric suffix.',
   'record.outputLocation': 'Default save location',
   'record.outputLocation.ask': 'Ask each time',
   'record.outputLocation.folder': 'Specified folder',
@@ -484,7 +484,7 @@ export const zh: Record<MessageKey, string> = {
   'record.outputDir.invalidMessage':
     '默认存储目录不存在或无法写入。请为此次录制选择保存位置。',
   'record.outputDir.hint':
-    '设置后，录制完成将自动保存到该目录，文件名带时间戳以避免覆盖。',
+    '设置后，录制完成将自动保存到该目录，文件名含尺寸与画质（如 model-turntable_mobile-1080x1920_high）；重名时追加数字后缀。',
   'record.outputLocation': '默认存放位置',
   'record.outputLocation.ask': '每次询问',
   'record.outputLocation.folder': '指定的文件夹',
