@@ -133,6 +133,8 @@ export type DesktopApi = {
   /** Sync preferred cache root to the main process (empty = OS temp). */
   setCacheDir: (dir: string) => Promise<void>
   showItemInFolder: (filePath: string) => Promise<void>
+  /** Open a local file with the OS default application (e.g. video player). */
+  openPath: (filePath: string) => Promise<{ ok: true } | { ok: false; reason: string }>
   /** Record an absolute local path in File → Open Recent (no-op if not absolute). */
   rememberRecentPath: (filePath: string) => Promise<void>
   /** Sync UI locale to the application menu (en | zh). */

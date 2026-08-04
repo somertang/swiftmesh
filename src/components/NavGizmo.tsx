@@ -21,6 +21,8 @@ export type NavAxisId = 'x' | 'y' | 'z' | '-x' | '-y' | '-z'
 export type NavGizmoApi = {
   focusAxis: (axis: NavAxisId) => void
   orbitByDelta: (deltaX: number, deltaY: number) => void
+  /** Call when a gizmo drag ends so camera settings can sync to the panel. */
+  notifyCameraSettled: () => void
 }
 
 type OrbitControlsLike = {
@@ -82,9 +84,11 @@ type AnimState = {
 export function NavGizmoBridge({
   apiRef,
   orientationRef,
+  onCameraSettled,
 }: {
   apiRef: MutableRefObject<NavGizmoApi | null>
   orientationRef: MutableRefObject<OrientationSnapshot>
+  onCameraSettled?: () => void
 }) {
   const camera = useThree(s => s.camera)
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
@@ -93,6 +97,8 @@ export function NavGizmoBridge({
   const defaultUpRef = useRef(new Vector3(0, 1, 0))
   const controlsRef = useRef(controls)
   controlsRef.current = controls
+  const onCameraSettledRef = useRef(onCameraSettled)
+  onCameraSettledRef.current = onCameraSettled
 
   const focusAxis = useCallback(
     (axis: NavAxisId) => {
@@ -138,12 +144,16 @@ export function NavGizmoBridge({
     [camera, invalidate]
   )
 
+  const notifyCameraSettled = useCallback(() => {
+    onCameraSettledRef.current?.()
+  }, [])
+
   useEffect(() => {
-    apiRef.current = { focusAxis, orbitByDelta }
+    apiRef.current = { focusAxis, orbitByDelta, notifyCameraSettled }
     return () => {
       apiRef.current = null
     }
-  }, [apiRef, focusAxis, orbitByDelta])
+  }, [apiRef, focusAxis, orbitByDelta, notifyCameraSettled])
 
   useFrame((_, delta) => {
     if (!(camera instanceof PerspectiveCamera)) return
@@ -182,6 +192,7 @@ export function NavGizmoBridge({
       camera.up.copy(defaultUpRef.current)
       orbit.update()
       animRef.current = null
+      onCameraSettledRef.current?.()
     }
   })
 
@@ -271,6 +282,8 @@ export function NavGizmoCard({ apiRef, orientationRef }: NavGizmoCardProps) {
     }
     if (!session.moved && session.axis) {
       apiRef.current?.focusAxis(session.axis)
+    } else if (session.moved) {
+      apiRef.current?.notifyCameraSettled()
     }
     dragRef.current = null
     cardRef.current?.classList.remove('is-dragging')

@@ -1,8 +1,45 @@
 import { Box3, MathUtils, Vector3, type PerspectiveCamera, type Object3D } from 'three'
+import type { CameraSettings } from '../config/cameraDefaults'
 
 type ControlsLike = {
   target: Vector3
   update: () => void
+}
+
+const CAMERA_SETTINGS_EPS = 1e-4
+
+/** Snapshot live camera + orbit target into panel settings shape. */
+export function readCameraSettings(
+  camera: PerspectiveCamera,
+  controls: ControlsLike | null | undefined
+): CameraSettings {
+  const target = controls?.target
+  return {
+    posX: camera.position.x,
+    posY: camera.position.y,
+    posZ: camera.position.z,
+    targetX: target?.x ?? 0,
+    targetY: target?.y ?? 0,
+    targetZ: target?.z ?? 0,
+    fov: camera.fov,
+  }
+}
+
+function nearlyEqual(a: number, b: number, eps = CAMERA_SETTINGS_EPS) {
+  return Math.abs(a - b) <= eps
+}
+
+/** True when two camera settings match within a small float tolerance. */
+export function cameraSettingsEqual(a: CameraSettings, b: CameraSettings, eps = CAMERA_SETTINGS_EPS) {
+  return (
+    nearlyEqual(a.posX, b.posX, eps) &&
+    nearlyEqual(a.posY, b.posY, eps) &&
+    nearlyEqual(a.posZ, b.posZ, eps) &&
+    nearlyEqual(a.targetX, b.targetX, eps) &&
+    nearlyEqual(a.targetY, b.targetY, eps) &&
+    nearlyEqual(a.targetZ, b.targetZ, eps) &&
+    nearlyEqual(a.fov, b.fov, eps)
+  )
 }
 
 /** Fit camera to an object bbox — mirrors glb-viewer-core `focus_camera_on_object`. */

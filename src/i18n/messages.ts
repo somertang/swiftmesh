@@ -227,6 +227,11 @@ export const en = {
 
   'export.capturing': 'Capturing frames… {done} / {total}',
 
+  'record.savedTitle': 'Recording saved',
+  'record.savedPath': 'Saved to: {path}',
+  'record.openVideo': 'Open video',
+  'record.openVideoFailed': 'Could not open the video: {reason}',
+
   'toolbar.aria': 'Scene inspect tools',
   'tool.hierarchy': 'Hierarchy',
   'tool.textures': 'Textures',
@@ -594,6 +599,11 @@ export const zh: Record<MessageKey, string> = {
   'error.encodingStarting': '开始处理…',
 
   'export.capturing': '正在截帧… {done} / {total}',
+
+  'record.savedTitle': '录制已保存',
+  'record.savedPath': '保存位置：{path}',
+  'record.openVideo': '打开视频',
+  'record.openVideoFailed': '无法打开视频：{reason}',
 
   'toolbar.aria': '场景检查工具',
   'tool.hierarchy': '层级',

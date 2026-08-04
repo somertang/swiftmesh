@@ -40,24 +40,55 @@ export const ExportProgressModal: FC<Props> = ({ phase, canStop = false, stopLab
       maxWidth="xs"
       fullWidth
       className="z-10000"
+      slotProps={{
+        backdrop: {
+          sx: {
+            backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          },
+        },
+        paper: {
+          sx: {
+            backgroundImage: 'none',
+          },
+        },
+      }}
       onClose={(_event, reason) => {
         if (reason === 'backdropClick' || reason === 'escapeKeyDown') return
       }}
     >
-      <DialogContent className="text-center">
-        <Typography variant="body2" className="mb-3">
+      <DialogContent
+        sx={{
+          textAlign: 'center',
+          px: 3.5,
+          pt: 3.5,
+          pb: 3,
+        }}
+      >
+        <Typography variant="body2" sx={{ mb: 2.5 }}>
           {label}
         </Typography>
-        <LinearProgress variant="determinate" value={percent} color="primary" />
-        <Typography variant="caption" color="text.secondary" className="mt-2 block">
+        <LinearProgress
+          variant="determinate"
+          value={percent}
+          color="primary"
+          sx={{
+            height: 8,
+            borderRadius: 1,
+            mx: 0.5,
+          }}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           {percent}%
         </Typography>
         {canStop && onStop ? (
-          <div className="mt-4">
-            <Button variant="contained" color="error" size="small" onClick={onStop}>
-              {stopLabel ?? 'Stop recording'}
-            </Button>
-          </div>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={onStop}
+            sx={{ mt: 3 }}
+          >
+            {stopLabel ?? 'Stop recording'}
+          </Button>
         ) : null}
       </DialogContent>
     </Dialog>
