@@ -57,6 +57,7 @@ import {
   quitAndInstallUpdate,
   setAutoUpdateEnabled,
 } from './updater'
+import { buildDarwinApplicationMenu } from './appMenu'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -423,20 +424,79 @@ async function openModelsInRunningWindow(filePaths: string[]) {
 
 function applyAppLocale(locale: Locale) {
   appLocale = locale
+  void rebuildApplicationMenu()
 }
 
 const TITLEBAR_OVERLAY_HEIGHT = 36
+/** macOS traffic lights at trafficLightPosition.x=14 + button cluster + gap. */
+const TRAFFIC_LIGHT_CONTROLS_INSET = 80
 
 function notifyRecentPathsChanged() {
   void loadRecentPaths().then(paths => {
     mainWindow?.webContents.send('desktop:recent-paths-changed', paths)
+    void rebuildApplicationMenu(paths)
   })
 }
 
-/** Native menu bar is replaced by the in-window title bar. */
-async function rebuildApplicationMenu() {
-  Menu.setApplicationMenu(null)
-  notifyRecentPathsChanged()
+function sendToRenderer(channel: string) {
+  mainWindow?.webContents.send(channel)
+}
+
+async function openModelFromMenu() {
+  const file = await openModelDialog()
+  if (!file || !mainWindow) return
+  mainWindow.webContents.send('desktop:model-opened', file)
+}
+
+/** macOS: system menu bar. Windows/Linux: null (in-window title bar menus). */
+async function rebuildApplicationMenu(recentPaths?: string[]) {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
+
+  const paths = recentPaths ?? (await loadRecentPaths())
+  const menu = buildDarwinApplicationMenu({
+    t,
+    recentPaths: paths,
+    isPackaged: app.isPackaged,
+    onOpen: () => {
+      void openModelFromMenu()
+    },
+    onOpenRecent: filePath => {
+      void openRecentModel(filePath)
+    },
+    onClearRecent: () => {
+      void clearRecentPaths().then(() => notifyRecentPathsChanged())
+    },
+    onOpenPreferences: () => sendToRenderer('desktop:open-preferences'),
+    onToggleStatusBar: () => sendToRenderer('desktop:toggle-status-bar'),
+    onReload: () => {
+      void runWindowMenuAction('reload')
+    },
+    onToggleDevTools: () => {
+      void runWindowMenuAction('toggleDevTools')
+    },
+    onResetZoom: () => {
+      void runWindowMenuAction('resetZoom')
+    },
+    onZoomIn: () => {
+      void runWindowMenuAction('zoomIn')
+    },
+    onZoomOut: () => {
+      void runWindowMenuAction('zoomOut')
+    },
+    onToggleFullscreen: () => {
+      void runWindowMenuAction('toggleFullscreen')
+    },
+    onOpenUserGuide: () => {
+      void runWindowMenuAction('openUserGuide')
+    },
+    onShowAbout: () => {
+      void runWindowMenuAction('showAbout')
+    },
+  })
+  Menu.setApplicationMenu(menu)
 }
 
 async function runWindowMenuAction(action: WindowMenuAction) {
@@ -980,11 +1040,17 @@ ipcMain.handle('desktop:open-external-url', async (_event, url: string) => {
   await shell.openExternal(parsed.toString())
 })
 
-ipcMain.handle('desktop:get-window-chrome', async () => ({
-  titleBarOverlay: process.platform === 'win32',
-  overlayHeight: TITLEBAR_OVERLAY_HEIGHT,
-  isPackaged: app.isPackaged,
-}))
+ipcMain.handle('desktop:get-window-chrome', async () => {
+  const platform =
+    process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux'
+  return {
+    platform,
+    controlsInsetLeft: platform === 'darwin' ? TRAFFIC_LIGHT_CONTROLS_INSET : 0,
+    titleBarOverlay: platform === 'win32',
+    overlayHeight: TITLEBAR_OVERLAY_HEIGHT,
+    isPackaged: app.isPackaged,
+  }
+})
 
 ipcMain.handle('desktop:set-locale', async (_event, locale: string) => {
   if (!isLocale(locale)) return
