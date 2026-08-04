@@ -2020,6 +2020,75 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   color: var(--color-base-content, var(--text));
 }
 
+.app-toast-stack {
+  position: fixed;
+  top: calc(var(--titlebar-height, 0px) + 56px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: min(520px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+.app-toast-item {
+  overflow: hidden;
+  max-height: 280px;
+  margin-bottom: 0.5rem;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 0.28s ease,
+    margin-bottom 0.28s ease,
+    opacity 0.28s ease,
+    transform 0.28s ease;
+  will-change: transform, opacity, max-height;
+}
+
+.app-toast-item.is-enter {
+  animation: app-toast-in 0.28s ease both;
+}
+
+.app-toast-item.is-exit {
+  max-height: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+}
+
+.app-toast-stack .MuiAlert-root {
+  pointer-events: auto;
+}
+
+@keyframes app-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+    max-height: 0;
+    margin-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 280px;
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast-item {
+    transition: none;
+    will-change: auto;
+  }
+
+  .app-toast-item.is-enter {
+    animation: none;
+  }
+}
+
 /* Native buttons inside Preferences — no chrome outline/border */
 .prefs-modal button:not(.MuiButtonBase-root) {
   border: none;

@@ -30,6 +30,7 @@ export function writeStoredLocale(locale: Locale) {
 export const en = {
   'app.hint': 'Open local .glb / .gltf / .obj, tune camera, record one turntable revolution.',
   'app.openFile': 'Open local file',
+  'app.openingFile': 'Opening…',
   'app.emptyHint':
     'Supports .glb / .gltf / .obj. You can also drag files here. When a model is already open, use + to open another in a new tab.',
   'app.loadingModel': 'Loading 3D model…',
@@ -230,6 +231,7 @@ export const en = {
   'record.savedTitle': 'Recording saved',
   'record.savedPath': 'Saved to: {path}',
   'record.openVideo': 'Open video',
+  'record.openingVideo': 'Opening…',
   'record.openVideoFailed': 'Could not open the video: {reason}',
 
   'toolbar.aria': 'Scene inspect tools',
@@ -259,6 +261,7 @@ export const en = {
   'common.search': 'Search',
   'common.resizePanel': 'Resize panel',
   'common.loading': 'Loading…',
+  'common.opening': 'Opening…',
   'common.yes': 'Yes',
   'common.no': 'No',
   'common.ok': 'OK',
@@ -365,12 +368,16 @@ export const en = {
   'update.download': 'Download',
   'update.readyTitle': 'Update ready',
   'update.readyMessage': 'Version {version} has been downloaded. Restart SwiftMesh to install?',
-  'update.restart': 'Restart and install',
+  'update.restart': 'Restart now',
+  'update.restarting': 'Restarting…',
   'update.later': 'Later',
   'update.now': 'Update now',
+  'update.startingDownload': 'Starting download…',
   'update.availableDialogTitle': 'Update available',
   'update.availableDialogIntro':
     'Version {version} is available (you have {current}). Review the release notes and choose whether to download it.',
+  'update.downloadingTitle': 'Downloading update',
+  'update.downloadingMessage': 'Downloading version {version}… {percent}%',
   'update.releaseNotes': 'Release notes',
   'update.notesUnavailable': 'No release notes were provided for this version.',
   'update.errorTitle': 'Update failed',
@@ -382,6 +389,7 @@ export const en = {
   'prefs.desc.appUpdate': 'Check GitHub Releases for a newer NSIS build.',
   'prefs.checkForUpdates': 'Check for updates',
   'prefs.relaunchApp': 'Relaunch application',
+  'prefs.relaunchingApp': 'Relaunching…',
   'prefs.autoUpdate': 'Auto-update',
   'prefs.desc.autoUpdate':
     'When on, the packaged app checks and downloads updates in the background. When off, only the button above checks.',
@@ -397,6 +405,7 @@ export const en = {
   'prefs.about.repository': 'Repository',
   'prefs.desc.about.repository': 'View source, issues, and releases on GitHub.',
   'prefs.about.openRepo': 'Open on GitHub',
+  'prefs.about.openingRepo': 'Opening…',
   'prefs.about.license': 'Open-source license',
   'prefs.desc.about.license':
     'Released under the MIT License. You may use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the license terms. SPDX: MIT',
@@ -413,6 +422,7 @@ export type MessageKey = keyof typeof en
 export const zh: Record<MessageKey, string> = {
   'app.hint': '打开本地 .glb / .gltf / .obj，调节相机，录制一圈转台动画。',
   'app.openFile': '选择本地文件',
+  'app.openingFile': '正在打开…',
   'app.emptyHint':
     '支持 .glb / .gltf / .obj，也可拖拽到此区域。已有模型时请用 + 新建标签打开新文件。',
   'app.loadingModel': '正在加载 3D 模型…',
@@ -603,6 +613,7 @@ export const zh: Record<MessageKey, string> = {
   'record.savedTitle': '录制已保存',
   'record.savedPath': '保存位置：{path}',
   'record.openVideo': '打开视频',
+  'record.openingVideo': '正在打开…',
   'record.openVideoFailed': '无法打开视频：{reason}',
 
   'toolbar.aria': '场景检查工具',
@@ -632,6 +643,7 @@ export const zh: Record<MessageKey, string> = {
   'common.search': '搜索',
   'common.resizePanel': '调整面板宽度',
   'common.loading': '加载中…',
+  'common.opening': '正在打开…',
   'common.yes': '是',
   'common.no': '否',
   'common.ok': '确定',
@@ -735,12 +747,16 @@ export const zh: Record<MessageKey, string> = {
   'update.download': '下载',
   'update.readyTitle': '更新已就绪',
   'update.readyMessage': '版本 {version} 已下载完成。是否重启 SwiftMesh 以安装？',
-  'update.restart': '重启并安装',
+  'update.restart': '立即重启',
+  'update.restarting': '正在重启…',
   'update.later': '稍后',
   'update.now': '立即更新',
+  'update.startingDownload': '开始下载…',
   'update.availableDialogTitle': '发现新版本',
   'update.availableDialogIntro':
     '可用版本 {version}（当前 {current}）。请查看更新说明后选择是否下载。',
+  'update.downloadingTitle': '正在下载更新',
+  'update.downloadingMessage': '正在下载版本 {version}… {percent}%',
   'update.releaseNotes': '更新说明',
   'update.notesUnavailable': '该版本未提供更新说明。',
   'update.errorTitle': '更新失败',
@@ -752,6 +768,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.desc.appUpdate': '从 GitHub Releases 检查是否有更新的 NSIS 安装包。',
   'prefs.checkForUpdates': '检查更新',
   'prefs.relaunchApp': '重新启动应用',
+  'prefs.relaunchingApp': '正在重启…',
   'prefs.autoUpdate': '自动更新',
   'prefs.desc.autoUpdate':
     '开启后，打包应用会在后台检查并下载更新；关闭后仅可通过上方按钮检查。',
@@ -766,6 +783,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.about.repository': '开源仓库',
   'prefs.desc.about.repository': '在 GitHub 上查看源码、Issue 与发布说明。',
   'prefs.about.openRepo': '在 GitHub 打开',
+  'prefs.about.openingRepo': '正在打开…',
   'prefs.about.license': '开源许可',
   'prefs.desc.about.license':
     '以 MIT 许可证发布。你可以在遵守许可证条款的前提下使用、复制、修改、合并、发布、分发、再授权和/或销售本软件的副本。SPDX: MIT',
