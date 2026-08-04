@@ -63,6 +63,25 @@ body,
 
 .field-control {
   min-width: 0;
+  overflow: hidden;
+}
+
+/* MUI Select closed value: ellipsis so long size labels fit the control */
+.field-control .MuiTextField-root,
+.field-control .MuiFormControl-root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.field-control .MuiInputBase-root {
+  max-width: 100%;
+}
+
+.field-control .MuiSelect-select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .field-control input[type='text'],
@@ -1985,6 +2004,43 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/* Number TextField vs Select: same control height (legacy input rules otherwise inflate number). */
+.record-popover .field-control .MuiOutlinedInput-root {
+  height: 2rem;
+  min-height: 2rem;
+  box-sizing: border-box;
+}
+
+.record-popover .field-control .MuiOutlinedInput-root .MuiOutlinedInput-input {
+  height: 100%;
+  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.record-popover .field-control .MuiSelect-select.MuiOutlinedInput-input {
+  display: flex;
+  align-items: center;
+}
+
+/* Sec / rev: don't clip MUI hover outline (Size ellipsis still uses Select overflow). */
+.record-popover .field-control:has(input[type='number']) {
+  overflow: visible;
+}
+
+/* Keep outline flush with the compact 2rem box so hover border isn't top-thin / bottom-heavy. */
+.record-popover .field-control:has(input[type='number']) .MuiOutlinedInput-notchedOutline {
+  top: 0;
+}
+
+.record-popover .field-control:has(input[type='number']) .MuiOutlinedInput-notchedOutline legend {
+  display: none;
 }
 
 .record-popover-header {

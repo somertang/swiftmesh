@@ -799,7 +799,7 @@ export default function App() {
     }
 
     const sessionRes = await window.desktop.startRecordingSession({
-      defaultName: `${stem}-turntable`,
+      defaultName: `${stem}-turntable_${tab.recordingSizeId}_${quality}`,
       format: tab.recordingExportFormat,
       quality,
       fps,

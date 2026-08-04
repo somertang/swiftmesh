@@ -161,14 +161,6 @@ function stripVideoExtension(name: string) {
   return name.replace(/\.(webm|mp4)$/i, '')
 }
 
-function formatRecordingTimestamp(date = new Date()) {
-  const pad = (n: number, width = 2) => String(n).padStart(width, '0')
-  return (
-    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
-    `_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-  )
-}
-
 function sanitizeRecordingStem(name: string) {
   const cleaned = name
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
@@ -177,9 +169,8 @@ function sanitizeRecordingStem(name: string) {
   return cleaned || 'turntable'
 }
 
-function buildTimestampedStem(defaultName: string) {
-  const base = sanitizeRecordingStem(stripVideoExtension(defaultName) || 'turntable')
-  return `${base}_${formatRecordingTimestamp()}`
+function buildRecordingStem(defaultName: string) {
+  return sanitizeRecordingStem(stripVideoExtension(defaultName) || 'turntable')
 }
 
 async function isWritableDirectory(dir: string) {
@@ -209,7 +200,7 @@ async function allocateUniqueFilePath(dir: string, stem: string, ext: string) {
 
 /**
  * Resolve save path: silent write into outputDir when valid; otherwise Save As.
- * Always suggests a timestamped stem to avoid overwriting prior exports.
+ * Uses the sanitized defaultName stem; allocateUniqueFilePath adds _1/_2 on collision.
  */
 async function resolveRecordingSavePath(options: {
   defaultName: string
@@ -218,7 +209,7 @@ async function resolveRecordingSavePath(options: {
 }): Promise<string | null> {
   if (!mainWindow) return null
 
-  const stem = buildTimestampedStem(options.defaultName)
+  const stem = buildRecordingStem(options.defaultName)
   const defaultExt = options.format === 'webm' ? 'webm' : 'mp4'
   const filters =
     options.format === 'webm'
