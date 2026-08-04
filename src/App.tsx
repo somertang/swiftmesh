@@ -1,12 +1,8 @@
-import Alert from '@mui/material/Alert'
-import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
-import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import type { Theme } from '@mui/material/styles'
+import Alert from '@mui/material/Alert'
 import {
   useCallback,
   useEffect,
@@ -24,7 +20,17 @@ import { ExportProgressModal } from './components/ExportProgressModal'
 import { ModelTabBar } from './components/ModelTabBar'
 import { AppTitleBar } from './components/AppTitleBar'
 import { PreferencesModal } from './components/PreferencesModal'
-import { UpdateAvailableDialog } from './components/UpdateAvailableDialog'
+import {
+  AppToastStack,
+  createToastId,
+  pushAppToast,
+  type AppToastItem,
+} from './components/AppToastStack'
+import { LoadingButton } from './components/LoadingButton'
+import {
+  UpdateAvailableDialog,
+  type UpdateDialogPhase,
+} from './components/UpdateAvailableDialog'
 import { SceneSettingsPanels } from './components/SceneSettingsPanels'
 import { DEFAULT_CAMERA } from './config/cameraDefaults'
 import { captureFrameSequence } from './lib/recordCanvas'
@@ -100,32 +106,6 @@ function FieldRow({
   )
 }
 
-/** Theme-aligned snack alert: paper card + left accent bar (not filled green/red blocks). */
-function themedSnackAlertSx(accent: 'primary' | 'error') {
-  return (theme: Theme) => ({
-    maxWidth: 520,
-    alignItems: 'flex-start' as const,
-    color: theme.palette.text.primary,
-    bgcolor: theme.palette.background.paper,
-    border: `1px solid ${theme.palette.divider}`,
-    borderLeft: `3px solid ${theme.palette[accent].main}`,
-    borderRadius: 1.5,
-    boxShadow: theme.shadows[8],
-    backgroundImage: 'none',
-    '& .MuiAlert-icon': {
-      color: theme.palette[accent].main,
-      opacity: 1,
-    },
-    '& .MuiAlert-action .MuiIconButton-root': {
-      color: theme.palette.text.secondary,
-    },
-    '& .MuiAlert-message': {
-      width: '100%',
-      color: theme.palette.text.primary,
-    },
-  })
-}
-
 export default function App() {
   const t = useT()
   const [tabState, setTabState] = useState<TabState>(createInitialTabState)
@@ -138,14 +118,19 @@ export default function App() {
   const [updatePrompt, setUpdatePrompt] = useState<UpdatePromptEvent | null>(null)
   const [updatePromptOpen, setUpdatePromptOpen] = useState(false)
   const [updatePromptBusy, setUpdatePromptBusy] = useState(false)
+  const [updateDialogPhase, setUpdateDialogPhase] = useState<UpdateDialogPhase>('available')
+  const [updateProgressPercent, setUpdateProgressPercent] = useState(0)
+  const [updateErrorMessage, setUpdateErrorMessage] = useState('')
+  const updateDialogPhaseRef = useRef<UpdateDialogPhase>('available')
+  updateDialogPhaseRef.current = updateDialogPhase
   const [recordingEnabled, setRecordingEnabled] = useState(
     () => readPreferences().recording.enabled
   )
   const [performancePrefs, setPerformancePrefs] = useState(
     () => readPreferences().performance
   )
-  const [savedRecordingTip, setSavedRecordingTip] = useState<{ path: string } | null>(null)
-  const [openVideoError, setOpenVideoError] = useState<string | null>(null)
+  const [appToasts, setAppToasts] = useState<AppToastItem[]>([])
+  const [openingModel, setOpeningModel] = useState(false)
   const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
   const sessionPersistReadyRef = useRef(false)
   const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
@@ -180,6 +165,36 @@ export default function App() {
         onComplete: () => {},
       },
     })
+
+  const dismissAppToast = useCallback((id: string) => {
+    setAppToasts(prev => prev.filter(toast => toast.id !== id))
+  }, [])
+
+  const pushTextToast = useCallback(
+    (tip: { severity: 'info' | 'error' | 'success'; message: string; durationMs?: number }) => {
+      setAppToasts(prev =>
+        pushAppToast(prev, {
+          id: createToastId(),
+          kind: 'text',
+          severity: tip.severity,
+          message: tip.message,
+          durationMs: tip.durationMs ?? 4000,
+        })
+      )
+    },
+    []
+  )
+
+  const pushRecordingSavedToast = useCallback((path: string) => {
+    setAppToasts(prev =>
+      pushAppToast(prev, {
+        id: createToastId(),
+        kind: 'recordingSaved',
+        path,
+        durationMs: 12000,
+      })
+    )
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -258,18 +273,23 @@ export default function App() {
   }, [t])
 
   const handleOpenModel = useCallback(async () => {
-    if (recording || exporting) return
-    if (window.desktop) {
-      try {
-        const file = await window.desktop.openModel()
-        if (file) applyOpenedModel(file)
-      } catch (err) {
-        patchActive({ error: err instanceof Error ? err.message : t('error.openFileFailed') })
+    if (recording || exporting || openingModel) return
+    setOpeningModel(true)
+    try {
+      if (window.desktop) {
+        try {
+          const file = await window.desktop.openModel()
+          if (file) applyOpenedModel(file)
+        } catch (err) {
+          patchActive({ error: err instanceof Error ? err.message : t('error.openFileFailed') })
+        }
+        return
       }
-      return
+      fileInputRef.current?.click()
+    } finally {
+      setOpeningModel(false)
     }
-    fileInputRef.current?.click()
-  }, [recording, exporting, applyOpenedModel, patchActive, t])
+  }, [recording, exporting, openingModel, applyOpenedModel, patchActive, t])
 
   const handleOpenRecentPath = useCallback(
     async (filePath: string) => {
@@ -429,11 +449,60 @@ export default function App() {
   useEffect(() => {
     if (!window.desktop?.onUpdatePrompt) return
     return window.desktop.onUpdatePrompt(prompt => {
-      setUpdatePrompt(prompt)
-      setUpdatePromptBusy(false)
-      setUpdatePromptOpen(true)
+      void (async () => {
+        let phase: UpdateDialogPhase = 'available'
+        let percent = 0
+        let errorMessage = ''
+        try {
+          const status = await window.desktop?.getUpdateStatus?.()
+          if (status?.phase === 'downloading') {
+            phase = 'downloading'
+            percent = status.percent
+          } else if (status?.phase === 'ready') {
+            phase = 'ready'
+          } else if (status?.phase === 'error') {
+            phase = 'error'
+            errorMessage = status.message
+          }
+        } catch {
+          /* keep available */
+        }
+        setUpdatePrompt(prompt)
+        setUpdateDialogPhase(phase)
+        setUpdateProgressPercent(percent)
+        setUpdateErrorMessage(errorMessage)
+        setUpdatePromptBusy(false)
+        setUpdatePromptOpen(true)
+      })()
     })
   }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.onUpdateStatus) return
+    return window.desktop.onUpdateStatus(status => {
+      if (!updatePromptOpen) return
+      if (status.phase === 'downloading') {
+        setUpdateDialogPhase('downloading')
+        setUpdateProgressPercent(status.percent)
+      } else if (status.phase === 'ready') {
+        setUpdateDialogPhase('ready')
+        setUpdatePromptBusy(false)
+      } else if (status.phase === 'error') {
+        setUpdateDialogPhase('error')
+        setUpdateErrorMessage(status.message)
+        setUpdatePromptBusy(false)
+      }
+    })
+  }, [updatePromptOpen])
+
+  useEffect(() => {
+    if (!window.desktop?.onUpdateProgress) return
+    return window.desktop.onUpdateProgress(progress => {
+      if (!updatePromptOpen) return
+      setUpdateProgressPercent(progress.percent)
+      setUpdateDialogPhase(prev => (prev === 'available' ? 'downloading' : prev))
+    })
+  }, [updatePromptOpen])
 
   useEffect(() => {
     if (!window.desktop?.onOpenPreferences) return
@@ -789,8 +858,7 @@ export default function App() {
         outputDir: readPreferences().recording.outputDir,
       })
       if (result.ok) {
-        setOpenVideoError(null)
-        setSavedRecordingTip({ path: result.path })
+        pushRecordingSavedToast(result.path)
       } else if (result.reason !== 'canceled') {
         patchRecordingTab({ error: result.reason || t('error.saveRecording') })
       }
@@ -914,15 +982,17 @@ export default function App() {
   )
 
   const openButton = (
-    <Button
+    <LoadingButton
       variant="contained"
       color="primary"
       className="model-pick-btn"
       disabled={pickerDisabled}
+      loading={openingModel}
+      loadingText={t('app.openingFile')}
       onClick={() => void handleOpenModel()}
     >
       {t('app.openFile')}
-    </Button>
+    </LoadingButton>
   )
   const getCaptureRef = (groupId: string) =>
     (captureHandleRefs.current[groupId] ??= { current: null })
@@ -1247,93 +1317,49 @@ export default function App() {
           stopLabel={t('record.stopRecording')}
           onStop={stopRecording}
         />
-        <Snackbar
-          open={savedRecordingTip != null}
-          autoHideDuration={12000}
-          onClose={(_event, reason) => {
-            if (reason === 'clickaway') return
-            setSavedRecordingTip(null)
-          }}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            severity="success"
-            variant="standard"
-            onClose={() => setSavedRecordingTip(null)}
-            sx={themedSnackAlertSx('primary')}
-          >
-            <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
-              {t('record.savedTitle')}
-            </Typography>
-            <Typography
-              variant="caption"
-              component="div"
-              className="mono"
-              sx={{ mt: 0.75, wordBreak: 'break-all', color: 'text.secondary' }}
-            >
-              {savedRecordingTip
-                ? t('record.savedPath', { path: savedRecordingTip.path })
-                : null}
-            </Typography>
-            {savedRecordingTip ? (
-              <Button
-                color="primary"
-                size="small"
-                sx={{
-                  mt: 1.75,
-                  px: 1,
-                  py: 0.75,
-                  minWidth: 0,
-                  fontSize: '0.75rem',
-                  lineHeight: 1.4,
-                  fontWeight: 600,
-                }}
-                onClick={() => {
-                  const filePath = savedRecordingTip.path
-                  void (async () => {
-                    const res = await window.desktop?.openPath?.(filePath)
-                    if (res && !res.ok) {
-                      setOpenVideoError(t('record.openVideoFailed', { reason: res.reason }))
-                    }
-                  })()
-                }}
-              >
-                {t('record.openVideo')}
-              </Button>
-            ) : null}
-          </Alert>
-        </Snackbar>
-        <Snackbar
-          open={openVideoError != null}
-          autoHideDuration={6000}
-          onClose={() => setOpenVideoError(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            severity="error"
-            variant="standard"
-            onClose={() => setOpenVideoError(null)}
-            sx={themedSnackAlertSx('error')}
-          >
-            {openVideoError}
-          </Alert>
-        </Snackbar>
+        <AppToastStack
+          toasts={appToasts}
+          onDismiss={dismissAppToast}
+          onOpenRecordingFailed={reason =>
+            pushTextToast({
+              severity: 'error',
+              message: t('record.openVideoFailed', { reason }),
+              durationMs: 6000,
+            })
+          }
+        />
         <UpdateAvailableDialog
           open={updatePromptOpen}
           prompt={updatePrompt}
+          phase={updateDialogPhase}
+          progressPercent={updateProgressPercent}
+          errorMessage={updateErrorMessage}
           busy={updatePromptBusy}
           onLater={() => {
+            const phase = updateDialogPhaseRef.current
             setUpdatePromptOpen(false)
             setUpdatePromptBusy(false)
-            void window.desktop?.dismissUpdate?.()
+            if (phase === 'available') {
+              void window.desktop?.dismissUpdate?.()
+            }
           }}
           onUpdateNow={() => {
             setUpdatePromptBusy(true)
+            setUpdateDialogPhase('downloading')
+            setUpdateProgressPercent(0)
+            setUpdateErrorMessage('')
             void (async () => {
               const ok = await window.desktop?.downloadUpdate?.()
               setUpdatePromptBusy(false)
-              if (ok !== false) setUpdatePromptOpen(false)
+              if (ok === false) {
+                setUpdateDialogPhase('error')
+                setUpdateErrorMessage('')
+              }
             })()
+          }}
+          onRestart={() => {
+            setUpdatePromptBusy(true)
+            void window.desktop?.installUpdate?.()
           }}
         />
         {statusBarVisible ? (
@@ -1368,6 +1394,13 @@ export default function App() {
       <PreferencesModal
         open={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
+        onUpdateCheckTip={tip =>
+          pushTextToast({
+            severity: tip.severity,
+            message: tip.message,
+            durationMs: 4000,
+          })
+        }
         onPreferencesChange={prefs => {
           setRecordingEnabled(prefs.recording.enabled)
           if (!prefs.recording.enabled) setRecordPopoverGroupId(null)

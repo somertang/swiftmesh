@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FC,
   type ReactNode,
@@ -52,6 +53,7 @@ import {
 } from '../lib/openSource'
 import { useUiTheme } from '../uiTheme'
 import { UI_THEMES, type UiTheme } from '../lib/uiTheme'
+import { LoadingButton } from './LoadingButton'
 
 export type PreferencesSection =
   | 'general'
@@ -66,6 +68,7 @@ type Props = {
   onClose: () => void
   initialSection?: PreferencesSection
   onPreferencesChange?: (prefs: AppPreferences) => void
+  onUpdateCheckTip?: (tip: { severity: 'info' | 'error'; message: string }) => void
 }
 
 const NAV: { id: PreferencesSection; labelKey: MessageKey; icon: string }[] = [
@@ -138,12 +141,12 @@ const SETTING_META: Record<
     descKey: 'prefs.desc.confirmCloseTabs',
   },
   appUpdate: {
-    section: 'general',
+    section: 'about',
     titleKey: 'prefs.appUpdate',
     descKey: 'prefs.desc.appUpdate',
   },
   autoUpdate: {
-    section: 'general',
+    section: 'about',
     titleKey: 'prefs.autoUpdate',
     descKey: 'prefs.desc.autoUpdate',
   },
@@ -359,6 +362,7 @@ export const PreferencesModal: FC<Props> = ({
   onClose,
   initialSection = 'general',
   onPreferencesChange,
+  onUpdateCheckTip,
 }) => {
   const t = useT()
   const { locale, setLocale } = useLocale()
@@ -369,12 +373,20 @@ export const PreferencesModal: FC<Props> = ({
   const [search, setSearch] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: 'idle' })
+  const [installingUpdate, setInstallingUpdate] = useState(false)
+  const [openingRepo, setOpeningRepo] = useState(false)
+  const manualUpdateCheckRef = useRef(false)
+  const onUpdateCheckTipRef = useRef(onUpdateCheckTip)
+  onUpdateCheckTipRef.current = onUpdateCheckTip
 
   useEffect(() => {
     if (!open) return
     setSection(initialSection)
     setPrefs(readPreferences())
     setSearch('')
+    manualUpdateCheckRef.current = false
+    setInstallingUpdate(false)
+    setOpeningRepo(false)
   }, [open, initialSection])
 
   useEffect(() => {
@@ -393,12 +405,33 @@ export const PreferencesModal: FC<Props> = ({
         /* ignore */
       }
     })()
-    const unsub = window.desktop.onUpdateStatus?.(status => setUpdateStatus(status))
+    const unsub = window.desktop.onUpdateStatus?.(status => {
+      setUpdateStatus(status)
+      if (!manualUpdateCheckRef.current) return
+      if (status.phase === 'checking') return
+      manualUpdateCheckRef.current = false
+      if (status.phase === 'upToDate') {
+        onUpdateCheckTipRef.current?.({
+          severity: 'info',
+          message: t('update.upToDateMessage', { version: status.version }),
+        })
+      } else if (status.phase === 'dev') {
+        onUpdateCheckTipRef.current?.({
+          severity: 'info',
+          message: t('update.devMessage'),
+        })
+      } else if (status.phase === 'error') {
+        onUpdateCheckTipRef.current?.({
+          severity: 'error',
+          message: status.message || t('update.errorMessage'),
+        })
+      }
+    })
     return () => {
       cancelled = true
       unsub?.()
     }
-  }, [open])
+  }, [open, t])
 
   const desktopAvailable = Boolean(window.desktop)
 
@@ -465,11 +498,16 @@ export const PreferencesModal: FC<Props> = ({
   }
 
   const openProjectRepository = async () => {
-    if (window.desktop?.openExternalUrl) {
-      await window.desktop.openExternalUrl(APP_REPOSITORY_URL)
-      return
+    setOpeningRepo(true)
+    try {
+      if (window.desktop?.openExternalUrl) {
+        await window.desktop.openExternalUrl(APP_REPOSITORY_URL)
+        return
+      }
+      window.open(APP_REPOSITORY_URL, '_blank', 'noopener,noreferrer')
+    } finally {
+      setOpeningRepo(false)
     }
-    window.open(APP_REPOSITORY_URL, '_blank', 'noopener,noreferrer')
   }
 
   const onCacheLocationChange = async (mode: 'system' | 'folder') => {
@@ -697,56 +735,6 @@ export const PreferencesModal: FC<Props> = ({
                         id="prefs-confirm-close"
                         checked={prefs.general.confirmCloseTabs}
                         onChange={checked => updateGeneral({ confirmCloseTabs: checked })}
-                      />
-                    </PrefRow>
-                  ) : null}
-                </PrefGroup>
-              ) : null}
-              {show('appUpdate') || show('autoUpdate') ? (
-                <PrefGroup title={t('prefs.group.updates')}>
-                  {show('appUpdate') ? (
-                    <PrefRow
-                      title={
-                        appVersion
-                          ? t('prefs.appUpdate', { version: appVersion })
-                          : t('prefs.appUpdatePending')
-                      }
-                      description={formatUpdateStatus(t, updateStatus, appVersion)}
-                      controlClassName="is-actions"
-                    >
-                      <Button
-                        variant="outlined"
-                        disabled={
-                          !desktopAvailable ||
-                          updateStatus.phase === 'checking' ||
-                          updateStatus.phase === 'downloading'
-                        }
-                        onClick={() => {
-                          if (!window.desktop) return
-                          if (updateStatus.phase === 'ready') {
-                            void window.desktop.installUpdate?.()
-                            return
-                          }
-                          void window.desktop.checkForUpdates?.()
-                        }}
-                      >
-                        {updateStatus.phase === 'ready'
-                          ? t('prefs.relaunchApp')
-                          : t('prefs.checkForUpdates')}
-                      </Button>
-                    </PrefRow>
-                  ) : null}
-                  {show('autoUpdate') ? (
-                    <PrefRow
-                      id="prefs-auto-update"
-                      title={t('prefs.autoUpdate')}
-                      description={t('prefs.desc.autoUpdate')}
-                    >
-                      <PrefToggle
-                        id="prefs-auto-update"
-                        checked={prefs.general.autoUpdate}
-                        disabled={!desktopAvailable}
-                        onChange={checked => updateGeneral({ autoUpdate: checked })}
                       />
                     </PrefRow>
                   ) : null}
@@ -1230,6 +1218,72 @@ export const PreferencesModal: FC<Props> = ({
 
           {hasAnyVisible && section === 'about' ? (
             <>
+              {show('appUpdate') || show('autoUpdate') ? (
+                <PrefGroup title={t('prefs.group.updates')}>
+                  {show('appUpdate') ? (
+                    <PrefRow
+                      title={
+                        appVersion
+                          ? t('prefs.appUpdate', { version: appVersion })
+                          : t('prefs.appUpdatePending')
+                      }
+                      description={formatUpdateStatus(t, updateStatus, appVersion)}
+                      controlClassName="is-actions"
+                    >
+                      <LoadingButton
+                        variant="outlined"
+                        loading={
+                          updateStatus.phase === 'checking' ||
+                          updateStatus.phase === 'downloading' ||
+                          installingUpdate
+                        }
+                        loadingText={
+                          installingUpdate
+                            ? t('prefs.relaunchingApp')
+                            : updateStatus.phase === 'downloading'
+                              ? t('prefs.updateStatus.downloading', {
+                                  percent: Math.round(
+                                    updateStatus.phase === 'downloading'
+                                      ? updateStatus.percent
+                                      : 0
+                                  ),
+                                })
+                              : t('prefs.updateStatus.checking')
+                        }
+                        disabled={!desktopAvailable}
+                        onClick={() => {
+                          if (!window.desktop) return
+                          if (updateStatus.phase === 'ready') {
+                            setInstallingUpdate(true)
+                            void window.desktop.installUpdate?.()
+                            return
+                          }
+                          manualUpdateCheckRef.current = true
+                          void window.desktop.checkForUpdates?.()
+                        }}
+                      >
+                        {updateStatus.phase === 'ready'
+                          ? t('prefs.relaunchApp')
+                          : t('prefs.checkForUpdates')}
+                      </LoadingButton>
+                    </PrefRow>
+                  ) : null}
+                  {show('autoUpdate') ? (
+                    <PrefRow
+                      id="prefs-auto-update"
+                      title={t('prefs.autoUpdate')}
+                      description={t('prefs.desc.autoUpdate')}
+                    >
+                      <PrefToggle
+                        id="prefs-auto-update"
+                        checked={prefs.general.autoUpdate}
+                        disabled={!desktopAvailable}
+                        onChange={checked => updateGeneral({ autoUpdate: checked })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                </PrefGroup>
+              ) : null}
               {show('aboutAuthor') || show('aboutRepository') ? (
                 <PrefGroup title={t('prefs.group.project')}>
                   {show('aboutAuthor') ? (
@@ -1246,14 +1300,16 @@ export const PreferencesModal: FC<Props> = ({
                       description={t('prefs.desc.about.repository')}
                       controlClassName="is-actions"
                     >
-                      <Button
+                      <LoadingButton
                         variant="outlined"
+                        loading={openingRepo}
+                        loadingText={t('prefs.about.openingRepo')}
                         onClick={() => {
                           void openProjectRepository()
                         }}
                       >
                         {t('prefs.about.openRepo')}
-                      </Button>
+                      </LoadingButton>
                     </PrefRow>
                   ) : null}
                 </PrefGroup>
