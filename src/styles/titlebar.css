@@ -6,7 +6,7 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: var(--titlebar-height, 36px);
-  padding: 0 var(--titlebar-overlay-pad, 0) 0 8px;
+  padding: 0 var(--titlebar-overlay-pad, 0) 0 max(8px, var(--titlebar-inset-left, 0px));
   background: var(--bg-app, #1c1c1c);
   border-bottom: 1px solid var(--bg-header, #2a2a2a);
   user-select: none;

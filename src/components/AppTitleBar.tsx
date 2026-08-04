@@ -29,9 +29,7 @@ function basenamePath(filePath: string): string {
   return parts[parts.length - 1] || filePath
 }
 
-function processPlatformFallbackPad(): number {
-  return /Windows/i.test(navigator.userAgent) ? 138 : 0
-}
+const WINDOWS_OVERLAY_FALLBACK_PAD = 138
 
 declare global {
   interface Navigator {
@@ -86,6 +84,8 @@ export function AppTitleBar({
   const [recentOpen, setRecentOpen] = useState(false)
   const [showDevTools, setShowDevTools] = useState(false)
   const [overlayPad, setOverlayPad] = useState(0)
+  const [insetLeft, setInsetLeft] = useState(0)
+  const [useInAppMenus, setUseInAppMenus] = useState(true)
   const recentCloseTimerRef = useRef<number | null>(null)
 
   const clearRecentCloseTimer = useCallback(() => {
@@ -119,30 +119,45 @@ export function AppTitleBar({
   }, [clearRecentCloseTimer])
 
   useEffect(() => {
+    let cancelled = false
+    let removeWco: (() => void) | undefined
+
     void window.desktop?.getWindowChrome().then(chrome => {
+      if (cancelled) return
       setShowDevTools(!chrome.isPackaged)
-      if (!chrome.titleBarOverlay) setOverlayPad(0)
+      setInsetLeft(chrome.controlsInsetLeft)
+      setUseInAppMenus(chrome.platform !== 'darwin')
+
+      if (!chrome.titleBarOverlay) {
+        setOverlayPad(0)
+        return
+      }
+
+      const wco = window.navigator.windowControlsOverlay
+      if (!wco) {
+        setOverlayPad(WINDOWS_OVERLAY_FALLBACK_PAD)
+        return
+      }
+      const update = () => {
+        const rect = wco.getTitlebarAreaRect()
+        setOverlayPad(Math.max(0, Math.round(window.innerWidth - rect.x - rect.width)))
+      }
+      update()
+      wco.addEventListener('geometrychange', update)
+      removeWco = () => wco.removeEventListener('geometrychange', update)
     })
 
-    const wco = window.navigator.windowControlsOverlay
-    if (!wco) {
-      setOverlayPad(processPlatformFallbackPad())
-      return
+    return () => {
+      cancelled = true
+      removeWco?.()
     }
-    const update = () => {
-      const rect = wco.getTitlebarAreaRect()
-      setOverlayPad(Math.max(0, Math.round(window.innerWidth - rect.x - rect.width)))
-    }
-    update()
-    wco.addEventListener('geometrychange', update)
-    return () => wco.removeEventListener('geometrychange', update)
   }, [])
 
   useEffect(() => {
-    if (!window.desktop?.getRecentPaths) return
+    if (!useInAppMenus || !window.desktop?.getRecentPaths) return
     void window.desktop.getRecentPaths().then(setRecentPaths)
     return window.desktop.onRecentPathsChanged(setRecentPaths)
-  }, [])
+  }, [useInAppMenus])
 
   useEffect(() => {
     if (!openMenu) return
@@ -174,6 +189,7 @@ export function AppTitleBar({
 
   const style = {
     ['--titlebar-overlay-pad' as string]: `${overlayPad}px`,
+    ['--titlebar-inset-left' as string]: `${insetLeft}px`,
   } as CSSProperties
 
   const toggleMenu = (id: Exclude<MenuId, null>) => {
@@ -184,150 +200,160 @@ export function AppTitleBar({
   return (
     <header ref={rootRef} className="app-titlebar" style={style}>
       <div className="app-titlebar-left">
-        <img src={logoUrl} alt="" className="app-titlebar-logo" draggable={false} />
-        <nav className="app-titlebar-menus" aria-label="Application">
-          <div className={`app-titlebar-menu${openMenu === 'file' ? ' is-open' : ''}`}>
-            <button
-              type="button"
-              className="app-titlebar-menu-trigger"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === 'file'}
-              onClick={() => toggleMenu('file')}
-            >
-              {t('menu.file')}
-            </button>
-            {openMenu === 'file' ? (
-              <Paper className="app-titlebar-dropdown" elevation={8}>
-                <MenuList dense>
-                  <TitleBarMenuItem
-                    label={t('menu.open')}
-                    shortcut="Ctrl+O"
-                    onClick={() => run(onOpenFile)}
-                  />
-                  <li
-                    className={`app-titlebar-submenu${recentOpen ? ' is-open' : ''}`}
-                    onMouseEnter={openRecentMenu}
-                    onMouseLeave={scheduleCloseRecentMenu}
-                  >
-                    <MenuItem
-                      dense
-                      onClick={() => {
-                        clearRecentCloseTimer()
-                        setRecentOpen(v => !v)
-                      }}
-                    >
-                      <ListItemText primary={t('menu.openRecent')} />
-                      <span className="app-titlebar-submenu-chevron opacity-60" aria-hidden>
-                        ›
-                      </span>
-                    </MenuItem>
-                    {recentOpen ? (
-                      <Paper
-                        className="app-titlebar-dropdown app-titlebar-dropdown--flyout"
-                        elevation={8}
+        {useInAppMenus ? (
+          <>
+            <img src={logoUrl} alt="" className="app-titlebar-logo" draggable={false} />
+            <nav className="app-titlebar-menus" aria-label="Application">
+              <div className={`app-titlebar-menu${openMenu === 'file' ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="app-titlebar-menu-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === 'file'}
+                  onClick={() => toggleMenu('file')}
+                >
+                  {t('menu.file')}
+                </button>
+                {openMenu === 'file' ? (
+                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                    <MenuList dense>
+                      <TitleBarMenuItem
+                        label={t('menu.open')}
+                        shortcut="Ctrl+O"
+                        onClick={() => run(onOpenFile)}
+                      />
+                      <li
+                        className={`app-titlebar-submenu${recentOpen ? ' is-open' : ''}`}
+                        onMouseEnter={openRecentMenu}
+                        onMouseLeave={scheduleCloseRecentMenu}
                       >
-                        <MenuList dense>
-                          {recentPaths.length === 0 ? (
-                            <TitleBarMenuItem label={t('menu.noRecent')} disabled />
-                          ) : (
-                            recentPaths.map(filePath => (
+                        <MenuItem
+                          dense
+                          onClick={() => {
+                            clearRecentCloseTimer()
+                            setRecentOpen(v => !v)
+                          }}
+                        >
+                          <ListItemText primary={t('menu.openRecent')} />
+                          <span className="app-titlebar-submenu-chevron opacity-60" aria-hidden>
+                            ›
+                          </span>
+                        </MenuItem>
+                        {recentOpen ? (
+                          <Paper
+                            className="app-titlebar-dropdown app-titlebar-dropdown--flyout"
+                            elevation={8}
+                          >
+                            <MenuList dense>
+                              {recentPaths.length === 0 ? (
+                                <TitleBarMenuItem label={t('menu.noRecent')} disabled />
+                              ) : (
+                                recentPaths.map(filePath => (
+                                  <TitleBarMenuItem
+                                    key={filePath}
+                                    label={basenamePath(filePath)}
+                                    onClick={() => run(() => onOpenRecentPath(filePath))}
+                                  />
+                                ))
+                              )}
+                              <Divider component="li" />
                               <TitleBarMenuItem
-                                key={filePath}
-                                label={basenamePath(filePath)}
-                                onClick={() => run(() => onOpenRecentPath(filePath))}
+                                label={t('menu.clearRecent')}
+                                disabled={recentPaths.length === 0}
+                                onClick={() =>
+                                  run(() => {
+                                    void window.desktop?.clearRecentPaths()
+                                  })
+                                }
                               />
-                            ))
-                          )}
-                          <Divider component="li" />
-                          <TitleBarMenuItem
-                            label={t('menu.clearRecent')}
-                            disabled={recentPaths.length === 0}
-                            onClick={() =>
-                              run(() => {
-                                void window.desktop?.clearRecentPaths()
-                              })
-                            }
-                          />
-                        </MenuList>
-                      </Paper>
-                    ) : null}
-                  </li>
-                  <Divider component="li" />
-                  <TitleBarMenuItem
-                    label={t('menu.preferencesOpen')}
-                    shortcut="Ctrl+,"
-                    onClick={() => run(onOpenPreferences)}
-                  />
-                  <Divider component="li" />
-                  <TitleBarMenuItem label={t('menu.quit')} onClick={() => runWindow('quit')} />
-                </MenuList>
-              </Paper>
-            ) : null}
-          </div>
+                            </MenuList>
+                          </Paper>
+                        ) : null}
+                      </li>
+                      <Divider component="li" />
+                      <TitleBarMenuItem
+                        label={t('menu.preferencesOpen')}
+                        shortcut="Ctrl+,"
+                        onClick={() => run(onOpenPreferences)}
+                      />
+                      <Divider component="li" />
+                      <TitleBarMenuItem label={t('menu.quit')} onClick={() => runWindow('quit')} />
+                    </MenuList>
+                  </Paper>
+                ) : null}
+              </div>
 
-          <div className={`app-titlebar-menu${openMenu === 'view' ? ' is-open' : ''}`}>
-            <button
-              type="button"
-              className="app-titlebar-menu-trigger"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === 'view'}
-              onClick={() => toggleMenu('view')}
-            >
-              {t('menu.view')}
-            </button>
-            {openMenu === 'view' ? (
-              <Paper className="app-titlebar-dropdown" elevation={8}>
-                <MenuList dense>
-                  <TitleBarMenuItem
-                    label={t('menu.toggleStatusBar')}
-                    shortcut="Ctrl+B"
-                    onClick={() => run(onToggleStatusBar)}
-                  />
-                  <Divider component="li" />
-                  <TitleBarMenuItem label={t('menu.reload')} onClick={() => runWindow('reload')} />
-                  {showDevTools ? (
-                    <TitleBarMenuItem
-                      label={t('menu.toggleDevTools')}
-                      onClick={() => runWindow('toggleDevTools')}
-                    />
-                  ) : null}
-                  <Divider component="li" />
-                  <TitleBarMenuItem label={t('menu.resetZoom')} onClick={() => runWindow('resetZoom')} />
-                  <TitleBarMenuItem label={t('menu.zoomIn')} onClick={() => runWindow('zoomIn')} />
-                  <TitleBarMenuItem label={t('menu.zoomOut')} onClick={() => runWindow('zoomOut')} />
-                  <Divider component="li" />
-                  <TitleBarMenuItem
-                    label={t('menu.toggleFullscreen')}
-                    onClick={() => runWindow('toggleFullscreen')}
-                  />
-                </MenuList>
-              </Paper>
-            ) : null}
-          </div>
+              <div className={`app-titlebar-menu${openMenu === 'view' ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="app-titlebar-menu-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === 'view'}
+                  onClick={() => toggleMenu('view')}
+                >
+                  {t('menu.view')}
+                </button>
+                {openMenu === 'view' ? (
+                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                    <MenuList dense>
+                      <TitleBarMenuItem
+                        label={t('menu.toggleStatusBar')}
+                        shortcut="Ctrl+B"
+                        onClick={() => run(onToggleStatusBar)}
+                      />
+                      <Divider component="li" />
+                      <TitleBarMenuItem label={t('menu.reload')} onClick={() => runWindow('reload')} />
+                      {showDevTools ? (
+                        <TitleBarMenuItem
+                          label={t('menu.toggleDevTools')}
+                          onClick={() => runWindow('toggleDevTools')}
+                        />
+                      ) : null}
+                      <Divider component="li" />
+                      <TitleBarMenuItem
+                        label={t('menu.resetZoom')}
+                        onClick={() => runWindow('resetZoom')}
+                      />
+                      <TitleBarMenuItem label={t('menu.zoomIn')} onClick={() => runWindow('zoomIn')} />
+                      <TitleBarMenuItem label={t('menu.zoomOut')} onClick={() => runWindow('zoomOut')} />
+                      <Divider component="li" />
+                      <TitleBarMenuItem
+                        label={t('menu.toggleFullscreen')}
+                        onClick={() => runWindow('toggleFullscreen')}
+                      />
+                    </MenuList>
+                  </Paper>
+                ) : null}
+              </div>
 
-          <div className={`app-titlebar-menu${openMenu === 'help' ? ' is-open' : ''}`}>
-            <button
-              type="button"
-              className="app-titlebar-menu-trigger"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === 'help'}
-              onClick={() => toggleMenu('help')}
-            >
-              {t('menu.help')}
-            </button>
-            {openMenu === 'help' ? (
-              <Paper className="app-titlebar-dropdown" elevation={8}>
-                <MenuList dense>
-                  <TitleBarMenuItem
-                    label={t('menu.userGuide')}
-                    onClick={() => runWindow('openUserGuide')}
-                  />
-                  <TitleBarMenuItem label={t('menu.about')} onClick={() => runWindow('showAbout')} />
-                </MenuList>
-              </Paper>
-            ) : null}
-          </div>
-        </nav>
+              <div className={`app-titlebar-menu${openMenu === 'help' ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="app-titlebar-menu-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === 'help'}
+                  onClick={() => toggleMenu('help')}
+                >
+                  {t('menu.help')}
+                </button>
+                {openMenu === 'help' ? (
+                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                    <MenuList dense>
+                      <TitleBarMenuItem
+                        label={t('menu.userGuide')}
+                        onClick={() => runWindow('openUserGuide')}
+                      />
+                      <TitleBarMenuItem
+                        label={t('menu.about')}
+                        onClick={() => runWindow('showAbout')}
+                      />
+                    </MenuList>
+                  </Paper>
+                ) : null}
+              </div>
+            </nav>
+          </>
+        ) : null}
       </div>
 
       <div className="app-titlebar-title" title={title}>

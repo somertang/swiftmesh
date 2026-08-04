@@ -102,7 +102,12 @@ export type UpdatePromptEvent = {
   releaseNotes: string
 }
 
+export type WindowChromePlatform = 'win32' | 'darwin' | 'linux'
+
 export type WindowChromeInfo = {
+  platform: WindowChromePlatform
+  /** Left safe area for macOS traffic lights (0 on other platforms). */
+  controlsInsetLeft: number
   titleBarOverlay: boolean
   overlayHeight: number
   isPackaged: boolean
