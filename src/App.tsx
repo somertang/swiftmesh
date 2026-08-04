@@ -3,7 +3,10 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
+import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import type { Theme } from '@mui/material/styles'
 import {
   useCallback,
   useEffect,
@@ -97,6 +100,32 @@ function FieldRow({
   )
 }
 
+/** Theme-aligned snack alert: paper card + left accent bar (not filled green/red blocks). */
+function themedSnackAlertSx(accent: 'primary' | 'error') {
+  return (theme: Theme) => ({
+    maxWidth: 520,
+    alignItems: 'flex-start' as const,
+    color: theme.palette.text.primary,
+    bgcolor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    borderLeft: `3px solid ${theme.palette[accent].main}`,
+    borderRadius: 1.5,
+    boxShadow: theme.shadows[8],
+    backgroundImage: 'none',
+    '& .MuiAlert-icon': {
+      color: theme.palette[accent].main,
+      opacity: 1,
+    },
+    '& .MuiAlert-action .MuiIconButton-root': {
+      color: theme.palette.text.secondary,
+    },
+    '& .MuiAlert-message': {
+      width: '100%',
+      color: theme.palette.text.primary,
+    },
+  })
+}
+
 export default function App() {
   const t = useT()
   const [tabState, setTabState] = useState<TabState>(createInitialTabState)
@@ -115,6 +144,8 @@ export default function App() {
   const [performancePrefs, setPerformancePrefs] = useState(
     () => readPreferences().performance
   )
+  const [savedRecordingTip, setSavedRecordingTip] = useState<{ path: string } | null>(null)
+  const [openVideoError, setOpenVideoError] = useState<string | null>(null)
   const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
   const sessionPersistReadyRef = useRef(false)
   const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
@@ -757,7 +788,10 @@ export default function App() {
         fps,
         outputDir: readPreferences().recording.outputDir,
       })
-      if (!result.ok && result.reason !== 'canceled') {
+      if (result.ok) {
+        setOpenVideoError(null)
+        setSavedRecordingTip({ path: result.path })
+      } else if (result.reason !== 'canceled') {
         patchRecordingTab({ error: result.reason || t('error.saveRecording') })
       }
     } catch (err) {
@@ -993,6 +1027,9 @@ export default function App() {
                         onCanvasReady={canvas => {
                           canvasRefs.current[group.id] = canvas
                         }}
+                        onCameraSettingsChange={next =>
+                          setTabState(prev => patchTab(prev, groupTab.id, { camera: next }))
+                        }
                         captureRef={getCaptureRef(group.id)}
                       />
                       <SceneSettingsPanels
@@ -1210,6 +1247,77 @@ export default function App() {
           stopLabel={t('record.stopRecording')}
           onStop={stopRecording}
         />
+        <Snackbar
+          open={savedRecordingTip != null}
+          autoHideDuration={12000}
+          onClose={(_event, reason) => {
+            if (reason === 'clickaway') return
+            setSavedRecordingTip(null)
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            severity="success"
+            variant="standard"
+            onClose={() => setSavedRecordingTip(null)}
+            sx={themedSnackAlertSx('primary')}
+          >
+            <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+              {t('record.savedTitle')}
+            </Typography>
+            <Typography
+              variant="caption"
+              component="div"
+              className="mono"
+              sx={{ mt: 0.75, wordBreak: 'break-all', color: 'text.secondary' }}
+            >
+              {savedRecordingTip
+                ? t('record.savedPath', { path: savedRecordingTip.path })
+                : null}
+            </Typography>
+            {savedRecordingTip ? (
+              <Button
+                color="primary"
+                size="small"
+                sx={{
+                  mt: 1.75,
+                  px: 1,
+                  py: 0.75,
+                  minWidth: 0,
+                  fontSize: '0.75rem',
+                  lineHeight: 1.4,
+                  fontWeight: 600,
+                }}
+                onClick={() => {
+                  const filePath = savedRecordingTip.path
+                  void (async () => {
+                    const res = await window.desktop?.openPath?.(filePath)
+                    if (res && !res.ok) {
+                      setOpenVideoError(t('record.openVideoFailed', { reason: res.reason }))
+                    }
+                  })()
+                }}
+              >
+                {t('record.openVideo')}
+              </Button>
+            ) : null}
+          </Alert>
+        </Snackbar>
+        <Snackbar
+          open={openVideoError != null}
+          autoHideDuration={6000}
+          onClose={() => setOpenVideoError(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            severity="error"
+            variant="standard"
+            onClose={() => setOpenVideoError(null)}
+            sx={themedSnackAlertSx('error')}
+          >
+            {openVideoError}
+          </Alert>
+        </Snackbar>
         <UpdateAvailableDialog
           open={updatePromptOpen}
           prompt={updatePrompt}

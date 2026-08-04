@@ -49,6 +49,9 @@ const desktop: DesktopApi = {
   showItemInFolder: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('desktop:show-item-in-folder', filePath),
 
+  openPath: (filePath: string): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('desktop:open-path', filePath),
+
   rememberRecentPath: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('desktop:remember-recent-path', filePath),
 

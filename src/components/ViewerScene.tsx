@@ -15,6 +15,7 @@ import {
 import {
   AlwaysDepth,
   ArrowHelper,
+  Box3,
   BufferGeometry,
   CanvasTexture,
   Color,
@@ -40,10 +41,13 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
 import {
+  cameraSettingsEqual,
   focusCameraOnObject,
+  readCameraSettings,
   resolveHierarchyObject,
   worldSizeFromScreenSize,
 } from '../lib/cameraFocus'
@@ -104,8 +108,9 @@ export type RecordDrive = {
   onComplete: () => void
 }
 
+/** Clone scene graph with correct SkinnedMesh/Skeleton binding, then own materials. */
 function deepCloneScene(source: Object3D) {
-  const cloned = source.clone(true)
+  const cloned = skeletonClone(source)
   cloned.traverse(child => {
     if (!(child instanceof Mesh)) return
     if (Array.isArray(child.material)) {
@@ -115,6 +120,15 @@ function deepCloneScene(source: Object3D) {
     }
   })
   return cloned
+}
+
+/** Lift so the bbox rests on the ground plane (minY → 0). Does not recenter XZ. */
+function placeModelOnGround(root: Object3D) {
+  root.updateMatrixWorld(true)
+  const box = new Box3().setFromObject(root)
+  if (box.isEmpty()) return
+  root.position.y -= box.min.y
+  root.updateMatrixWorld(true)
 }
 
 function applyEnvMapIntensity(root: Object3D | null, intensity: number) {
@@ -156,11 +170,12 @@ type ModelRoots = {
   inspectRoot: Object3D
 }
 
-/** Clone for display; keep authored transforms (no rescale / recentering). */
+/** Clone for display; feet on ground. Turntable pivot is a separate parent group. */
 function prepareDisplayRoot(source: Object3D, maxTextureSize: number): Object3D {
   const cloned = deepCloneScene(source)
   prepareModelMeshes(cloned)
   limitObjectTextures(cloned, maxTextureSize)
+  placeModelOnGround(cloned)
   return cloned
 }
 
@@ -415,10 +430,12 @@ function SelectionFocuser({
   object,
   focusToken,
   enabled,
+  onCameraSettled,
 }: {
   object: Object3D | null
   focusToken: number
   enabled: boolean
+  onCameraSettled?: () => void
 }) {
   const camera = useThree(s => s.camera)
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
@@ -427,13 +444,20 @@ function SelectionFocuser({
     if (!enabled || !object || focusToken <= 0) return
     if (!(camera instanceof PerspectiveCamera)) return
     focusCameraOnObject(object, camera, controls)
-  }, [object, focusToken, enabled, camera, controls])
+    onCameraSettled?.()
+  }, [object, focusToken, enabled, camera, controls, onCameraSettled])
 
   return null
 }
 
 /** Fit camera to the full model when a new display root appears. */
-function InitialModelFitter({ modelRoot }: { modelRoot: Object3D | null }) {
+function InitialModelFitter({
+  modelRoot,
+  onCameraSettled,
+}: {
+  modelRoot: Object3D | null
+  onCameraSettled?: () => void
+}) {
   const camera = useThree(s => s.camera)
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
 
@@ -441,7 +465,8 @@ function InitialModelFitter({ modelRoot }: { modelRoot: Object3D | null }) {
     if (!modelRoot || !controls) return
     if (!(camera instanceof PerspectiveCamera)) return
     focusCameraOnObject(modelRoot, camera, controls)
-  }, [modelRoot, camera, controls])
+    onCameraSettled?.()
+  }, [modelRoot, camera, controls, onCameraSettled])
 
   return null
 }
@@ -717,59 +742,58 @@ function SceneLighting({
   return null
 }
 
-function TurntableResetOnRecordStart({
+/**
+ * Turntable parent for offline capture. Rotates around the model bbox center via an
+ * independent pivot so the mesh stays feet-on-ground (same framing in viewport + export).
+ */
+function TurntableGroup({
   recording,
-  driveRef,
+  modelRoot,
   children,
   groupRefOut,
 }: {
   recording: boolean
-  driveRef: MutableRefObject<RecordDrive>
+  modelRoot: Object3D | null
   children: ReactNode
   groupRefOut?: MutableRefObject<Group | null>
 }) {
   const groupRef = useRef<Group>(null)
+  const [pivot, setPivot] = useState({ x: 0, y: 0, z: 0 })
 
-  // Keep the external ref in sync
   useEffect(() => {
     if (groupRefOut) groupRefOut.current = groupRef.current
   })
-  const accumulatedRef = useRef(0)
-  const completedRef = useRef(false)
-  const wasRecording = useRef(false)
+
+  useLayoutEffect(() => {
+    if (!modelRoot) {
+      setPivot(prev => (prev.x === 0 && prev.y === 0 && prev.z === 0 ? prev : { x: 0, y: 0, z: 0 }))
+      return
+    }
+    modelRoot.updateMatrixWorld(true)
+    const box = new Box3().setFromObject(modelRoot)
+    if (box.isEmpty()) {
+      setPivot(prev => (prev.x === 0 && prev.y === 0 && prev.z === 0 ? prev : { x: 0, y: 0, z: 0 }))
+      return
+    }
+    const center = box.getCenter(new Vector3())
+    setPivot(prev =>
+      Math.abs(prev.x - center.x) < 1e-6 &&
+      Math.abs(prev.y - center.y) < 1e-6 &&
+      Math.abs(prev.z - center.z) < 1e-6
+        ? prev
+        : { x: center.x, y: center.y, z: center.z }
+    )
+  }, [modelRoot])
 
   useEffect(() => {
-    if (recording && !wasRecording.current) {
-      accumulatedRef.current = 0
-      completedRef.current = false
-      if (groupRef.current) groupRef.current.rotation.y = 0
-    }
-    if (!recording) {
-      accumulatedRef.current = 0
-      completedRef.current = false
-      if (groupRef.current) groupRef.current.rotation.y = 0
-    }
-    wasRecording.current = recording
+    if (groupRef.current) groupRef.current.rotation.y = 0
   }, [recording])
 
-  useFrame((_, delta) => {
-    const drive = driveRef.current
-    const group = groupRef.current
-    if (!recording || !group || !drive.active || completedRef.current) return
-
-    const step = drive.radiansPerSecond * delta
-    group.rotation.y += step
-    accumulatedRef.current += step
-    drive.onProgress(accumulatedRef.current)
-
-    if (accumulatedRef.current >= Math.PI * 2) {
-      completedRef.current = true
-      group.rotation.y = Math.PI * 2
-      drive.onComplete()
-    }
-  })
-
-  return <group ref={groupRef}>{children}</group>
+  return (
+    <group ref={groupRef} position={[pivot.x, pivot.y, pivot.z]}>
+      <group position={[-pivot.x, -pivot.y, -pivot.z]}>{children}</group>
+    </group>
+  )
 }
 
 function CanvasBridge({ onCanvasReady }: { onCanvasReady: (canvas: HTMLCanvasElement | null) => void }) {
@@ -993,18 +1017,145 @@ function applyCameraSettings(
   controls.update()
 }
 
-/** Applies panel camera settings when the user edits them (not while recording). */
-function CameraRig({ cameraSettings, recording }: { cameraSettings: CameraSettings; recording: boolean }) {
+/**
+ * Reads live camera into panel settings (viewport → panel), with dedupe.
+ * Must run inside the R3F Canvas tree.
+ */
+function useViewportCameraPublisher(
+  syncSourceRef: MutableRefObject<'panel' | 'viewport'>,
+  cameraSettingsRef: MutableRefObject<CameraSettings>,
+  onCameraSettingsChangeRef: MutableRefObject<((next: CameraSettings) => void) | undefined>
+) {
   const camera = useThree(s => s.camera)
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
+
+  return useCallback(() => {
+    if (!(camera instanceof PerspectiveCamera)) return
+    const next = readCameraSettings(camera, controls)
+    if (cameraSettingsEqual(next, cameraSettingsRef.current)) return
+    syncSourceRef.current = 'viewport'
+    onCameraSettingsChangeRef.current?.(next)
+  }, [camera, controls, syncSourceRef, cameraSettingsRef, onCameraSettingsChangeRef])
+}
+
+/**
+ * Applies panel camera settings when they change from the panel.
+ * Skips viewport writebacks and does not re-apply merely because recording ended.
+ */
+function CameraRig({
+  cameraSettings,
+  recording,
+  syncSourceRef,
+}: {
+  cameraSettings: CameraSettings
+  recording: boolean
+  syncSourceRef: MutableRefObject<'panel' | 'viewport'>
+}) {
+  const camera = useThree(s => s.camera)
+  const controls = useThree(s => s.controls) as OrbitControlsLike | null
+  const appliedRef = useRef<CameraSettings | null>(null)
 
   useLayoutEffect(() => {
     if (recording) return
     if (!(camera instanceof PerspectiveCamera)) return
+
+    if (syncSourceRef.current === 'viewport') {
+      syncSourceRef.current = 'panel'
+      appliedRef.current = cameraSettings
+      return
+    }
+
+    if (appliedRef.current && cameraSettingsEqual(appliedRef.current, cameraSettings)) {
+      return
+    }
+
+    const live = readCameraSettings(camera, controls)
+    if (cameraSettingsEqual(live, cameraSettings)) {
+      appliedRef.current = cameraSettings
+      return
+    }
+
     applyCameraSettings(camera, controls, cameraSettings)
-  }, [camera, controls, cameraSettings, recording])
+    appliedRef.current = cameraSettings
+  }, [camera, controls, cameraSettings, recording, syncSourceRef])
 
   return null
+}
+
+/** Wires Orbit / fit / pick / gizmo camera writeback inside the Canvas. */
+function ViewportCameraControls({
+  syncSourceRef,
+  cameraSettingsRef,
+  onCameraSettingsChangeRef,
+  recording,
+  cameraSettings,
+  interactive,
+  mouseButtons,
+  isProfessional,
+  navGizmoApiRef,
+  navGizmoOrientationRef,
+  modelRoot,
+  selectedObject,
+  focusToken,
+  onPick,
+}: {
+  syncSourceRef: MutableRefObject<'panel' | 'viewport'>
+  cameraSettingsRef: MutableRefObject<CameraSettings>
+  onCameraSettingsChangeRef: MutableRefObject<((next: CameraSettings) => void) | undefined>
+  recording: boolean
+  cameraSettings: CameraSettings
+  interactive: boolean
+  mouseButtons: { LEFT: number; MIDDLE: number; RIGHT: number }
+  isProfessional: boolean
+  navGizmoApiRef: MutableRefObject<NavGizmoApi | null>
+  navGizmoOrientationRef: ReturnType<typeof createNavGizmoOrientationRef>
+  modelRoot: Object3D | null
+  selectedObject: Object3D | null
+  focusToken: number
+  onPick: (object: Object3D | null) => void
+}) {
+  const publishCamera = useViewportCameraPublisher(
+    syncSourceRef,
+    cameraSettingsRef,
+    onCameraSettingsChangeRef
+  )
+
+  return (
+    <>
+      <OrbitControls
+        makeDefault
+        enableDamping
+        dampingFactor={0.08}
+        enablePan={interactive}
+        enableRotate={interactive}
+        enableZoom={interactive}
+        screenSpacePanning
+        mouseButtons={mouseButtons}
+        onEnd={publishCamera}
+      />
+      {isProfessional && !recording ? (
+        <NavGizmoBridge
+          apiRef={navGizmoApiRef}
+          orientationRef={navGizmoOrientationRef}
+          onCameraSettled={publishCamera}
+        />
+      ) : null}
+      <CameraRig
+        cameraSettings={cameraSettings}
+        recording={recording}
+        syncSourceRef={syncSourceRef}
+      />
+      <InitialModelFitter modelRoot={modelRoot} onCameraSettled={publishCamera} />
+      <ClickPicker enabled={interactive} modelRoot={modelRoot} onPick={onPick} />
+      <SelectionOverlay object={selectedObject} />
+      <SelectionFocuser
+        object={selectedObject}
+        focusToken={focusToken}
+        enabled={interactive}
+        onCameraSettled={publishCamera}
+      />
+    </>
+  )
 }
 
 /** API for fixed-step offline frame capture. Exposed via ref. */
@@ -1050,6 +1201,7 @@ type ViewerSceneProps = {
   onLoading: (loading: boolean) => void
   onError?: (message: string) => void
   onCanvasReady: (canvas: HTMLCanvasElement | null) => void
+  onCameraSettingsChange?: (next: CameraSettings) => void
   captureRef?: MutableRefObject<CaptureHandle | null>
 }
 
@@ -1066,6 +1218,7 @@ export function ViewerScene({
   onLoading,
   onError,
   onCanvasReady,
+  onCameraSettingsChange,
   captureRef,
 }: ViewerSceneProps) {
   const { previewTheme } = usePreviewTheme()
@@ -1078,6 +1231,11 @@ export function ViewerScene({
   const [inspectRoot, setInspectRoot] = useState<Object3D | null>(null)
   const modelRootRef = useRef<Object3D | null>(null)
   const turntableGroupRef = useRef<Group | null>(null)
+  const syncSourceRef = useRef<'panel' | 'viewport'>('panel')
+  const cameraSettingsRef = useRef(cameraSettings)
+  cameraSettingsRef.current = cameraSettings
+  const onCameraSettingsChangeRef = useRef(onCameraSettingsChange)
+  onCameraSettingsChangeRef.current = onCameraSettingsChange
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusToken, setFocusToken] = useState(0)
   const [activeTool, setActiveTool] = useState<InspectPanelId | null>(null)
@@ -1091,8 +1249,9 @@ export function ViewerScene({
 
   useEffect(() => {
     driveRef.current.radiansPerSecond = (Math.PI * 2) / Math.max(secondsPerRevolution, 1)
-    driveRef.current.active = recording
-  }, [driveRef, recording, secondsPerRevolution])
+    // Offline capture drives rotation; keep live turntable inactive.
+    driveRef.current.active = false
+  }, [driveRef, secondsPerRevolution])
 
   // Reset only when the model identity changes — not when parent re-creates callback props.
   useEffect(() => {
@@ -1264,27 +1423,29 @@ export function ViewerScene({
             <SoftContactShadow />
           </>
         )}
-        <OrbitControls
-          makeDefault
-          enableDamping
-          dampingFactor={0.08}
-          enablePan={interactive}
-          enableRotate={interactive}
-          enableZoom={interactive}
-          screenSpacePanning
+        <ViewportCameraControls
+          syncSourceRef={syncSourceRef}
+          cameraSettingsRef={cameraSettingsRef}
+          onCameraSettingsChangeRef={onCameraSettingsChangeRef}
+          recording={recording}
+          navGizmoApiRef={navGizmoApiRef}
+          navGizmoOrientationRef={navGizmoOrientationRef}
+          isProfessional={isProfessional}
+          interactive={interactive}
           mouseButtons={mouseButtons}
+          cameraSettings={cameraSettings}
+          modelRoot={modelRoot}
+          selectedObject={selectedObject}
+          focusToken={focusToken}
+          onPick={handlePick}
         />
-        {isProfessional && !recording ? (
-          <NavGizmoBridge apiRef={navGizmoApiRef} orientationRef={navGizmoOrientationRef} />
-        ) : null}
-        <CameraRig cameraSettings={cameraSettings} recording={recording} />
-        <InitialModelFitter modelRoot={modelRoot} />
-        <ClickPicker enabled={interactive} modelRoot={modelRoot} onPick={handlePick} />
-        <SelectionOverlay object={selectedObject} />
-        <SelectionFocuser object={selectedObject} focusToken={focusToken} enabled={interactive} />
         <Suspense fallback={null}>
           <ModelLoadErrorBoundary resetKey={modelKey} onError={handleLoadError}>
-            <TurntableResetOnRecordStart recording={recording} driveRef={driveRef} groupRefOut={turntableGroupRef}>
+            <TurntableGroup
+              recording={recording}
+              modelRoot={modelRoot}
+              groupRefOut={turntableGroupRef}
+            >
               <LoadedModel
                 key={`${modelKey}:tex-${maxTextureSize}`}
                 model={model}
@@ -1292,7 +1453,7 @@ export function ViewerScene({
                 onReady={handleModelReady}
                 onRootChange={handleRootChange}
               />
-            </TurntableResetOnRecordStart>
+            </TurntableGroup>
           </ModelLoadErrorBoundary>
         </Suspense>
       </Canvas>

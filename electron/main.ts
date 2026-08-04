@@ -1069,3 +1069,14 @@ ipcMain.handle('desktop:open-default-apps-settings', async (_event, ext?: string
 ipcMain.handle('desktop:show-item-in-folder', async (_event, filePath: string) => {
   shell.showItemInFolder(filePath)
 })
+
+ipcMain.handle('desktop:open-path', async (_event, filePath: string) => {
+  if (typeof filePath !== 'string' || !filePath.trim()) {
+    return { ok: false as const, reason: 'Invalid path' }
+  }
+  const errorMessage = await shell.openPath(filePath)
+  if (errorMessage) {
+    return { ok: false as const, reason: errorMessage }
+  }
+  return { ok: true as const }
+})
