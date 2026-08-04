@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows." />
+  <meta name="description" content="SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows and macOS." />
   <title>SwiftMesh — Local 3D Model Viewer</title>
   <link rel="icon" href="assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #0f1115;
@@ -24,7 +24,7 @@
       --link: #7dd3fc;
       --max: 68rem;
       --nav-h: 3.75rem;
-      --font-display: "Syne", sans-serif;
+      --font-display: "Outfit", sans-serif;
       --font-body: "Figtree", sans-serif;
     }
 
@@ -63,7 +63,8 @@
       width: min(100% - 2rem, var(--max));
       margin: 0 auto;
       height: 100%;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
       gap: 1rem;
     }
@@ -72,10 +73,12 @@
       display: inline-flex;
       align-items: center;
       gap: 0.55rem;
+      justify-self: start;
       font-family: var(--font-display);
-      font-weight: 800;
+      font-weight: 700;
       font-size: 1.05rem;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.015em;
+      line-height: 1.2;
       color: var(--text);
       text-decoration: none;
       flex-shrink: 0;
@@ -88,10 +91,13 @@
     .nav-links {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 0.15rem 1.15rem;
-      margin: 0 auto;
+      margin: 0;
       padding: 0;
       list-style: none;
+      justify-self: center;
+      grid-column: 2;
     }
 
     .nav-links a {
@@ -106,8 +112,10 @@
     .nav-actions {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 0.65rem;
-      margin-left: auto;
+      justify-self: end;
+      grid-column: 3;
       flex-shrink: 0;
     }
 
@@ -254,10 +262,10 @@
 
     .brand {
       font-family: var(--font-display);
-      font-weight: 800;
+      font-weight: 700;
       font-size: clamp(2.6rem, 8vw, 4rem);
-      letter-spacing: -0.03em;
-      line-height: 1.05;
+      letter-spacing: -0.02em;
+      line-height: 1.12;
       margin: 0 0 0.85rem;
     }
 
@@ -316,6 +324,52 @@
     .btn-ghost:hover {
       border-color: var(--muted);
       background: rgba(255, 255, 255, 0.05);
+    }
+
+    .cta-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .download-alts {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.45;
+    }
+
+    .download-alts a {
+      color: var(--link);
+      font-weight: 500;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .download-alts a:hover { text-decoration: underline; }
+
+    .download-alts .sep {
+      margin: 0 0.35rem;
+      color: var(--border);
+      user-select: none;
+    }
+
+    .formats-note {
+      margin: 1.35rem 0 0;
+      padding: 0.9rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.65rem;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 40rem;
+    }
+
+    .formats-note code {
+      font-size: 0.85em;
+      color: var(--text);
     }
 
     /* —— Value props —— */
@@ -597,10 +651,16 @@
     }
 
     @media (max-width: 760px) {
+      .nav-inner {
+        grid-template-columns: 1fr auto;
+      }
       .nav-links,
       .nav-github { display: none; }
       .nav-toggle { display: inline-flex; }
-      .nav-actions { gap: 0.5rem; }
+      .nav-actions {
+        gap: 0.5rem;
+        grid-column: 2;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -657,9 +717,20 @@
     <div class="hero-content">
       <h1 class="brand">Swift<span>Mesh</span></h1>
       <p class="tagline" data-i18n="hero.tagline">Open local 3D models. Inspect. Record a turntable.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/somertang/swiftmesh/releases/latest" data-i18n="hero.download">Download for Windows</a>
-        <a class="btn btn-ghost" href="help/index.html" data-i18n="hero.guide">Guide</a>
+      <div class="cta-block">
+        <div class="cta-row">
+          <a
+            class="btn btn-primary"
+            id="download-primary"
+            href="https://github.com/somertang/swiftmesh/releases"
+            data-i18n="hero.download.generic"
+          >Download</a>
+          <a class="btn btn-ghost" href="help/index.html" data-i18n="hero.guide">Guide</a>
+        </div>
+        <p class="download-alts" id="download-alts">
+          <span data-i18n="hero.also">Also:</span>
+          <a data-dl="win" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.win">Windows</a><span class="sep" aria-hidden="true">·</span><a data-dl="mac-arm64" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.macArm">macOS Apple Silicon</a><span class="sep" aria-hidden="true">·</span><a data-dl="mac-x64" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.macIntel">macOS Intel</a>
+        </p>
       </div>
     </div>
     <div class="hero-shot">
@@ -857,7 +928,7 @@
   <section class="block" id="formats" aria-labelledby="formats-title">
     <p class="section-label" data-i18n="formats.label">Formats &amp; requirements</p>
     <h2 class="section-title" id="formats-title" data-i18n="formats.title">What you need</h2>
-    <p class="section-lead" data-i18n="formats.lead">Install the latest Windows NSIS build from Releases. Portable builds may appear in some releases; in-app auto-update targets the NSIS install.</p>
+    <p class="section-lead" data-i18n="formats.lead">Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS auto-update uses the zip channel. Portable Windows builds may appear in some releases.</p>
     <div class="format-row" aria-label="Supported formats">
       <code>.glb</code>
       <code>.gltf</code>
@@ -866,7 +937,7 @@
     <dl class="req-grid">
       <div>
         <dt data-i18n="formats.platform">Platform</dt>
-        <dd data-i18n="formats.platformValue">Windows x64</dd>
+        <dd data-i18n="formats.platformValue">Windows x64 · macOS (Apple Silicon + Intel)</dd>
       </div>
       <div>
         <dt data-i18n="formats.license">License</dt>
@@ -874,9 +945,10 @@
       </div>
       <div>
         <dt data-i18n="formats.installer">Installer</dt>
-        <dd>SwiftMesh Setup.exe</dd>
+        <dd data-i18n="formats.installerValue">Windows Setup.exe · macOS .dmg (arm64 / x64)</dd>
       </div>
     </dl>
+    <p class="formats-note" data-i18n-html="formats.macNote">macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.</p>
   </section>
 
   <footer>
@@ -901,7 +973,14 @@
           "nav.github": "GitHub",
           "nav.menu": "Menu",
           "hero.tagline": "Open local 3D models. Inspect. Record a turntable.",
-          "hero.download": "Download for Windows",
+          "hero.download.win": "Download for Windows",
+          "hero.download.macArm": "Download for macOS (Apple Silicon)",
+          "hero.download.macIntel": "Download for macOS (Intel)",
+          "hero.download.generic": "Download",
+          "hero.also": "Also:",
+          "hero.alt.win": "Windows",
+          "hero.alt.macArm": "macOS Apple Silicon",
+          "hero.alt.macIntel": "macOS Intel",
           "hero.guide": "Guide",
           "values.local.title": "Local-first",
           "values.local.desc": "Open files from disk — no cloud uploads.",
@@ -926,11 +1005,13 @@
           "features.theme.professional": "Professional",
           "formats.label": "Formats & requirements",
           "formats.title": "What you need",
-          "formats.lead": "Install the latest Windows NSIS build from Releases. Portable builds may appear in some releases; in-app auto-update targets the NSIS install.",
+          "formats.lead": "Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS auto-update uses the zip channel. Portable Windows builds may appear in some releases.",
           "formats.platform": "Platform",
-          "formats.platformValue": "Windows x64",
+          "formats.platformValue": "Windows x64 · macOS (Apple Silicon + Intel)",
           "formats.license": "License",
           "formats.installer": "Installer",
+          "formats.installerValue": "Windows Setup.exe · macOS .dmg (arm64 / x64)",
+          "formats.macNote": "macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.",
           "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
           "footer.guide": "Guide",
           "footer.repo": "Repository",
@@ -946,7 +1027,7 @@
           "shots.themeSimple": "SwiftMesh Simple model theme with a light studio viewport",
           "shots.themeProfessional": "SwiftMesh Professional model theme with a dark viewport and navigation gizmo",
           "meta.title": "SwiftMesh — Local 3D Model Viewer",
-          "meta.description": "SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows."
+          "meta.description": "SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows and macOS."
         },
         zh: {
           "nav.guide": "指南",
@@ -955,7 +1036,14 @@
           "nav.github": "GitHub",
           "nav.menu": "菜单",
           "hero.tagline": "打开本地 3D 模型。检查。录制转台动画。",
-          "hero.download": "下载 Windows 版",
+          "hero.download.win": "下载 Windows 版",
+          "hero.download.macArm": "下载 macOS 版（Apple Silicon）",
+          "hero.download.macIntel": "下载 macOS 版（Intel）",
+          "hero.download.generic": "下载",
+          "hero.also": "其他平台：",
+          "hero.alt.win": "Windows",
+          "hero.alt.macArm": "macOS Apple Silicon",
+          "hero.alt.macIntel": "macOS Intel",
           "hero.guide": "指南",
           "values.local.title": "本地优先",
           "values.local.desc": "从磁盘打开文件——无需上传云端。",
@@ -980,11 +1068,13 @@
           "features.theme.professional": "专业",
           "formats.label": "格式与要求",
           "formats.title": "你需要准备什么",
-          "formats.lead": "从 Releases 安装最新 Windows NSIS 安装包。部分版本可能含便携版；应用内自动更新仅针对 NSIS 安装。",
+          "formats.lead": "从 GitHub Releases 安装：Windows NSIS 安装包（支持应用内自动更新），或 macOS DMG（Apple Silicon / Intel）。macOS 自动更新走 zip 通道。部分版本可能含 Windows 便携版。",
           "formats.platform": "平台",
-          "formats.platformValue": "Windows x64",
+          "formats.platformValue": "Windows x64 · macOS（Apple Silicon + Intel）",
           "formats.license": "许可证",
           "formats.installer": "安装包",
+          "formats.installerValue": "Windows Setup.exe · macOS .dmg（arm64 / x64）",
+          "formats.macNote": "macOS 构建未签名。若 Gatekeeper 提示应用已损坏，请运行 <code>xattr -cr /Applications/SwiftMesh.app</code> 后再正常打开。",
           "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
           "footer.guide": "指南",
           "footer.repo": "仓库",
@@ -1000,11 +1090,153 @@
           "shots.themeSimple": "SwiftMesh 简洁模型主题，浅色工作室视口",
           "shots.themeProfessional": "SwiftMesh 专业模型主题，深色视口与导航 gizmo",
           "meta.title": "SwiftMesh — 本地 3D 模型查看器",
-          "meta.description": "SwiftMesh — 在 Windows 上打开本地 .glb / .gltf / .obj，检查场景数据，并录制转台视频。"
+          "meta.description": "SwiftMesh — 在 Windows 与 macOS 上打开本地 .glb / .gltf / .obj，检查场景数据，并录制转台视频。"
         }
       };
 
       var STORAGE_KEY = "swiftmesh-landing-lang";
+      var RELEASES_URL = "https://github.com/somertang/swiftmesh/releases";
+      var RELEASES_API = "https://api.github.com/repos/somertang/swiftmesh/releases/latest";
+      var DOWNLOAD_LABEL_KEYS = {
+        win: "hero.download.win",
+        "mac-arm64": "hero.download.macArm",
+        "mac-x64": "hero.download.macIntel",
+        other: "hero.download.generic"
+      };
+
+      var detectedPlatform = "other";
+      var assetUrls = {
+        win: RELEASES_URL,
+        "mac-arm64": RELEASES_URL,
+        "mac-x64": RELEASES_URL
+      };
+
+      function isMacAppleSiliconSync() {
+        var ua = navigator.userAgent || "";
+        if (/arm64|aarch64/i.test(ua)) return true;
+        try {
+          var canvas = document.createElement("canvas");
+          var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+          if (gl) {
+            var info = gl.getExtension("WEBGL_debug_renderer_info");
+            if (info) {
+              var renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) || "");
+              if (/Intel|AMD|NVIDIA|Radeon|GeForce|Iris/i.test(renderer)) return false;
+              if (/Apple M\d/i.test(renderer)) return true;
+              if (/Apple GPU/i.test(renderer)) return true;
+            }
+          }
+        } catch (e) {}
+        return false;
+      }
+
+      function detectPlatform() {
+        var ua = navigator.userAgent || "";
+        var platform = navigator.platform || "";
+        var uaPlatform = "";
+        try {
+          if (navigator.userAgentData && navigator.userAgentData.platform) {
+            uaPlatform = navigator.userAgentData.platform;
+          }
+        } catch (e) {}
+
+        if (/Win/i.test(platform) || /Windows/i.test(ua) || /Windows/i.test(uaPlatform)) {
+          return "win";
+        }
+        if (
+          /Mac/i.test(platform) ||
+          /Mac OS|Macintosh/i.test(ua) ||
+          /macOS/i.test(uaPlatform)
+        ) {
+          return isMacAppleSiliconSync() ? "mac-arm64" : "mac-x64";
+        }
+        return "other";
+      }
+
+      function downloadLabelKey(platform) {
+        return DOWNLOAD_LABEL_KEYS[platform] || DOWNLOAD_LABEL_KEYS.other;
+      }
+
+      function applyDownloadLinks() {
+        var primary = document.getElementById("download-primary");
+        if (primary) {
+          var primaryUrl =
+            detectedPlatform !== "other" && assetUrls[detectedPlatform]
+              ? assetUrls[detectedPlatform]
+              : RELEASES_URL;
+          primary.setAttribute("href", primaryUrl);
+          primary.setAttribute("data-i18n", downloadLabelKey(detectedPlatform));
+        }
+        document.querySelectorAll("[data-dl]").forEach(function (el) {
+          var key = el.getAttribute("data-dl");
+          el.setAttribute("href", assetUrls[key] || RELEASES_URL);
+        });
+      }
+
+      function matchReleaseAssets(assets) {
+        var list = Array.isArray(assets) ? assets : [];
+        var found = {
+          win: null,
+          "mac-arm64": null,
+          "mac-x64": null
+        };
+        list.forEach(function (asset) {
+          var name = asset && asset.name ? String(asset.name) : "";
+          var url = asset && asset.browser_download_url;
+          if (!url) return;
+          if (!found.win && /Setup.*\.exe$/i.test(name)) found.win = url;
+          if (!found["mac-arm64"] && /arm64\.dmg$/i.test(name)) found["mac-arm64"] = url;
+          if (!found["mac-x64"] && /x64\.dmg$/i.test(name)) found["mac-x64"] = url;
+        });
+        // electron-builder often emits Intel DMG without an "x64" suffix (e.g. SwiftMesh-0.2.6.dmg)
+        if (!found["mac-x64"]) {
+          list.forEach(function (asset) {
+            var name = asset && asset.name ? String(asset.name) : "";
+            var url = asset && asset.browser_download_url;
+            if (!url || found["mac-x64"]) return;
+            if (/\.dmg$/i.test(name) && !/arm64/i.test(name) && !/blockmap/i.test(name)) {
+              found["mac-x64"] = url;
+            }
+          });
+        }
+        Object.keys(found).forEach(function (key) {
+          if (found[key]) assetUrls[key] = found[key];
+        });
+      }
+
+      function resolveReleaseAssets() {
+        return fetch(RELEASES_API, {
+          headers: { Accept: "application/vnd.github+json" }
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("release fetch failed");
+            return res.json();
+          })
+          .then(function (data) {
+            matchReleaseAssets(data && data.assets);
+            applyDownloadLinks();
+          })
+          .catch(function () {
+            applyDownloadLinks();
+          });
+      }
+
+      function refineMacArch() {
+        if (detectedPlatform !== "mac-arm64" && detectedPlatform !== "mac-x64") {
+          return Promise.resolve();
+        }
+        if (!navigator.userAgentData || !navigator.userAgentData.getHighEntropyValues) {
+          return Promise.resolve();
+        }
+        return navigator.userAgentData
+          .getHighEntropyValues(["architecture"])
+          .then(function (uaData) {
+            var arch = (uaData && uaData.architecture) || "";
+            if (/arm/i.test(arch)) detectedPlatform = "mac-arm64";
+            else if (/x86|x64|amd64/i.test(arch)) detectedPlatform = "mac-x64";
+          })
+          .catch(function () {});
+      }
 
       function detectLang() {
         try {
@@ -1021,6 +1253,11 @@
         document.title = dict["meta.title"];
         var meta = document.querySelector('meta[name="description"]');
         if (meta) meta.setAttribute("content", dict["meta.description"]);
+
+        var primary = document.getElementById("download-primary");
+        if (primary) {
+          primary.setAttribute("data-i18n", downloadLabelKey(detectedPlatform));
+        }
 
         document.querySelectorAll("[data-i18n]").forEach(function (el) {
           var key = el.getAttribute("data-i18n");
@@ -1046,12 +1283,24 @@
         try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
       }
 
+      detectedPlatform = detectPlatform();
+      applyDownloadLinks();
+
       var current = detectLang();
       applyLang(current);
 
+      refineMacArch().then(function () {
+        applyDownloadLinks();
+        applyLang(current);
+        return resolveReleaseAssets();
+      }).then(function () {
+        applyLang(current);
+      });
+
       document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          applyLang(btn.getAttribute("data-lang"));
+          current = btn.getAttribute("data-lang");
+          applyLang(current);
         });
       });
 

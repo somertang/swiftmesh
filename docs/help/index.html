@@ -248,7 +248,7 @@
         <header class="hero">
           <h1>SwiftMesh User Guide</h1>
           <p>
-            SwiftMesh is a Windows desktop app for viewing local 3D models,
+            SwiftMesh is a desktop app for Windows and macOS for viewing local 3D models,
             inspecting scene data, and recording a one-revolution turntable video.
             Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, and <strong>.obj</strong>.
           </p>
@@ -266,19 +266,20 @@
             </ul>
           </div>
           <p class="note">
-            Prefer the <strong>NSIS installer</strong> from GitHub Releases if you want in-app auto-update.
-            Portable builds are not the update target.
+            Prefer the <strong>Windows NSIS installer</strong> or a packaged <strong>macOS</strong> build from GitHub Releases if you want in-app auto-update
+            (Windows reads <code>latest.yml</code>; macOS uses the zip channel / <code>latest-mac.yml</code>).
+            Portable Windows builds are not the update target. Install macOS from the <code>.dmg</code>; builds are not code-signed—see the product page if Gatekeeper reports the app as damaged.
           </p>
         </section>
 
         <section id="open">
           <h2>2. Opening models</h2>
           <ul>
-            <li><strong>File → Open…</strong> (<kbd>Ctrl+O</kbd>) opens a system file dialog.</li>
+            <li><strong>File → Open…</strong> (<kbd>Ctrl+O</kbd> / <kbd>⌘O</kbd>) opens a system file dialog.</li>
             <li>On an empty tab, use <strong>Open local file</strong>.</li>
             <li>Drag and drop a model onto the viewport (disabled while recording or exporting).</li>
             <li><strong>File → Open Recent</strong> lists recent absolute paths; use <strong>Clear Recent</strong> to empty the list.</li>
-            <li>Windows file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> with SwiftMesh (“Open with”).</li>
+            <li>On Windows, file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> with SwiftMesh (“Open with”). On macOS, use Open With or set SwiftMesh as the default app for those types.</li>
           </ul>
           <p>
             For <code>.gltf</code> and <code>.obj</code> with external buffers, materials, or textures,
@@ -464,7 +465,7 @@
 
         <section id="updates">
           <h2>8. Updates</h2>
-          <p>Updates are available in Preferences → General → Updates for packaged NSIS installs.</p>
+          <p>Updates are available in Preferences → General → Updates for packaged installs (Windows NSIS; macOS zip channel).</p>
           <ul>
             <li><strong>Check for updates</strong> runs a manual check and downloads when a newer release exists.</li>
             <li>When a download finishes, use <strong>Relaunch application</strong> to install.</li>
@@ -481,17 +482,17 @@
           <table>
             <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
             <tbody>
-              <tr><td><kbd>Ctrl+O</kbd></td><td>Open…</td></tr>
-              <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences…</td></tr>
-              <tr><td><kbd>Ctrl+B</kbd></td><td>Toggle Status Bar</td></tr>
+              <tr><td><kbd>Ctrl+O</kbd> / <kbd>⌘O</kbd></td><td>Open…</td></tr>
+              <tr><td><kbd>Ctrl+,</kbd> / <kbd>⌘,</kbd></td><td>Preferences…</td></tr>
+              <tr><td><kbd>Ctrl+B</kbd> / <kbd>⌘B</kbd></td><td>Toggle Status Bar</td></tr>
               <tr><td><kbd>Ctrl+F4</kbd></td><td>Close active tab</td></tr>
               <tr><td><kbd>Ctrl+\</kbd></td><td>Split Right</td></tr>
               <tr><td><kbd>Ctrl+Alt+\</kbd></td><td>Split Down</td></tr>
-              <tr><td><kbd>Shift+Alt+R</kbd></td><td>Reveal in File Explorer</td></tr>
+              <tr><td><kbd>Shift+Alt+R</kbd></td><td>Reveal in File Explorer / Finder</td></tr>
               <tr><td><kbd>Esc</kbd></td><td>Close open title-bar menus</td></tr>
             </tbody>
           </table>
-          <p>View menu also includes Reload, zoom, and Toggle Full Screen.</p>
+          <p>On macOS, Open, Preferences, and Status Bar shortcuts use <kbd>⌘</kbd> instead of <kbd>Ctrl</kbd>. View menu also includes Reload, zoom, and Toggle Full Screen.</p>
         </section>
 
         <section id="limits">
@@ -500,7 +501,7 @@
             <li>Local files only — no remote URL or cloud loading.</li>
             <li>Formats limited to <code>.glb</code>, <code>.gltf</code>, and <code>.obj</code>.</li>
             <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>
-            <li>Auto-update targets packaged NSIS installs, not portable or dev sessions.</li>
+            <li>Auto-update targets packaged Windows NSIS installs and macOS zip-channel builds, not portable or dev sessions.</li>
             <li>One turntable revolution per recording pass.</li>
             <li>Telemetry preference does not send data yet.</li>
           </ul>
