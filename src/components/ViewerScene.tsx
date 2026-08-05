@@ -73,6 +73,12 @@ import type { InspectPanelId } from './inspect/InspectPanelShell'
 import { MaterialsPanel } from './inspect/MaterialsPanel'
 import { TexturesPanel } from './inspect/TexturesPanel'
 import { limitObjectTextures } from '../lib/limitObjectTextures'
+import {
+  computeSceneHelperExtents,
+  computeUnitScaleFactor,
+  measureObjectSize,
+  type SceneHelperExtents,
+} from '../lib/modelDisplayScale'
 import { ViewportToolbar } from './ViewportToolbar'
 import {
   createNavGizmoOrientationRef,
@@ -170,10 +176,22 @@ type ModelRoots = {
   inspectRoot: Object3D
 }
 
-/** Clone for display; feet on ground. Turntable pivot is a separate parent group. */
-function prepareDisplayRoot(source: Object3D, maxTextureSize: number): Object3D {
+/** Clone for display; optional unit normalize; feet on ground. Turntable pivot is separate. */
+function prepareDisplayRoot(
+  source: Object3D,
+  maxTextureSize: number,
+  autoNormalizeUnits: boolean
+): Object3D {
   const cloned = deepCloneScene(source)
   prepareModelMeshes(cloned)
+  if (autoNormalizeUnits) {
+    const { maxDim } = measureObjectSize(cloned)
+    const factor = computeUnitScaleFactor(maxDim)
+    if (factor !== 1) {
+      cloned.scale.setScalar(factor)
+      cloned.updateMatrixWorld(true)
+    }
+  }
   limitObjectTextures(cloned, maxTextureSize)
   placeModelOnGround(cloned)
   return cloned
@@ -183,11 +201,12 @@ function usePublishModelRoots(
   source: Object3D,
   onReady: () => void,
   onRootChange: (roots: ModelRoots | null) => void,
-  maxTextureSize: number
+  maxTextureSize: number,
+  autoNormalizeUnits: boolean
 ) {
   const displayRoot = useMemo(
-    () => prepareDisplayRoot(source, maxTextureSize),
-    [source, maxTextureSize]
+    () => prepareDisplayRoot(source, maxTextureSize, autoNormalizeUnits),
+    [source, maxTextureSize, autoNormalizeUnits]
   )
 
   useEffect(() => {
@@ -213,12 +232,14 @@ function LoadedGltfModel({
   mainUrl,
   resourceUrls,
   maxTextureSize,
+  autoNormalizeUnits,
   onReady,
   onRootChange,
 }: {
   mainUrl: string
   resourceUrls: Record<string, string>
   maxTextureSize: number
+  autoNormalizeUnits: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -227,7 +248,13 @@ function LoadedGltfModel({
   const gltf = useLoader(GLTFLoader, mainUrl, loader => {
     configureGltfLoader(loader, { resourceUrls, ktx2Loader })
   })
-  const displayRoot = usePublishModelRoots(gltf.scene, onReady, onRootChange, maxTextureSize)
+  const displayRoot = usePublishModelRoots(
+    gltf.scene,
+    onReady,
+    onRootChange,
+    maxTextureSize,
+    autoNormalizeUnits
+  )
   return <primitive object={displayRoot} />
 }
 
@@ -236,6 +263,7 @@ function LoadedObjWithMtl({
   mtlUrl,
   resourceUrls,
   maxTextureSize,
+  autoNormalizeUnits,
   onReady,
   onRootChange,
 }: {
@@ -243,6 +271,7 @@ function LoadedObjWithMtl({
   mtlUrl: string
   resourceUrls: Record<string, string>
   maxTextureSize: number
+  autoNormalizeUnits: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -256,7 +285,13 @@ function LoadedObjWithMtl({
     attachResourceUrlModifier(loader.manager, resourceUrls)
     loader.setMaterials(materials)
   })
-  const displayRoot = usePublishModelRoots(object, onReady, onRootChange, maxTextureSize)
+  const displayRoot = usePublishModelRoots(
+    object,
+    onReady,
+    onRootChange,
+    maxTextureSize,
+    autoNormalizeUnits
+  )
   return <primitive object={displayRoot} />
 }
 
@@ -264,30 +299,40 @@ function LoadedObjBare({
   mainUrl,
   resourceUrls,
   maxTextureSize,
+  autoNormalizeUnits,
   onReady,
   onRootChange,
 }: {
   mainUrl: string
   resourceUrls: Record<string, string>
   maxTextureSize: number
+  autoNormalizeUnits: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
   const object = useLoader(OBJLoader, mainUrl, loader => {
     attachResourceUrlModifier(loader.manager, resourceUrls)
   })
-  const displayRoot = usePublishModelRoots(object, onReady, onRootChange, maxTextureSize)
+  const displayRoot = usePublishModelRoots(
+    object,
+    onReady,
+    onRootChange,
+    maxTextureSize,
+    autoNormalizeUnits
+  )
   return <primitive object={displayRoot} />
 }
 
 function LoadedModel({
   model,
   maxTextureSize,
+  autoNormalizeUnits,
   onReady,
   onRootChange,
 }: {
   model: ModelSource
   maxTextureSize: number
+  autoNormalizeUnits: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -300,6 +345,7 @@ function LoadedModel({
           mtlUrl={mtlUrl}
           resourceUrls={model.resourceUrls}
           maxTextureSize={maxTextureSize}
+          autoNormalizeUnits={autoNormalizeUnits}
           onReady={onReady}
           onRootChange={onRootChange}
         />
@@ -310,6 +356,7 @@ function LoadedModel({
         mainUrl={model.mainUrl}
         resourceUrls={model.resourceUrls}
         maxTextureSize={maxTextureSize}
+        autoNormalizeUnits={autoNormalizeUnits}
         onReady={onReady}
         onRootChange={onRootChange}
       />
@@ -321,6 +368,7 @@ function LoadedModel({
       mainUrl={model.mainUrl}
       resourceUrls={model.resourceUrls}
       maxTextureSize={maxTextureSize}
+      autoNormalizeUnits={autoNormalizeUnits}
       onReady={onReady}
       onRootChange={onRootChange}
     />
@@ -554,25 +602,25 @@ class ModelLoadErrorBoundary extends Component<
   }
 }
 
-function Ground() {
+function Ground({ size }: { size: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[100, 100]} />
+      <planeGeometry args={[size, size]} />
       <meshBasicMaterial color={GROUND_COLOR} depthWrite={false} />
     </mesh>
   )
 }
 
 /** World-origin XYZ shafts; hide while recording so they never appear in exports. */
-function OriginAxes({ visible = true }: { visible?: boolean }) {
+function OriginAxes({ visible = true, length }: { visible?: boolean; length: number }) {
   const axes = useMemo(() => {
     const root = new Object3D()
     // headLength = 0 matches glb-viewer-core (line shafts only, no cones)
-    root.add(new ArrowHelper(new Vector3(1, 0, 0), new Vector3(0, 0, 0), 1, '#EA334C', 0))
-    root.add(new ArrowHelper(new Vector3(0, 1, 0), new Vector3(0, 0, 0), 1, '#80CA1E', 0))
-    root.add(new ArrowHelper(new Vector3(0, 0, 1), new Vector3(0, 0, 0), 1, '#2D83E8', 0))
+    root.add(new ArrowHelper(new Vector3(1, 0, 0), new Vector3(0, 0, 0), length, '#EA334C', 0))
+    root.add(new ArrowHelper(new Vector3(0, 1, 0), new Vector3(0, 0, 0), length, '#80CA1E', 0))
+    root.add(new ArrowHelper(new Vector3(0, 0, 1), new Vector3(0, 0, 0), length, '#2D83E8', 0))
     return root
-  }, [])
+  }, [length])
 
   useEffect(() => {
     return () => {
@@ -586,9 +634,19 @@ function OriginAxes({ visible = true }: { visible?: boolean }) {
   return <primitive object={axes} />
 }
 
-function ProfessionalFloor({ showAxes }: { showAxes: boolean }) {
+function ProfessionalFloor({
+  showAxes,
+  gridSize,
+  gridDivisions,
+  axesLength,
+}: {
+  showAxes: boolean
+  gridSize: number
+  gridDivisions: number
+  axesLength: number
+}) {
   const grid = useMemo(() => {
-    const helper = new GridHelper(10, 10, '#4B4B4B', '#4B4B4B')
+    const helper = new GridHelper(gridSize, gridDivisions, '#4B4B4B', '#4B4B4B')
     const material = helper.material
     if (Array.isArray(material)) {
       for (const mat of material) mat.depthWrite = false
@@ -597,7 +655,7 @@ function ProfessionalFloor({ showAxes }: { showAxes: boolean }) {
     }
     helper.renderOrder = -999999
     return helper
-  }, [])
+  }, [gridSize, gridDivisions])
 
   useEffect(() => {
     return () => {
@@ -614,26 +672,33 @@ function ProfessionalFloor({ showAxes }: { showAxes: boolean }) {
   return (
     <>
       <primitive object={grid} />
-      <OriginAxes visible={showAxes} />
+      <OriginAxes visible={showAxes} length={axesLength} />
     </>
   )
 }
 
-function SoftContactShadow() {
+function SoftContactShadow({ size }: { size: number }) {
   const texture = useMemo(() => {
-    const size = 256
+    const texSize = 256
     const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
+    canvas.width = texSize
+    canvas.height = texSize
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    const gradient = ctx.createRadialGradient(
+      texSize / 2,
+      texSize / 2,
+      0,
+      texSize / 2,
+      texSize / 2,
+      texSize / 2
+    )
     gradient.addColorStop(0, 'rgba(0,0,0,0.38)')
     gradient.addColorStop(0.35, 'rgba(0,0,0,0.16)')
     gradient.addColorStop(0.7, 'rgba(0,0,0,0.05)')
     gradient.addColorStop(1, 'rgba(0,0,0,0)')
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, size, size)
+    ctx.fillRect(0, 0, texSize, texSize)
     const map = new CanvasTexture(canvas)
     map.colorSpace = SRGBColorSpace
     return map
@@ -647,14 +712,16 @@ function SoftContactShadow() {
 
   if (!texture) return null
 
+  // Keep the slight offset from the original meter-scale shadow relative to size.
+  const offsetScale = size / 2.4
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0.05, 0.001, 0.06]}
+      position={[0.05 * offsetScale, 0.001, 0.06 * offsetScale]}
       scale={[1.55, 1, 1.05]}
       renderOrder={-1}
     >
-      <planeGeometry args={[2.4, 2.4]} />
+      <planeGeometry args={[size, size]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} />
     </mesh>
   )
@@ -664,10 +731,14 @@ function SceneLighting({
   settings,
   modelRoot,
   previewTheme,
+  fogNear,
+  fogFar,
 }: {
   settings: LightingSettings
   modelRoot: Object3D | null
   previewTheme: PreviewTheme
+  fogNear: number
+  fogFar: number
 }) {
   const { gl, scene } = useThree()
   const pmremRef = useRef<PMREMGenerator | null>(null)
@@ -676,7 +747,8 @@ function SceneLighting({
 
   useLayoutEffect(() => {
     scene.background = new Color(sceneBg)
-    scene.fog = previewTheme === 'professional' ? null : new Fog(sceneBg, 10, 80)
+    scene.fog =
+      previewTheme === 'professional' ? null : new Fog(sceneBg, fogNear, fogFar)
     gl.outputColorSpace = SRGBColorSpace
     gl.toneMapping = NeutralToneMapping
     gl.toneMappingExposure = settings.exposure
@@ -708,6 +780,8 @@ function SceneLighting({
     modelRoot,
     previewTheme,
     sceneBg,
+    fogNear,
+    fogFar,
   ])
 
   useEffect(() => {
@@ -1197,6 +1271,7 @@ type ViewerSceneProps = {
   secondsPerRevolution: number
   msaa?: boolean
   maxTextureSize?: number
+  autoNormalizeUnits?: boolean
   driveRef: MutableRefObject<RecordDrive>
   onLoading: (loading: boolean) => void
   onError?: (message: string) => void
@@ -1214,6 +1289,7 @@ export function ViewerScene({
   secondsPerRevolution,
   msaa = true,
   maxTextureSize = 0,
+  autoNormalizeUnits = true,
   driveRef,
   onLoading,
   onError,
@@ -1246,6 +1322,11 @@ export function ViewerScene({
   onErrorRef.current = onError
   const modelKey = model.path ?? model.mainUrl
   const isProfessional = previewTheme === 'professional'
+
+  const helperExtents: SceneHelperExtents = useMemo(() => {
+    if (!modelRoot) return computeSceneHelperExtents(null)
+    return computeSceneHelperExtents(measureObjectSize(modelRoot))
+  }, [modelRoot])
 
   useEffect(() => {
     driveRef.current.radiansPerSecond = (Math.PI * 2) / Math.max(secondsPerRevolution, 1)
@@ -1414,13 +1495,20 @@ export function ViewerScene({
           settings={lightingSettings}
           modelRoot={modelRoot}
           previewTheme={previewTheme}
+          fogNear={helperExtents.fogNear}
+          fogFar={helperExtents.fogFar}
         />
         {isProfessional ? (
-          <ProfessionalFloor showAxes={!recording} />
+          <ProfessionalFloor
+            showAxes={!recording}
+            gridSize={helperExtents.gridSize}
+            gridDivisions={helperExtents.gridDivisions}
+            axesLength={helperExtents.axesLength}
+          />
         ) : (
           <>
-            <Ground />
-            <SoftContactShadow />
+            <Ground size={helperExtents.groundSize} />
+            <SoftContactShadow size={helperExtents.shadowSize} />
           </>
         )}
         <ViewportCameraControls
@@ -1447,9 +1535,10 @@ export function ViewerScene({
               groupRefOut={turntableGroupRef}
             >
               <LoadedModel
-                key={`${modelKey}:tex-${maxTextureSize}`}
+                key={`${modelKey}:tex-${maxTextureSize}:norm-${autoNormalizeUnits ? 'on' : 'off'}`}
                 model={model}
                 maxTextureSize={maxTextureSize}
+                autoNormalizeUnits={autoNormalizeUnits}
                 onReady={handleModelReady}
                 onRootChange={handleRootChange}
               />

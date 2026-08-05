@@ -45,6 +45,11 @@ export type PerformancePreferences = {
   msaa: boolean
   /** Cap loaded texture edge length; 0 = automatic (no app limit). */
   maxTextureSize: MaxTextureSizeOption
+  /**
+   * Heuristically scale display clones when authored units look like cm/mm
+   * (or tiny models). Off keeps file units as world units.
+   */
+  autoNormalizeUnits: boolean
   /** Reload tabs when their absolute model file changes on disk (desktop). */
   autoReloadOnChange: boolean
   /** Absolute dir for encode/temp files; empty = OS temp directory. */
@@ -85,6 +90,7 @@ export const DEFAULT_GENERAL_PREFERENCES: GeneralPreferences = {
 export const DEFAULT_PERFORMANCE_PREFERENCES: PerformancePreferences = {
   msaa: true,
   maxTextureSize: 0,
+  autoNormalizeUnits: true,
   autoReloadOnChange: false,
   cacheDir: '',
   telemetryEnabled: false,
@@ -164,6 +170,7 @@ export function normalizePreferences(raw: unknown): AppPreferences {
       maxTextureSize: isMaxTextureSize(performanceRaw.maxTextureSize)
         ? performanceRaw.maxTextureSize
         : DEFAULT_PERFORMANCE_PREFERENCES.maxTextureSize,
+      autoNormalizeUnits: performanceRaw.autoNormalizeUnits !== false,
       autoReloadOnChange: performanceRaw.autoReloadOnChange === true,
       cacheDir:
         typeof performanceRaw.cacheDir === 'string' ? performanceRaw.cacheDir.trim() : '',
