@@ -93,6 +93,7 @@ type SettingId =
   | 'modelTheme'
   | 'msaa'
   | 'maxTextureSize'
+  | 'autoNormalizeUnits'
   | 'autoReloadOnChange'
   | 'cacheLocation'
   | 'cachePath'
@@ -174,6 +175,11 @@ const SETTING_META: Record<
     section: 'performance',
     titleKey: 'prefs.maxTextureSize',
     descKey: 'prefs.desc.maxTextureSize',
+  },
+  autoNormalizeUnits: {
+    section: 'performance',
+    titleKey: 'prefs.autoNormalizeUnits',
+    descKey: 'prefs.desc.autoNormalizeUnits',
   },
   autoReloadOnChange: {
     section: 'performance',
@@ -823,33 +829,48 @@ export const PreferencesModal: FC<Props> = ({
                   </PrefRow>
                 </PrefGroup>
               ) : null}
-              {show('maxTextureSize') ? (
+              {show('maxTextureSize') || show('autoNormalizeUnits') ? (
                 <PrefGroup title={t('prefs.group.memory')}>
-                  <PrefRow
-                    id="prefs-max-texture"
-                    title={t('prefs.maxTextureSize')}
-                    description={t('prefs.desc.maxTextureSize')}
-                  >
-                    <TextField
+                  {show('maxTextureSize') ? (
+                    <PrefRow
                       id="prefs-max-texture"
-                      select
-                      size="small"
-                      value={prefs.performance.maxTextureSize}
-                      onChange={e =>
-                        updatePerformance({
-                          maxTextureSize: Number(e.target.value) as MaxTextureSizeOption,
-                        })
-                      }
+                      title={t('prefs.maxTextureSize')}
+                      description={t('prefs.desc.maxTextureSize')}
                     >
-                      {MAX_TEXTURE_SIZE_OPTIONS.map(size => (
-                        <MenuItem key={size} value={size}>
-                          {size === 0
-                            ? t('prefs.maxTextureSize.auto')
-                            : t('prefs.maxTextureSize.px', { n: String(size) })}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </PrefRow>
+                      <TextField
+                        id="prefs-max-texture"
+                        select
+                        size="small"
+                        value={prefs.performance.maxTextureSize}
+                        onChange={e =>
+                          updatePerformance({
+                            maxTextureSize: Number(e.target.value) as MaxTextureSizeOption,
+                          })
+                        }
+                      >
+                        {MAX_TEXTURE_SIZE_OPTIONS.map(size => (
+                          <MenuItem key={size} value={size}>
+                            {size === 0
+                              ? t('prefs.maxTextureSize.auto')
+                              : t('prefs.maxTextureSize.px', { n: String(size) })}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('autoNormalizeUnits') ? (
+                    <PrefRow
+                      id="prefs-auto-normalize-units"
+                      title={t('prefs.autoNormalizeUnits')}
+                      description={t('prefs.desc.autoNormalizeUnits')}
+                    >
+                      <PrefToggle
+                        id="prefs-auto-normalize-units"
+                        checked={prefs.performance.autoNormalizeUnits}
+                        onChange={checked => updatePerformance({ autoNormalizeUnits: checked })}
+                      />
+                    </PrefRow>
+                  ) : null}
                 </PrefGroup>
               ) : null}
               {show('autoReloadOnChange') ||

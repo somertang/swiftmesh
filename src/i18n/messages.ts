@@ -152,6 +152,7 @@ export const en = {
   'prefs.maxTextureSize': 'Maximum texture size',
   'prefs.maxTextureSize.auto': 'Automatic',
   'prefs.maxTextureSize.px': '{n} px',
+  'prefs.autoNormalizeUnits': 'Auto-normalize model units',
   'prefs.autoReloadOnChange': 'Reload on file change',
   'prefs.cacheLocation': 'Cache / temp folder',
   'prefs.cacheLocation.system': 'System temporary folder',
@@ -175,6 +176,8 @@ export const en = {
     'Smooths jagged edges in the viewport. Changing this rebuilds the 3D view.',
   'prefs.desc.maxTextureSize':
     'Downscale loaded textures larger than this limit to reduce GPU memory use.',
+  'prefs.desc.autoNormalizeUnits':
+    'Scale models authored in centimeters or millimeters to meter-sized display units. Turn off to keep file units as world units.',
   'prefs.desc.autoReloadOnChange':
     'Automatically reload a tab when its model file changes on disk (desktop only).',
   'prefs.desc.cacheLocation':
@@ -541,6 +544,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.maxTextureSize': '最大纹理尺寸',
   'prefs.maxTextureSize.auto': '自动',
   'prefs.maxTextureSize.px': '{n} 像素',
+  'prefs.autoNormalizeUnits': '自动归一化模型单位',
   'prefs.autoReloadOnChange': '文件变更自动重载',
   'prefs.cacheLocation': '缓存 / 临时目录',
   'prefs.cacheLocation.system': '系统临时目录',
@@ -560,6 +564,8 @@ export const zh: Record<MessageKey, string> = {
   'prefs.desc.reset': '恢复录制、光照、外观、性能与常规的默认值。语言设置会保留。',
   'prefs.desc.msaa': '平滑视口中的锯齿边缘。更改此项会重建三维视图。',
   'prefs.desc.maxTextureSize': '将超过该边长的纹理缩小，以降低 GPU 显存占用。',
+  'prefs.desc.autoNormalizeUnits':
+    '将按厘米或毫米制作的模型缩放到米制显示尺寸。关闭后按文件原始单位作为世界单位。',
   'prefs.desc.autoReloadOnChange': '当模型文件在磁盘上变更时自动重新加载对应标签（仅桌面端）。',
   'prefs.desc.cacheLocation': '编码与缓存临时文件的写入位置。未指定时使用系统临时目录。',
   'prefs.desc.cachePath': '用于临时文件与缓存的目录。',

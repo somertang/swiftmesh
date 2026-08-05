@@ -1087,6 +1087,7 @@ export default function App() {
                         secondsPerRevolution={groupTab.secondsPerRevolution}
                         msaa={performancePrefs.msaa}
                         maxTextureSize={performancePrefs.maxTextureSize}
+                        autoNormalizeUnits={performancePrefs.autoNormalizeUnits !== false}
                         driveRef={getDriveRef(group.id)}
                         onLoading={nextLoading =>
                           setTabState(prev => patchTab(prev, groupTab.id, { loading: nextLoading }))
