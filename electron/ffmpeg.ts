@@ -28,8 +28,9 @@ export function resolveFfmpegPath(): string {
 
 function mp4QualityArgs(quality: RecordingQuality): string[] {
   switch (quality) {
-    case 'lossless':
-      return ['-preset', 'veryslow', '-crf', '0']
+    case 'maxCompatible':
+      // Near-lossless; CRF 0 is incompatible with High + yuv420p.
+      return ['-preset', 'veryslow', '-crf', '12']
     case 'high':
       return ['-preset', 'slow', '-crf', '17']
     case 'standard':
@@ -40,8 +41,8 @@ function mp4QualityArgs(quality: RecordingQuality): string[] {
 
 function webmQualityArgs(quality: RecordingQuality): string[] {
   switch (quality) {
-    case 'lossless':
-      return ['-lossless', '1']
+    case 'maxCompatible':
+      return ['-crf', '12', '-b:v', '0']
     case 'high':
       return ['-crf', '18', '-b:v', '0']
     case 'standard':
