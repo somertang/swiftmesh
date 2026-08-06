@@ -223,12 +223,18 @@ export function AppTitleBar({
                         onClick={() => run(onOpenFile)}
                       />
                       <li
+                        role="none"
                         className={`app-titlebar-submenu${recentOpen ? ' is-open' : ''}`}
                         onMouseEnter={openRecentMenu}
                         onMouseLeave={scheduleCloseRecentMenu}
                       >
                         <MenuItem
+                          component="div"
+                          id="titlebar-open-recent-trigger"
                           dense
+                          aria-haspopup="menu"
+                          aria-expanded={recentOpen}
+                          aria-controls={recentOpen ? 'titlebar-open-recent-menu' : undefined}
                           onClick={() => {
                             clearRecentCloseTimer()
                             setRecentOpen(v => !v)
@@ -244,7 +250,11 @@ export function AppTitleBar({
                             className="app-titlebar-dropdown app-titlebar-dropdown--flyout"
                             elevation={8}
                           >
-                            <MenuList dense>
+                            <MenuList
+                              id="titlebar-open-recent-menu"
+                              dense
+                              aria-labelledby="titlebar-open-recent-trigger"
+                            >
                               {recentPaths.length === 0 ? (
                                 <TitleBarMenuItem label={t('menu.noRecent')} disabled />
                               ) : (
