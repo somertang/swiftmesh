@@ -17,8 +17,8 @@ export type OpenedModel = {
 export type OpenedGlb = OpenedModel
 
 export type RecordingExportFormat = 'mp4' | 'webm' | 'both'
-/** Encode profile for final video (frames are always lossless PNG). */
-export type RecordingQuality = 'standard' | 'high' | 'lossless'
+/** Encode profile for final video (frames are always lossless PNG; maxCompatible is near-lossless H.264/VP9). */
+export type RecordingQuality = 'standard' | 'high' | 'maxCompatible'
 
 export type SaveRecordingPayload = {
   defaultName: string

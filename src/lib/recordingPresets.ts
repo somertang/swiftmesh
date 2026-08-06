@@ -55,12 +55,12 @@ export const RECORDING_EXPORT_FORMAT_OPTIONS = [
 export const RECORDING_QUALITY_OPTIONS = [
   { value: 'standard' as const, label: 'Standard' },
   { value: 'high' as const, label: 'High bitrate' },
-  { value: 'lossless' as const, label: 'Max quality (compatible)' },
+  { value: 'maxCompatible' as const, label: 'Near-lossless (compatible)' },
 ]
 
-/** Map legacy Low/Medium/High ids (and current ids) to RecordingQuality. */
+/** Map legacy Low/Medium/High/lossless ids (and current ids) to RecordingQuality. */
 export function normalizeRecordingQuality(value: unknown): RecordingQuality {
-  if (value === 'lossless') return 'lossless'
+  if (value === 'maxCompatible' || value === 'lossless') return 'maxCompatible'
   if (value === 'high' || value === 'highBitrate') return 'high'
   if (value === 'standard' || value === 'medium' || value === 'low') return 'standard'
   return 'high'
