@@ -24,6 +24,9 @@ type UpdateInfoLike = {
   releaseNotes?: string | Array<{ version: string; note: string | null }> | null
 }
 
+const MAC_MANUAL_UPDATE = process.platform === 'darwin'
+const GITHUB_REPO = 'somertang/swiftmesh'
+
 let getMainWindow: () => BrowserWindow | null = () => null
 let getLocale: () => Locale = () => 'en'
 let autoUpdater: AutoUpdater | null = null
@@ -34,6 +37,7 @@ let autoUpdateEnabled = true
 let status: UpdateStatus = { phase: 'idle' }
 let pendingVersion = ''
 let pendingNotes = ''
+let pendingReleaseUrl = ''
 let lastPromptedVersion = ''
 
 function t(key: MessageKey, vars?: Record<string, string | number>) {
@@ -79,17 +83,71 @@ function notesFromUpdateInfo(info: UpdateInfoLike): string {
   return ''
 }
 
-async function fetchGithubReleaseNotes(version: string): Promise<string> {
-  const tag = version.startsWith('v') ? version : `v${version}`
-  const url = `https://api.github.com/repos/somertang/swiftmesh/releases/tags/${encodeURIComponent(tag)}`
+function versionFromTag(tag: string): string {
+  return tag.startsWith('v') ? tag.slice(1) : tag
+}
+
+function compareVersions(left: string, right: string): number {
+  const parse = (value: string) => value.split('.').map(part => parseInt(part, 10) || 0)
+  const a = parse(left)
+  const b = parse(right)
+  const len = Math.max(a.length, b.length)
+  for (let i = 0; i < len; i += 1) {
+    const av = a[i] ?? 0
+    const bv = b[i] ?? 0
+    if (av > bv) return 1
+    if (av < bv) return -1
+  }
+  return 0
+}
+
+function githubReleaseHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'SwiftMesh',
   }
   const token = resolveGithubToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+async function fetchLatestGithubRelease(): Promise<{
+  version: string
+  releaseNotes: string
+  releaseUrl: string
+} | null> {
+  const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`
   try {
-    const res = await fetch(url, { headers })
+    const res = await fetch(url, { headers: githubReleaseHeaders() })
+    if (!res.ok) return null
+    const data = (await res.json()) as {
+      tag_name?: string
+      body?: string | null
+      html_url?: string
+    }
+    const tag = typeof data.tag_name === 'string' ? data.tag_name.trim() : ''
+    if (!tag) return null
+    const version = versionFromTag(tag)
+    const releaseUrl =
+      typeof data.html_url === 'string' && data.html_url.trim()
+        ? data.html_url.trim()
+        : `https://github.com/${GITHUB_REPO}/releases/tag/${encodeURIComponent(tag)}`
+    let releaseNotes = typeof data.body === 'string' ? data.body.trim() : ''
+    if (!releaseNotes) {
+      releaseNotes = await fetchGithubReleaseNotes(version)
+    }
+    return { version, releaseNotes, releaseUrl }
+  } catch (error) {
+    console.warn('[updater] failed to fetch latest GitHub release', error)
+    return null
+  }
+}
+
+async function fetchGithubReleaseNotes(version: string): Promise<string> {
+  const tag = version.startsWith('v') ? version : `v${version}`
+  const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${encodeURIComponent(tag)}`
+  try {
+    const res = await fetch(url, { headers: githubReleaseHeaders() })
     if (!res.ok) return ''
     const data = (await res.json()) as { body?: string | null }
     return typeof data.body === 'string' ? data.body.trim() : ''
@@ -166,7 +224,7 @@ function wireEvents(updater: AutoUpdater) {
   })
 }
 
-async function handleUpdateAvailable(info: UpdateInfoLike) {
+async function handleUpdateAvailable(info: UpdateInfoLike, releaseUrl?: string) {
   checking = false
   const version = info.version || ''
   let releaseNotes = notesFromUpdateInfo(info)
@@ -179,7 +237,13 @@ async function handleUpdateAvailable(info: UpdateInfoLike) {
 
   pendingVersion = version
   pendingNotes = releaseNotes
-  emitStatus({ phase: 'available', version, releaseNotes })
+  pendingReleaseUrl = releaseUrl || ''
+  emitStatus({
+    phase: 'available',
+    version,
+    releaseNotes,
+    ...(releaseUrl ? { releaseUrl } : {}),
+  })
 
   // Avoid stacking duplicate prompts for the same version in one session.
   if (version && version === lastPromptedVersion) return
@@ -188,7 +252,57 @@ async function handleUpdateAvailable(info: UpdateInfoLike) {
     version,
     currentVersion: app.getVersion(),
     releaseNotes,
+    ...(releaseUrl ? { releaseUrl } : {}),
   })
+}
+
+async function checkForMacUpdates() {
+  if (!app.isPackaged) {
+    emitStatus({ phase: 'dev' })
+    return { ok: false as const, reason: 'dev' as const }
+  }
+
+  if (checking) {
+    emitStatus({ phase: 'checking' })
+    return { ok: false as const, reason: 'busy' as const }
+  }
+
+  checking = true
+  lastPromptedVersion = ''
+  emitStatus({ phase: 'checking' })
+  try {
+    const latest = await fetchLatestGithubRelease()
+    if (!latest) {
+      checking = false
+      emitStatus({ phase: 'error', message: t('update.errorMessage') })
+      return { ok: false as const, reason: 'error' as const }
+    }
+
+    const current = app.getVersion()
+    if (compareVersions(latest.version, current) <= 0) {
+      checking = false
+      pendingVersion = ''
+      pendingNotes = ''
+      pendingReleaseUrl = ''
+      emitStatus({ phase: 'upToDate', version: current })
+      return { ok: true as const }
+    }
+
+    let releaseNotes = latest.releaseNotes
+    if (!releaseNotes) {
+      releaseNotes = t('update.notesUnavailable')
+    }
+    await handleUpdateAvailable(
+      { version: latest.version, releaseNotes },
+      latest.releaseUrl
+    )
+    return { ok: true as const }
+  } catch (error) {
+    checking = false
+    const message = error instanceof Error ? error.message : String(error)
+    emitStatus({ phase: 'error', message })
+    return { ok: false as const, reason: 'error' as const }
+  }
 }
 
 async function ensureConfigured(): Promise<AutoUpdater | null> {
@@ -227,6 +341,7 @@ export function getAppVersion(): string {
 }
 
 export function setAutoUpdateEnabled(enabled: boolean) {
+  if (MAC_MANUAL_UPDATE) return
   autoUpdateEnabled = enabled
   // Keep autoDownload false; downloads only start after the user confirms.
   if (autoUpdater) autoUpdater.autoDownload = false
@@ -235,6 +350,10 @@ export function setAutoUpdateEnabled(enabled: boolean) {
 /** Manual check from Preferences, or background check when auto-update is on. */
 export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
   void options.silent
+
+  if (MAC_MANUAL_UPDATE) {
+    return checkForMacUpdates()
+  }
 
   if (!app.isPackaged) {
     emitStatus({ phase: 'dev' })
@@ -272,6 +391,9 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
 }
 
 export async function downloadPendingUpdate() {
+  if (MAC_MANUAL_UPDATE) {
+    return { ok: false as const, reason: 'none' as const }
+  }
   if (!autoUpdater || !pendingVersion) {
     return { ok: false as const, reason: 'none' as const }
   }
@@ -299,6 +421,7 @@ export function dismissPendingUpdate() {
       phase: 'available',
       version: pendingVersion,
       releaseNotes: pendingNotes,
+      ...(pendingReleaseUrl ? { releaseUrl: pendingReleaseUrl } : {}),
     })
   } else if (status.phase === 'available') {
     /* keep */
@@ -309,6 +432,7 @@ export function dismissPendingUpdate() {
 }
 
 export function quitAndInstallUpdate() {
+  if (MAC_MANUAL_UPDATE) return false
   if (!autoUpdater || status.phase !== 'ready') return false
   autoUpdater.quitAndInstall(false, true)
   return true

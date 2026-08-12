@@ -456,6 +456,9 @@ export const en = {
   'update.availableDialogTitle': 'Update available',
   'update.availableDialogIntro':
     'Version {version} is available (you have {current}). Review the release notes and choose whether to download it.',
+  'update.availableDialogIntroMac':
+    'Version {version} is available (you have {current}). Download the DMG from GitHub Releases and install it manually.',
+  'update.openRelease': 'Download from GitHub',
   'update.downloadingTitle': 'Downloading update',
   'update.downloadingMessage': 'Downloading version {version}… {percent}%',
   'update.releaseNotes': 'Release notes',
@@ -467,6 +470,7 @@ export const en = {
   'prefs.appUpdate': 'Current version: {version}',
   'prefs.appUpdatePending': 'Current version',
   'prefs.desc.appUpdate': 'Check GitHub Releases for a newer NSIS build.',
+  'prefs.desc.appUpdateMac': 'Check GitHub Releases for a newer build and download the DMG manually.',
   'prefs.checkForUpdates': 'Check for updates',
   'prefs.relaunchApp': 'Relaunch application',
   'prefs.relaunchingApp': 'Relaunching…',
@@ -476,6 +480,8 @@ export const en = {
   'prefs.updateStatus.checking': 'Checking for updates…',
   'prefs.updateStatus.available':
     'Version {version} is available. Confirm in the dialog to download.',
+  'prefs.updateStatus.availableMac':
+    'Version {version} is available. Open the dialog to download from GitHub Releases.',
   'prefs.updateStatus.downloading': 'Downloading update… {percent}%',
   'prefs.updateStatus.ready': 'Version {version} is ready. Relaunch to install.',
   'prefs.group.project': 'Project',
@@ -912,6 +918,9 @@ export const zh: Record<MessageKey, string> = {
   'update.availableDialogTitle': '发现新版本',
   'update.availableDialogIntro':
     '可用版本 {version}（当前 {current}）。请查看更新说明后选择是否下载。',
+  'update.availableDialogIntroMac':
+    '可用版本 {version}（当前 {current}）。请从 GitHub Releases 下载 DMG 并手动安装。',
+  'update.openRelease': '前往 GitHub 下载',
   'update.downloadingTitle': '正在下载更新',
   'update.downloadingMessage': '正在下载版本 {version}… {percent}%',
   'update.releaseNotes': '更新说明',
@@ -923,6 +932,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.appUpdate': '当前版本：{version}',
   'prefs.appUpdatePending': '当前版本',
   'prefs.desc.appUpdate': '从 GitHub Releases 检查是否有更新的 NSIS 安装包。',
+  'prefs.desc.appUpdateMac': '从 GitHub Releases 检查新版本，并手动下载 DMG 安装。',
   'prefs.checkForUpdates': '检查更新',
   'prefs.relaunchApp': '重新启动应用',
   'prefs.relaunchingApp': '正在重启…',
@@ -931,6 +941,8 @@ export const zh: Record<MessageKey, string> = {
     '开启后，打包应用会在后台检查并下载更新；关闭后仅可通过上方按钮检查。',
   'prefs.updateStatus.checking': '正在检查更新…',
   'prefs.updateStatus.available': '发现新版本 {version}。请在弹窗中确认是否下载。',
+  'prefs.updateStatus.availableMac':
+    '发现新版本 {version}。请在弹窗中前往 GitHub Releases 下载。',
   'prefs.updateStatus.downloading': '正在下载更新… {percent}%',
   'prefs.updateStatus.ready': '版本 {version} 已就绪，重新启动即可安装。',
   'prefs.group.project': '项目',
