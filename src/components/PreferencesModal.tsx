@@ -18,7 +18,15 @@ import {
   type LightingMode,
   type LightingSettings,
 } from '../config/lightingDefaults'
-import type { RecordingExportFormat, UpdateStatus } from '../desktopTypes'
+import type {
+  AtlasPackMode,
+  JpegNoBgMode,
+  RecordingExportFormat,
+  RecordingImageFormat,
+  RecordingMode,
+  RecordingSequencePackage,
+  UpdateStatus,
+} from '../desktopTypes'
 import { Icon } from '../icons'
 import { useLocale, useT, type MessageKey } from '../i18n'
 import type { Locale } from '../i18n/messages'
@@ -38,11 +46,18 @@ import {
   type StartupBehavior,
 } from '../lib/preferences'
 import {
+  JPEG_NO_BG_MODE_OPTIONS,
   normalizeRecordingQuality,
   RECORDING_EXPORT_FORMAT_OPTIONS,
+  RECORDING_FPS_OPTIONS,
+  RECORDING_IMAGE_FORMAT_OPTIONS,
   RECORDING_QUALITY_OPTIONS,
+  ATLAS_PACK_MODE_OPTIONS,
+  RECORDING_SEQUENCE_PACKAGE_OPTIONS,
   RECORDING_SIZE_PRESETS,
 } from '../lib/recordingPresets'
+import { ATLAS_MAX_EDGE_PRESETS, clampAtlasMaxEdge } from '../lib/atlasLayout'
+import { pitchAnglesToText, parsePitchAnglesText } from '../lib/multiAxisManifest'
 import { usePreviewTheme } from '../previewTheme'
 import type { PreviewTheme } from '../lib/previewTheme'
 import { DEFAULT_SECONDS_PER_REV } from '../lib/modelTab'
@@ -53,7 +68,11 @@ import {
 } from '../lib/openSource'
 import { useUiTheme } from '../uiTheme'
 import { UI_THEMES, type UiTheme } from '../lib/uiTheme'
+import { AtlasPreviewSummary } from './AtlasPreviewSummary'
+import { FlattenColorField } from './FlattenColorField'
+import { FrameCountControl } from './FrameCountControl'
 import { LoadingButton } from './LoadingButton'
+import { RecordingModeToggle } from './RecordingModeToggle'
 
 export type PreferencesSection =
   | 'general'
@@ -99,12 +118,32 @@ type SettingId =
   | 'cachePath'
   | 'telemetry'
   | 'recordingEnabled'
+  | 'recordingMode'
   | 'secPerRev'
   | 'export'
-  | 'size'
-  | 'quality'
-  | 'outputLocation'
-  | 'outputPath'
+  | 'frameCount'
+  | 'fps'
+  | 'exportSequence'
+  | 'exportAtlas'
+  | 'exportBackground'
+  | 'jpegNoBgMode'
+  | 'imageFlattenColor'
+  | 'videoFlattenColor'
+  | 'atlasPackMode'
+  | 'atlasMaxEdge'
+  | 'multiAxis'
+  | 'pitchAngles'
+  | 'imageFormat'
+  | 'imageQuality'
+  | 'sequencePackage'
+  | 'videoSize'
+  | 'imageSize'
+  | 'videoQuality'
+  | 'imageCaptureQuality'
+  | 'videoOutputLocation'
+  | 'videoOutputPath'
+  | 'imageOutputLocation'
+  | 'imageOutputPath'
   | 'lightingMode'
   | 'exposure'
   | 'envIntensity'
@@ -206,6 +245,11 @@ const SETTING_META: Record<
     titleKey: 'prefs.recording.enabled',
     descKey: 'prefs.desc.recordingEnabled',
   },
+  recordingMode: {
+    section: 'recording',
+    titleKey: 'record.mode' as MessageKey,
+    descKey: 'prefs.desc.recordingMode' as MessageKey,
+  },
   secPerRev: {
     section: 'recording',
     titleKey: 'record.secPerRev',
@@ -216,25 +260,120 @@ const SETTING_META: Record<
     titleKey: 'record.export',
     descKey: 'prefs.desc.export',
   },
-  size: {
+  frameCount: {
+    section: 'recording',
+    titleKey: 'record.frameCount' as MessageKey,
+    descKey: 'prefs.desc.frameCount' as MessageKey,
+  },
+  fps: {
+    section: 'recording',
+    titleKey: 'record.fps' as MessageKey,
+    descKey: 'prefs.desc.fps' as MessageKey,
+  },
+  exportSequence: {
+    section: 'recording',
+    titleKey: 'record.exportSequence' as MessageKey,
+    descKey: 'prefs.desc.exportSequence' as MessageKey,
+  },
+  exportAtlas: {
+    section: 'recording',
+    titleKey: 'record.exportAtlas' as MessageKey,
+    descKey: 'prefs.desc.exportAtlas' as MessageKey,
+  },
+  exportBackground: {
+    section: 'recording',
+    titleKey: 'record.exportBackground' as MessageKey,
+    descKey: 'prefs.desc.exportBackground' as MessageKey,
+  },
+  jpegNoBgMode: {
+    section: 'recording',
+    titleKey: 'record.jpegNoBgMode' as MessageKey,
+    descKey: 'prefs.desc.jpegNoBgMode' as MessageKey,
+  },
+  imageFlattenColor: {
+    section: 'recording',
+    titleKey: 'record.flattenColor' as MessageKey,
+    descKey: 'prefs.desc.imageFlattenColor' as MessageKey,
+  },
+  videoFlattenColor: {
+    section: 'recording',
+    titleKey: 'record.flattenColor' as MessageKey,
+    descKey: 'prefs.desc.videoFlattenColor' as MessageKey,
+  },
+  atlasPackMode: {
+    section: 'recording',
+    titleKey: 'record.atlasPackMode' as MessageKey,
+    descKey: 'prefs.desc.atlasPackMode' as MessageKey,
+  },
+  atlasMaxEdge: {
+    section: 'recording',
+    titleKey: 'record.atlasMaxEdge' as MessageKey,
+    descKey: 'prefs.desc.atlasMaxEdge' as MessageKey,
+  },
+  multiAxis: {
+    section: 'recording',
+    titleKey: 'record.multiAxis' as MessageKey,
+    descKey: 'prefs.desc.multiAxis' as MessageKey,
+  },
+  pitchAngles: {
+    section: 'recording',
+    titleKey: 'record.pitchAngles' as MessageKey,
+    descKey: 'prefs.desc.pitchAngles' as MessageKey,
+  },
+  imageFormat: {
+    section: 'recording',
+    titleKey: 'record.imageFormat' as MessageKey,
+    descKey: 'prefs.desc.imageFormat' as MessageKey,
+  },
+  imageQuality: {
+    section: 'recording',
+    titleKey: 'record.imageQuality' as MessageKey,
+    descKey: 'prefs.desc.imageQuality' as MessageKey,
+  },
+  sequencePackage: {
+    section: 'recording',
+    titleKey: 'record.sequencePackage' as MessageKey,
+    descKey: 'prefs.desc.sequencePackage' as MessageKey,
+  },
+  videoSize: {
     section: 'recording',
     titleKey: 'record.size',
-    descKey: 'prefs.desc.size',
+    descKey: 'prefs.desc.videoSize' as MessageKey,
   },
-  quality: {
+  imageSize: {
+    section: 'recording',
+    titleKey: 'record.size',
+    descKey: 'prefs.desc.imageSize' as MessageKey,
+  },
+  videoQuality: {
     section: 'recording',
     titleKey: 'record.quality',
-    descKey: 'prefs.desc.quality',
+    descKey: 'prefs.desc.videoQuality' as MessageKey,
   },
-  outputLocation: {
+  imageCaptureQuality: {
+    section: 'recording',
+    titleKey: 'record.quality',
+    descKey: 'prefs.desc.imageCaptureQuality' as MessageKey,
+  },
+  videoOutputLocation: {
     section: 'recording',
     titleKey: 'record.outputLocation',
-    descKey: 'prefs.desc.outputLocation',
+    descKey: 'prefs.desc.videoOutputLocation' as MessageKey,
   },
-  outputPath: {
+  videoOutputPath: {
     section: 'recording',
     titleKey: 'record.outputPath',
-    descKey: 'prefs.desc.outputPath',
+    descKey: 'prefs.desc.videoOutputPath' as MessageKey,
+  },
+  imageOutputLocation: {
+    section: 'recording',
+    titleKey: 'record.outputLocation',
+    descKey: 'prefs.desc.imageOutputLocation' as MessageKey,
+  },
+  imageOutputPath: {
+    section: 'recording',
+    titleKey: 'record.outputPath',
+    descKey: 'prefs.desc.imageOutputPath' as MessageKey,
   },
   lightingMode: {
     section: 'lighting',
@@ -526,14 +665,18 @@ export const PreferencesModal: FC<Props> = ({
     if (dir) updatePerformance({ cacheDir: dir })
   }
 
-  const onOutputLocationChange = async (mode: 'ask' | 'folder') => {
+  const onOutputLocationChange = async (
+    which: 'video' | 'images',
+    mode: 'ask' | 'folder'
+  ) => {
+    const key = which === 'video' ? 'videoOutputDir' : 'imageOutputDir'
     if (mode === 'ask') {
-      updateRecording({ outputDir: '' })
+      updateRecording({ [key]: '' })
       return
     }
-    if (prefs.recording.outputDir) return
+    if (prefs.recording[key]) return
     const dir = await chooseOutputDir()
-    if (dir) updateRecording({ outputDir: dir })
+    if (dir) updateRecording({ [key]: dir })
   }
 
   const visibleById = useMemo(() => {
@@ -991,13 +1134,57 @@ export const PreferencesModal: FC<Props> = ({
                   </PrefRow>
                 </PrefGroup>
               ) : null}
-              {show('secPerRev') ||
-              show('export') ||
-              show('size') ||
-              show('quality') ||
-              show('outputLocation') ||
-              show('outputPath') ? (
+              {show('recordingMode') ? (
                 <PrefGroup title={t('prefs.group.defaults')}>
+                  <PrefRow
+                    id="prefs-recording-mode"
+                    title={t('record.mode' as MessageKey)}
+                    description={t('prefs.desc.recordingMode' as MessageKey)}
+                  >
+                    <RecordingModeToggle
+                      id="prefs-recording-mode"
+                      value={prefs.recording.recordingMode}
+                      onChange={(recordingMode: RecordingMode) =>
+                        updateRecording({ recordingMode })
+                      }
+                    />
+                  </PrefRow>
+                </PrefGroup>
+              ) : null}
+              {show('export') ||
+              show('secPerRev') ||
+              show('fps') ||
+              show('videoSize') ||
+              show('videoQuality') ||
+              show('videoFlattenColor') ||
+              show('videoOutputLocation') ||
+              show('videoOutputPath') ? (
+                <PrefGroup title={t('prefs.group.videoDefaults' as MessageKey)}>
+                  {show('export') ? (
+                    <PrefRow
+                      id="prefs-format"
+                      title={t('record.export')}
+                      description={t('prefs.desc.export')}
+                    >
+                      <TextField
+                        id="prefs-format"
+                        select
+                        size="small"
+                        value={prefs.recording.videoExportFormat}
+                        onChange={e =>
+                          updateRecording({
+                            videoExportFormat: e.target.value as RecordingExportFormat,
+                          })
+                        }
+                      >
+                        {RECORDING_EXPORT_FORMAT_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.format.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
                   {show('secPerRev') ? (
                     <PrefRow
                       id="prefs-sec"
@@ -1021,43 +1208,50 @@ export const PreferencesModal: FC<Props> = ({
                       />
                     </PrefRow>
                   ) : null}
-                  {show('export') ? (
+                  {show('fps') ? (
                     <PrefRow
-                      id="prefs-format"
-                      title={t('record.export')}
-                      description={t('prefs.desc.export')}
+                      id="prefs-fps"
+                      title={t('record.fps' as MessageKey)}
+                      description={t('prefs.desc.fps' as MessageKey)}
                     >
                       <TextField
-                        id="prefs-format"
+                        id="prefs-fps"
                         select
                         size="small"
-                        value={prefs.recording.recordingExportFormat}
+                        value={prefs.recording.recordingFps}
                         onChange={e =>
                           updateRecording({
-                            recordingExportFormat: e.target.value as RecordingExportFormat,
+                            recordingFps: Number(e.target.value) || 30,
                           })
                         }
                       >
-                        {RECORDING_EXPORT_FORMAT_OPTIONS.map(opt => (
-                          <MenuItem key={opt.value} value={opt.value}>
-                            {t(`record.format.${opt.value}` as MessageKey)}
+                        {RECORDING_FPS_OPTIONS.map(n => (
+                          <MenuItem key={n} value={n}>
+                            {n}
                           </MenuItem>
                         ))}
+                        {!(RECORDING_FPS_OPTIONS as readonly number[]).includes(
+                          prefs.recording.recordingFps
+                        ) ? (
+                          <MenuItem value={prefs.recording.recordingFps}>
+                            {prefs.recording.recordingFps}
+                          </MenuItem>
+                        ) : null}
                       </TextField>
                     </PrefRow>
                   ) : null}
-                  {show('size') ? (
+                  {show('videoSize') ? (
                     <PrefRow
-                      id="prefs-size"
+                      id="prefs-video-size"
                       title={t('record.size')}
-                      description={t('prefs.desc.size')}
+                      description={t('prefs.desc.videoSize' as MessageKey)}
                     >
                       <TextField
-                        id="prefs-size"
+                        id="prefs-video-size"
                         select
                         size="small"
-                        value={prefs.recording.recordingSizeId}
-                        onChange={e => updateRecording({ recordingSizeId: e.target.value })}
+                        value={prefs.recording.videoSizeId}
+                        onChange={e => updateRecording({ videoSizeId: e.target.value })}
                       >
                         {RECORDING_SIZE_PRESETS.map(preset => (
                           <MenuItem key={preset.id} value={preset.id}>
@@ -1067,20 +1261,74 @@ export const PreferencesModal: FC<Props> = ({
                       </TextField>
                     </PrefRow>
                   ) : null}
-                  {show('quality') ? (
+                  {show('videoSize') && prefs.recording.videoSizeId === 'custom' ? (
                     <PrefRow
-                      id="prefs-quality"
+                      id="prefs-video-custom-size"
+                      title={t('record.size.custom')}
+                      description={t('prefs.desc.customSize' as MessageKey)}
+                    >
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          label={t('record.customWidth')}
+                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
+                          value={prefs.recording.videoCustomWidth}
+                          onChange={e =>
+                            updateRecording({
+                              videoCustomWidth: Math.max(
+                                2,
+                                Math.min(8192, Number(e.target.value) || 1920)
+                              ),
+                            })
+                          }
+                        />
+                        <TextField
+                          type="number"
+                          size="small"
+                          label={t('record.customHeight')}
+                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
+                          value={prefs.recording.videoCustomHeight}
+                          onChange={e =>
+                            updateRecording({
+                              videoCustomHeight: Math.max(
+                                2,
+                                Math.min(8192, Number(e.target.value) || 1080)
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                    </PrefRow>
+                  ) : null}
+                  {show('videoFlattenColor') && !prefs.recording.exportBackground ? (
+                    <PrefRow
+                      id="prefs-video-flatten-color"
+                      title={t('record.flattenColor' as MessageKey)}
+                      description={t('prefs.desc.videoFlattenColor' as MessageKey)}
+                    >
+                      <FlattenColorField
+                        id="prefs-video-flatten-color"
+                        value={prefs.recording.videoFlattenColor}
+                        ariaLabel={t('record.flattenColor' as MessageKey)}
+                        onChange={videoFlattenColor => updateRecording({ videoFlattenColor })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('videoQuality') ? (
+                    <PrefRow
+                      id="prefs-video-quality"
                       title={t('record.quality')}
-                      description={t('prefs.desc.quality')}
+                      description={t('prefs.desc.videoQuality' as MessageKey)}
                     >
                       <TextField
-                        id="prefs-quality"
+                        id="prefs-video-quality"
                         select
                         size="small"
-                        value={prefs.recording.recordingQuality}
+                        value={normalizeRecordingQuality(prefs.recording.videoQuality)}
                         onChange={e =>
                           updateRecording({
-                            recordingQuality: normalizeRecordingQuality(e.target.value),
+                            videoQuality: normalizeRecordingQuality(e.target.value),
                           })
                         }
                       >
@@ -1092,19 +1340,22 @@ export const PreferencesModal: FC<Props> = ({
                       </TextField>
                     </PrefRow>
                   ) : null}
-                  {show('outputLocation') ? (
+                  {show('videoOutputLocation') ? (
                     <PrefRow
-                      id="prefs-output-location"
+                      id="prefs-video-output-location"
                       title={t('record.outputLocation')}
-                      description={t('prefs.desc.outputLocation')}
+                      description={t('prefs.desc.videoOutputLocation' as MessageKey)}
                     >
                       <TextField
-                        id="prefs-output-location"
+                        id="prefs-video-output-location"
                         select
                         size="small"
-                        value={prefs.recording.outputDir ? 'folder' : 'ask'}
+                        value={prefs.recording.videoOutputDir ? 'folder' : 'ask'}
                         onChange={e => {
-                          void onOutputLocationChange(e.target.value as 'ask' | 'folder')
+                          void onOutputLocationChange(
+                            'video',
+                            e.target.value as 'ask' | 'folder'
+                          )
                         }}
                       >
                         <MenuItem value="ask">{t('record.outputLocation.ask')}</MenuItem>
@@ -1114,15 +1365,15 @@ export const PreferencesModal: FC<Props> = ({
                       </TextField>
                     </PrefRow>
                   ) : null}
-                  {show('outputPath') && prefs.recording.outputDir ? (
+                  {show('videoOutputPath') && prefs.recording.videoOutputDir ? (
                     <PrefRow
-                      id="prefs-output-path"
+                      id="prefs-video-output-path"
                       title={t('record.outputPath')}
-                      description={t('prefs.desc.outputPath')}
+                      description={t('prefs.desc.videoOutputPath' as MessageKey)}
                       controlClassName="is-wide"
                     >
                       <TextField
-                        id="prefs-output-path"
+                        id="prefs-video-output-path"
                         type="text"
                         size="small"
                         className="prefs-output-path"
@@ -1139,7 +1390,7 @@ export const PreferencesModal: FC<Props> = ({
                                   title={t('record.outputDir.choose')}
                                   onClick={() => {
                                     void chooseOutputDir().then(dir => {
-                                      if (dir) updateRecording({ outputDir: dir })
+                                      if (dir) updateRecording({ videoOutputDir: dir })
                                     })
                                   }}
                                 >
@@ -1149,7 +1400,500 @@ export const PreferencesModal: FC<Props> = ({
                             ),
                           },
                         }}
-                        value={prefs.recording.outputDir}
+                        value={prefs.recording.videoOutputDir}
+                        aria-label={t('record.outputPath')}
+                      />
+                    </PrefRow>
+                  ) : null}
+                </PrefGroup>
+              ) : null}
+              {show('frameCount') ||
+              show('exportSequence') ||
+              show('exportAtlas') ||
+              show('exportBackground') ||
+              show('jpegNoBgMode') ||
+              show('imageFlattenColor') ||
+              show('atlasPackMode') ||
+              show('atlasMaxEdge') ||
+              show('multiAxis') ||
+              show('pitchAngles') ||
+              show('imageFormat') ||
+              show('imageQuality') ||
+              show('sequencePackage') ||
+              show('imageSize') ||
+              show('imageCaptureQuality') ||
+              show('imageOutputLocation') ||
+              show('imageOutputPath') ? (
+                <PrefGroup title={t('prefs.group.imageDefaults' as MessageKey)}>
+                  {show('frameCount') ? (
+                    <PrefRow
+                      id="prefs-frame-count"
+                      title={t('record.frameCount' as MessageKey)}
+                      description={t('prefs.desc.frameCount' as MessageKey)}
+                    >
+                      <FrameCountControl
+                        id="prefs-frame-count"
+                        value={prefs.recording.frameCount}
+                        ariaLabel={t('record.frameCount' as MessageKey)}
+                        onChange={frameCount => updateRecording({ frameCount })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('exportSequence') ? (
+                    <PrefRow
+                      id="prefs-export-sequence"
+                      title={t('record.exportSequence' as MessageKey)}
+                      description={t('prefs.desc.exportSequence' as MessageKey)}
+                    >
+                      <PrefToggle
+                        id="prefs-export-sequence"
+                        checked={prefs.recording.exportSequence}
+                        onChange={exportSequence => updateRecording({ exportSequence })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('exportAtlas') ? (
+                    <PrefRow
+                      id="prefs-export-atlas"
+                      title={t('record.exportAtlas' as MessageKey)}
+                      description={t('prefs.desc.exportAtlas' as MessageKey)}
+                    >
+                      <PrefToggle
+                        id="prefs-export-atlas"
+                        checked={prefs.recording.exportAtlas}
+                        onChange={exportAtlas => updateRecording({ exportAtlas })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('exportBackground') ? (
+                    <PrefRow
+                      id="prefs-export-background"
+                      title={t('record.exportBackground' as MessageKey)}
+                      description={t('prefs.desc.exportBackground' as MessageKey)}
+                    >
+                      <PrefToggle
+                        id="prefs-export-background"
+                        checked={prefs.recording.exportBackground}
+                        onChange={exportBackground => updateRecording({ exportBackground })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('jpegNoBgMode') &&
+                  !prefs.recording.exportBackground &&
+                  prefs.recording.imageFormat === 'jpeg' ? (
+                    <PrefRow
+                      id="prefs-jpeg-nobg-mode"
+                      title={t('record.jpegNoBgMode' as MessageKey)}
+                      description={t('prefs.desc.jpegNoBgMode' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-jpeg-nobg-mode"
+                        select
+                        size="small"
+                        value={prefs.recording.jpegNoBgMode}
+                        onChange={e =>
+                          updateRecording({ jpegNoBgMode: e.target.value as JpegNoBgMode })
+                        }
+                      >
+                        {JPEG_NO_BG_MODE_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.jpegNoBgMode.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageFlattenColor') &&
+                  !prefs.recording.exportBackground &&
+                  prefs.recording.imageFormat === 'jpeg' ? (
+                    <PrefRow
+                      id="prefs-image-flatten-color"
+                      title={t('record.flattenColor' as MessageKey)}
+                      description={t('prefs.desc.imageFlattenColor' as MessageKey)}
+                    >
+                      <FlattenColorField
+                        id="prefs-image-flatten-color"
+                        value={prefs.recording.imageFlattenColor}
+                        ariaLabel={t('record.flattenColor' as MessageKey)}
+                        onChange={imageFlattenColor => updateRecording({ imageFlattenColor })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('atlasPackMode') && prefs.recording.exportAtlas ? (
+                    <PrefRow
+                      id="prefs-atlas-pack-mode"
+                      title={t('record.atlasPackMode' as MessageKey)}
+                      description={t('prefs.desc.atlasPackMode' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-atlas-pack-mode"
+                        select
+                        size="small"
+                        value={prefs.recording.atlasPackMode}
+                        onChange={e =>
+                          updateRecording({
+                            atlasPackMode: e.target.value as AtlasPackMode,
+                          })
+                        }
+                      >
+                        {ATLAS_PACK_MODE_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.atlasPackMode.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('atlasMaxEdge') && prefs.recording.exportAtlas ? (
+                    <PrefRow
+                      id="prefs-atlas-max-edge"
+                      title={t('record.atlasMaxEdge' as MessageKey)}
+                      description={t('prefs.desc.atlasMaxEdge' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-atlas-max-edge"
+                        select
+                        size="small"
+                        value={
+                          (ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
+                            prefs.recording.atlasMaxEdge
+                          )
+                            ? String(prefs.recording.atlasMaxEdge)
+                            : 'custom'
+                        }
+                        onChange={e => {
+                          const v = e.target.value
+                          if (v === 'custom') {
+                            updateRecording({
+                              atlasMaxEdge: clampAtlasMaxEdge(
+                                (ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
+                                  prefs.recording.atlasMaxEdge
+                                )
+                                  ? 3072
+                                  : prefs.recording.atlasMaxEdge
+                              ),
+                            })
+                            return
+                          }
+                          updateRecording({ atlasMaxEdge: clampAtlasMaxEdge(Number(v)) })
+                        }}
+                      >
+                        {ATLAS_MAX_EDGE_PRESETS.map(edge => (
+                          <MenuItem key={edge} value={String(edge)}>
+                            {edge}
+                          </MenuItem>
+                        ))}
+                        <MenuItem value="custom">{t('record.atlasMaxEdge.custom')}</MenuItem>
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('atlasMaxEdge') &&
+                  prefs.recording.exportAtlas &&
+                  !(ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
+                    prefs.recording.atlasMaxEdge
+                  ) ? (
+                    <PrefRow
+                      id="prefs-atlas-max-edge-custom"
+                      title={t('record.atlasMaxEdge' as MessageKey)}
+                      description={t('prefs.desc.atlasMaxEdge' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-atlas-max-edge-custom"
+                        type="number"
+                        size="small"
+                        slotProps={{ htmlInput: { min: 256, max: 16384, step: 1 } }}
+                        value={prefs.recording.atlasMaxEdge}
+                        onChange={e =>
+                          updateRecording({
+                            atlasMaxEdge: clampAtlasMaxEdge(Number(e.target.value)),
+                          })
+                        }
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('multiAxis') ? (
+                    <PrefRow
+                      id="prefs-multi-axis"
+                      title={t('record.multiAxis' as MessageKey)}
+                      description={t('prefs.desc.multiAxis' as MessageKey)}
+                    >
+                      <PrefToggle
+                        id="prefs-multi-axis"
+                        checked={prefs.recording.multiAxisEnabled}
+                        onChange={multiAxisEnabled => updateRecording({ multiAxisEnabled })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('pitchAngles') && prefs.recording.multiAxisEnabled ? (
+                    <PrefRow
+                      id="prefs-pitch-angles"
+                      title={t('record.pitchAngles' as MessageKey)}
+                      description={t('prefs.desc.pitchAngles' as MessageKey)}
+                      controlClassName="is-wide"
+                    >
+                      <TextField
+                        id="prefs-pitch-angles"
+                        size="small"
+                        value={pitchAnglesToText(prefs.recording.pitchAngles)}
+                        onChange={e => {
+                          const parsed = parsePitchAnglesText(e.target.value)
+                          if (parsed) updateRecording({ pitchAngles: parsed })
+                        }}
+                        placeholder="-15, 0, 25, 50, 75"
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('imageFormat') ? (
+                    <PrefRow
+                      id="prefs-image-format"
+                      title={t('record.imageFormat' as MessageKey)}
+                      description={t('prefs.desc.imageFormat' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-image-format"
+                        select
+                        size="small"
+                        value={prefs.recording.imageFormat}
+                        onChange={e =>
+                          updateRecording({
+                            imageFormat: e.target.value as RecordingImageFormat,
+                          })
+                        }
+                      >
+                        {RECORDING_IMAGE_FORMAT_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.imageFormat.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageQuality') && prefs.recording.imageFormat !== 'png' ? (
+                    <PrefRow
+                      id="prefs-image-quality"
+                      title={t('record.imageQuality' as MessageKey)}
+                      description={t('prefs.desc.imageQuality' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-image-quality"
+                        type="number"
+                        size="small"
+                        slotProps={{ htmlInput: { min: 1, max: 100, step: 1 } }}
+                        value={prefs.recording.imageQuality}
+                        onChange={e =>
+                          updateRecording({
+                            imageQuality: Math.max(
+                              1,
+                              Math.min(100, Number(e.target.value) || 92)
+                            ),
+                          })
+                        }
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('sequencePackage') && prefs.recording.exportSequence ? (
+                    <PrefRow
+                      id="prefs-sequence-package"
+                      title={t('record.sequencePackage' as MessageKey)}
+                      description={t('prefs.desc.sequencePackage' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-sequence-package"
+                        select
+                        size="small"
+                        value={prefs.recording.sequencePackage}
+                        onChange={e =>
+                          updateRecording({
+                            sequencePackage: e.target.value as RecordingSequencePackage,
+                          })
+                        }
+                      >
+                        {RECORDING_SEQUENCE_PACKAGE_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.sequencePackage.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageSize') ? (
+                    <PrefRow
+                      id="prefs-image-size"
+                      title={t('record.size')}
+                      description={t('prefs.desc.imageSize' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-image-size"
+                        select
+                        size="small"
+                        value={prefs.recording.imageSizeId}
+                        onChange={e => updateRecording({ imageSizeId: e.target.value })}
+                      >
+                        {RECORDING_SIZE_PRESETS.map(preset => (
+                          <MenuItem key={preset.id} value={preset.id}>
+                            {t(`record.size.${preset.id}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageSize') && prefs.recording.imageSizeId === 'custom' ? (
+                    <PrefRow
+                      id="prefs-image-custom-size"
+                      title={t('record.size.custom')}
+                      description={t('prefs.desc.customSize' as MessageKey)}
+                    >
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          label={t('record.customWidth')}
+                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
+                          value={prefs.recording.imageCustomWidth}
+                          onChange={e =>
+                            updateRecording({
+                              imageCustomWidth: Math.max(
+                                2,
+                                Math.min(8192, Number(e.target.value) || 1280)
+                              ),
+                            })
+                          }
+                        />
+                        <TextField
+                          type="number"
+                          size="small"
+                          label={t('record.customHeight')}
+                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
+                          value={prefs.recording.imageCustomHeight}
+                          onChange={e =>
+                            updateRecording({
+                              imageCustomHeight: Math.max(
+                                2,
+                                Math.min(8192, Number(e.target.value) || 720)
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageSize') && prefs.recording.exportAtlas ? (
+                    <PrefRow
+                      id="prefs-atlas-preview"
+                      title={t('record.atlasPreview.label')}
+                      description={t('prefs.desc.atlasPackMode' as MessageKey)}
+                      controlClassName="is-wide"
+                    >
+                      <AtlasPreviewSummary
+                        tileW={
+                          prefs.recording.imageSizeId === 'custom'
+                            ? prefs.recording.imageCustomWidth
+                            : RECORDING_SIZE_PRESETS.find(p => p.id === prefs.recording.imageSizeId)
+                                ?.width ?? 1280
+                        }
+                        tileH={
+                          prefs.recording.imageSizeId === 'custom'
+                            ? prefs.recording.imageCustomHeight
+                            : RECORDING_SIZE_PRESETS.find(p => p.id === prefs.recording.imageSizeId)
+                                ?.height ?? 720
+                        }
+                        frameCount={prefs.recording.frameCount}
+                        packMode={prefs.recording.atlasPackMode}
+                        maxEdge={prefs.recording.atlasMaxEdge}
+                        pitchCount={
+                          prefs.recording.multiAxisEnabled
+                            ? prefs.recording.pitchAngles.length
+                            : 1
+                        }
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('imageCaptureQuality') ? (
+                    <PrefRow
+                      id="prefs-image-capture-quality"
+                      title={t('record.quality')}
+                      description={t('prefs.desc.imageCaptureQuality' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-image-capture-quality"
+                        select
+                        size="small"
+                        value={normalizeRecordingQuality(prefs.recording.imageCaptureQuality)}
+                        onChange={e =>
+                          updateRecording({
+                            imageCaptureQuality: normalizeRecordingQuality(e.target.value),
+                          })
+                        }
+                      >
+                        {RECORDING_QUALITY_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.quality.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageOutputLocation') ? (
+                    <PrefRow
+                      id="prefs-image-output-location"
+                      title={t('record.outputLocation')}
+                      description={t('prefs.desc.imageOutputLocation' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-image-output-location"
+                        select
+                        size="small"
+                        value={prefs.recording.imageOutputDir ? 'folder' : 'ask'}
+                        onChange={e => {
+                          void onOutputLocationChange(
+                            'images',
+                            e.target.value as 'ask' | 'folder'
+                          )
+                        }}
+                      >
+                        <MenuItem value="ask">{t('record.outputLocation.ask')}</MenuItem>
+                        <MenuItem value="folder" disabled={!desktopAvailable}>
+                          {t('record.outputLocation.folder')}
+                        </MenuItem>
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('imageOutputPath') && prefs.recording.imageOutputDir ? (
+                    <PrefRow
+                      id="prefs-image-output-path"
+                      title={t('record.outputPath')}
+                      description={t('prefs.desc.imageOutputPath' as MessageKey)}
+                      controlClassName="is-wide"
+                    >
+                      <TextField
+                        id="prefs-image-output-path"
+                        type="text"
+                        size="small"
+                        className="prefs-output-path"
+                        slotProps={{
+                          input: {
+                            readOnly: true,
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  edge="end"
+                                  size="small"
+                                  disabled={!desktopAvailable}
+                                  aria-label={t('record.outputDir.choose')}
+                                  title={t('record.outputDir.choose')}
+                                  onClick={() => {
+                                    void chooseOutputDir().then(dir => {
+                                      if (dir) updateRecording({ imageOutputDir: dir })
+                                    })
+                                  }}
+                                >
+                                  <Icon icon="material-symbols:folder-open" aria-hidden />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          },
+                        }}
+                        value={prefs.recording.imageOutputDir}
                         aria-label={t('record.outputPath')}
                       />
                     </PrefRow>

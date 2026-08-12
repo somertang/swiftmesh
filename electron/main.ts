@@ -11,13 +11,17 @@ import {
   encodePngFramesToWebm,
   verifyEncodedVideo,
 } from './ffmpeg'
+import { finishImagesExport } from './recordingImages'
+import { needsExportMask } from '../src/lib/recordingPresets'
 import type {
   AppendRecordingFramePayload,
   FinishRecordingSessionPayload,
   OpenedModel,
   OpenedModelCompanion,
   RecordingExportFormat,
+  RecordingImagesOptions,
   RecordingQuality,
+  RecordingSessionFormat,
   SaveRecordingPayload,
   StartRecordingSessionPayload,
   WindowMenuAction,
@@ -149,10 +153,13 @@ function applyAppPreviewTheme(theme: PreviewTheme) {
 type RecordingSession = {
   tempDir: string
   framesDir: string
+  /** Grayscale mask PNGs (JPEG + no background). */
+  masksDir?: string
   defaultName: string
-  format: RecordingExportFormat
+  format: RecordingSessionFormat
   quality: RecordingQuality
   fps: number
+  images?: RecordingImagesOptions
 }
 
 const recordingSessions = new Map<string, RecordingSession>()
@@ -191,6 +198,33 @@ async function allocateUniqueFilePath(dir: string, stem: string, ext: string) {
     try {
       await fs.access(candidate)
       candidate = path.join(dir, `${stem}_${suffix}.${ext}`)
+      suffix += 1
+    } catch {
+      return candidate
+    }
+  }
+}
+
+async function allocateUniqueStem(dir: string, stem: string): Promise<string> {
+  let candidate = stem
+  let suffix = 1
+  for (;;) {
+    const framesDir = path.join(dir, `${candidate}_frames`)
+    const framesZip = path.join(dir, `${candidate}_frames.zip`)
+    const atlasProbe = path.join(dir, `${candidate}_atlas_01.png`)
+    const atlasProbeJpg = path.join(dir, `${candidate}_atlas_01.jpg`)
+    const atlasProbeWebp = path.join(dir, `${candidate}_atlas_01.webp`)
+    const atlasMaskProbe = path.join(dir, `${candidate}_atlas_01_mask.png`)
+    try {
+      await Promise.any([
+        fs.access(framesDir),
+        fs.access(framesZip),
+        fs.access(atlasProbe),
+        fs.access(atlasProbeJpg),
+        fs.access(atlasProbeWebp),
+        fs.access(atlasMaskProbe),
+      ])
+      candidate = `${stem}_${suffix}`
       suffix += 1
     } catch {
       return candidate
@@ -240,6 +274,44 @@ async function resolveRecordingSavePath(options: {
   })
   if (result.canceled || !result.filePath) return null
   return result.filePath
+}
+
+async function resolveImagesOutputBase(options: {
+  defaultName: string
+  outputDir?: string
+}): Promise<{ dir: string; stem: string } | null> {
+  if (!mainWindow) return null
+
+  const baseStem = buildRecordingStem(options.defaultName)
+  const outputDir = typeof options.outputDir === 'string' ? options.outputDir.trim() : ''
+
+  if (outputDir) {
+    if (await isWritableDirectory(outputDir)) {
+      const stem = await allocateUniqueStem(outputDir, baseStem)
+      return { dir: outputDir, stem }
+    }
+    await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: t('record.outputDir.invalidTitle'),
+      message: t('record.outputDir.invalidMessage'),
+      detail: outputDir,
+      buttons: [t('common.ok')],
+      defaultId: 0,
+    })
+  }
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: t('record.saveDialogTitle'),
+    defaultPath: outputDir ? path.join(outputDir, baseStem) : baseStem,
+    filters: [{ name: 'Images export', extensions: ['*'] }],
+  })
+  if (result.canceled || !result.filePath) return null
+
+  const chosen = result.filePath
+  const dir = path.dirname(chosen)
+  const rawStem = sanitizeRecordingStem(path.basename(chosen).replace(/\.[^.]+$/, '') || baseStem)
+  const stem = await allocateUniqueStem(dir, rawStem || baseStem)
+  return { dir, stem }
 }
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
@@ -793,18 +865,41 @@ ipcMain.handle(
   async (_event, payload: StartRecordingSessionPayload) => {
     if (!mainWindow) return { ok: false as const, reason: 'No window' }
 
+    if (payload.format === 'images') {
+      const images = payload.images
+      if (!images || (!images.exportSequence && !images.exportAtlas)) {
+        return { ok: false as const, reason: 'Images export requires sequence and/or atlas.' }
+      }
+    }
+
     const sessionId = crypto.randomUUID()
     const tempDir = await fs.mkdtemp(path.join(await resolveTempRoot(), 'swiftmesh-frames-'))
     const framesDir = path.join(tempDir, 'frames')
     await fs.mkdir(framesDir, { recursive: true })
 
+    const images = payload.images
+    const wantsMask =
+      payload.format === 'images' &&
+      images != null &&
+      needsExportMask({
+        imageFormat: images.imageFormat,
+        exportBackground: images.exportBackground,
+        jpegNoBgMode: images.jpegNoBgMode,
+      })
+    const masksDir = wantsMask ? path.join(tempDir, 'masks') : undefined
+    if (masksDir) {
+      await fs.mkdir(masksDir, { recursive: true })
+    }
+
     recordingSessions.set(sessionId, {
       tempDir,
       framesDir,
+      masksDir,
       defaultName: payload.defaultName,
       format: payload.format,
       quality: payload.quality,
       fps: payload.fps,
+      images: payload.images,
     })
 
     return { ok: true as const, sessionId }
@@ -820,6 +915,10 @@ ipcMain.handle(
     const indexStr = String(payload.index).padStart(6, '0')
     const framePath = path.join(session.framesDir, `frame_${indexStr}.png`)
     await fs.writeFile(framePath, Buffer.from(payload.data))
+    if (payload.maskData && session.masksDir) {
+      const maskPath = path.join(session.masksDir, `frame_${indexStr}_mask.png`)
+      await fs.writeFile(maskPath, Buffer.from(payload.maskData))
+    }
   }
 )
 
@@ -832,17 +931,42 @@ ipcMain.handle(
     if (!session) return { ok: false as const, reason: 'Unknown recording session' }
 
     try {
-      const { tempDir, framesDir, defaultName, format, quality, fps } = session
+      const { tempDir, framesDir, defaultName, format, quality, fps, images } = session
       const outputFps = payload.fps > 0 ? payload.fps : fps
       if (payload.frameCount <= 0) {
         return { ok: false as const, reason: 'No frames captured; recording failed.' }
       }
-      const mp4Temp = path.join(tempDir, 'out.mp4')
-      const webmTemp = path.join(tempDir, 'out.webm')
 
       const sendProgress = (stage: string, percent: number) => {
         mainWindow?.webContents.send('export-progress', { stage, percent })
       }
+
+      if (format === 'images') {
+        if (!images) {
+          return { ok: false as const, reason: 'Missing images export options.' }
+        }
+        const base = await resolveImagesOutputBase({
+          defaultName,
+          outputDir: payload.outputDir,
+        })
+        if (!base) {
+          return { ok: false as const, reason: 'canceled' }
+        }
+
+        const result = await finishImagesExport({
+          framesDir,
+          masksDir: session.masksDir,
+          frameCount: payload.frameCount,
+          outputDir: base.dir,
+          stem: base.stem,
+          images,
+          onProgress: sendProgress,
+        })
+        return { ok: true as const, path: result.primaryPath, paths: result.paths }
+      }
+
+      const mp4Temp = path.join(tempDir, 'out.mp4')
+      const webmTemp = path.join(tempDir, 'out.webm')
 
       // Encode after all frames are written; then we prompt Save As (UX: "export first").
       const encodeBoth = format === 'both'
@@ -943,6 +1067,35 @@ ipcMain.handle('desktop:choose-recording-output-dir', async () => {
   if (result.canceled || !result.filePaths[0]) return null
   return result.filePaths[0]
 })
+
+ipcMain.handle(
+  'desktop:write-recording-manifest',
+  async (
+    _event,
+    payload: { outputDir: string; fileName: string; json: string }
+  ): Promise<{ ok: true; path: string } | { ok: false; reason: string }> => {
+    const outputDir = typeof payload?.outputDir === 'string' ? payload.outputDir.trim() : ''
+    const fileName = typeof payload?.fileName === 'string' ? payload.fileName.trim() : ''
+    const json = typeof payload?.json === 'string' ? payload.json : ''
+    if (!outputDir || !(await isWritableDirectory(outputDir))) {
+      return { ok: false as const, reason: 'Invalid output directory' }
+    }
+    if (!fileName || fileName.includes('..') || /[<>:"/\\|?*]/.test(fileName)) {
+      return { ok: false as const, reason: 'Invalid manifest file name' }
+    }
+    if (!fileName.toLowerCase().endsWith('.json')) {
+      return { ok: false as const, reason: 'Manifest must be a .json file' }
+    }
+    try {
+      JSON.parse(json)
+    } catch {
+      return { ok: false as const, reason: 'Invalid JSON payload' }
+    }
+    const outPath = path.join(outputDir, fileName)
+    await fs.writeFile(outPath, json, 'utf8')
+    return { ok: true as const, path: outPath }
+  }
+)
 
 ipcMain.handle('desktop:choose-cache-dir', async () => {
   if (!mainWindow) return null

@@ -34,9 +34,13 @@ import {
   SRGBColorSpace,
   Vector2,
   Vector3,
+  WebGLRenderTarget,
+  RGBAFormat,
+  UnsignedByteType,
   type Group,
   type Material,
   type Texture,
+  type ColorSpace,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
@@ -44,11 +48,14 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
+import type { RecordingImageFormat, RecordingMode } from '../desktopTypes'
+import { DEFAULT_FLATTEN_COLOR, normalizeFlattenColor } from '../lib/recordingPresets'
 import {
   cameraSettingsEqual,
   focusCameraOnObject,
   readCameraSettings,
   resolveHierarchyObject,
+  setOrbitElevationDegrees as applyLiveOrbitElevation,
   worldSizeFromScreenSize,
 } from '../lib/cameraFocus'
 import { configureGltfLoader, getKtx2Loader } from '../lib/configureGltfLoader'
@@ -602,6 +609,88 @@ class ModelLoadErrorBoundary extends Component<
   }
 }
 
+function createContactShadowTexture(): CanvasTexture | null {
+  const texSize = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = texSize
+  canvas.height = texSize
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const gradient = ctx.createRadialGradient(
+    texSize / 2,
+    texSize / 2,
+    0,
+    texSize / 2,
+    texSize / 2,
+    texSize / 2
+  )
+  gradient.addColorStop(0, 'rgba(0,0,0,0.38)')
+  gradient.addColorStop(0.35, 'rgba(0,0,0,0.16)')
+  gradient.addColorStop(0.7, 'rgba(0,0,0,0.05)')
+  gradient.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, texSize, texSize)
+  const map = new CanvasTexture(canvas)
+  map.colorSpace = SRGBColorSpace
+  return map
+}
+
+/** White radial gradient for grayscale mask contact shadow on black background. */
+function createMaskContactShadowTexture(): CanvasTexture | null {
+  const texSize = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = texSize
+  canvas.height = texSize
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const gradient = ctx.createRadialGradient(
+    texSize / 2,
+    texSize / 2,
+    0,
+    texSize / 2,
+    texSize / 2,
+    texSize / 2
+  )
+  gradient.addColorStop(0, 'rgba(255,255,255,0.38)')
+  gradient.addColorStop(0.35, 'rgba(255,255,255,0.16)')
+  gradient.addColorStop(0.7, 'rgba(255,255,255,0.05)')
+  gradient.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, texSize, texSize)
+  const map = new CanvasTexture(canvas)
+  map.colorSpace = SRGBColorSpace
+  return map
+}
+
+type MaskMaterialEntry = {
+  original: Material | Material[]
+  mask: MeshBasicMaterial
+}
+
+const maskMaterialCache = new WeakMap<Mesh, MaskMaterialEntry>()
+
+function applyMaskMaterials(root: Object3D | null) {
+  if (!root) return
+  root.traverse(obj => {
+    if (!(obj instanceof Mesh) || !obj.geometry) return
+    let entry = maskMaterialCache.get(obj)
+    if (!entry) {
+      entry = { original: obj.material, mask: new MeshBasicMaterial({ color: 0xffffff }) }
+      maskMaterialCache.set(obj, entry)
+    }
+    obj.material = entry.mask
+  })
+}
+
+function restoreMaskMaterials(root: Object3D | null) {
+  if (!root) return
+  root.traverse(obj => {
+    if (!(obj instanceof Mesh)) return
+    const entry = maskMaterialCache.get(obj)
+    if (entry) obj.material = entry.original
+  })
+}
+
 function Ground({ size }: { size: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -678,31 +767,7 @@ function ProfessionalFloor({
 }
 
 function SoftContactShadow({ size }: { size: number }) {
-  const texture = useMemo(() => {
-    const texSize = 256
-    const canvas = document.createElement('canvas')
-    canvas.width = texSize
-    canvas.height = texSize
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-    const gradient = ctx.createRadialGradient(
-      texSize / 2,
-      texSize / 2,
-      0,
-      texSize / 2,
-      texSize / 2,
-      texSize / 2
-    )
-    gradient.addColorStop(0, 'rgba(0,0,0,0.38)')
-    gradient.addColorStop(0.35, 'rgba(0,0,0,0.16)')
-    gradient.addColorStop(0.7, 'rgba(0,0,0,0.05)')
-    gradient.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, texSize, texSize)
-    const map = new CanvasTexture(canvas)
-    map.colorSpace = SRGBColorSpace
-    return map
-  }, [])
+  const texture = useMemo(() => createContactShadowTexture(), [])
 
   useEffect(() => {
     return () => {
@@ -727,18 +792,59 @@ function SoftContactShadow({ size }: { size: number }) {
   )
 }
 
+/** Mask-only contact shadow: white gradient on black, toggled visible during mask capture. */
+function MaskContactShadow({
+  size,
+  meshRef,
+}: {
+  size: number
+  meshRef: MutableRefObject<Mesh | null>
+}) {
+  const texture = useMemo(() => createMaskContactShadowTexture(), [])
+
+  useEffect(() => {
+    return () => {
+      texture?.dispose()
+    }
+  }, [texture])
+
+  if (!texture) return null
+
+  const offsetScale = size / 2.4
+  return (
+    <mesh
+      ref={meshRef}
+      visible={false}
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0.05 * offsetScale, 0.001, 0.06 * offsetScale]}
+      scale={[1.55, 1, 1.05]}
+      renderOrder={-1}
+    >
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial color={0xffffff} map={texture} transparent depthWrite={false} />
+    </mesh>
+  )
+}
+
 function SceneLighting({
   settings,
   modelRoot,
   previewTheme,
   fogNear,
   fogFar,
+  noExportBackground,
+  captureFlatten,
+  exportFlattenColor,
 }: {
   settings: LightingSettings
   modelRoot: Object3D | null
   previewTheme: PreviewTheme
   fogNear: number
   fogFar: number
+  noExportBackground: boolean
+  /** Video / JPEG-no-bg: background must become opaque and flattened. */
+  captureFlatten: boolean
+  exportFlattenColor: string
 }) {
   const { gl, scene } = useThree()
   const pmremRef = useRef<PMREMGenerator | null>(null)
@@ -746,13 +852,20 @@ function SceneLighting({
   const sceneBg = sceneBgForTheme(previewTheme)
 
   useLayoutEffect(() => {
-    scene.background = new Color(sceneBg)
-    scene.fog =
-      previewTheme === 'professional' ? null : new Fog(sceneBg, fogNear, fogFar)
+    if (noExportBackground) {
+      scene.background = null
+      scene.fog = null
+      // Opaque flatten (Video/JPEG) vs true transparent clear (PNG/WebP).
+      gl.setClearColor(captureFlatten ? exportFlattenColor : 0x000000, captureFlatten ? 1 : 0)
+    } else {
+      scene.background = new Color(sceneBg)
+      scene.fog =
+        previewTheme === 'professional' ? null : new Fog(sceneBg, fogNear, fogFar)
+      gl.setClearColor(sceneBg, 1)
+    }
     gl.outputColorSpace = SRGBColorSpace
     gl.toneMapping = NeutralToneMapping
     gl.toneMappingExposure = settings.exposure
-    gl.setClearColor(sceneBg, 1)
     gl.shadowMap.enabled = false
 
     if (envTexRef.current) {
@@ -780,6 +893,9 @@ function SceneLighting({
     modelRoot,
     previewTheme,
     sceneBg,
+    noExportBackground,
+    captureFlatten,
+    exportFlattenColor,
     fogNear,
     fogFar,
   ])
@@ -883,18 +999,262 @@ function CanvasBridge({ onCanvasReady }: { onCanvasReady: (canvas: HTMLCanvasEle
   return null
 }
 
+/**
+ * Softens hard alpha-channel edges in place with a small separable box blur.
+ * RGB channels are left untouched so the true foreground color is preserved
+ * at partially-transparent edge pixels (avoids a dark halo from blurring
+ * toward the cleared black-transparent background).
+ */
+function featherAlphaChannel(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  if (radius <= 0 || width <= 0 || height <= 0) return
+  const count = width * height
+  const src = new Float32Array(count)
+  for (let i = 0; i < count; i++) src[i] = data[i * 4 + 3]
+  const tmp = new Float32Array(count)
+  const kernelSize = radius * 2 + 1
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * width
+    for (let x = 0; x < width; x++) {
+      let sum = 0
+      for (let k = -radius; k <= radius; k++) {
+        const xx = Math.min(width - 1, Math.max(0, x + k))
+        sum += src[rowOffset + xx]
+      }
+      tmp[rowOffset + x] = sum / kernelSize
+    }
+  }
+
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let sum = 0
+      for (let k = -radius; k <= radius; k++) {
+        const yy = Math.min(height - 1, Math.max(0, y + k))
+        sum += tmp[yy * width + x]
+      }
+      data[(y * width + x) * 4 + 3] = Math.round(sum / kernelSize)
+    }
+  }
+}
+
 /** Provides fixed-step offline capture capability via ref. */
 function CaptureBridge({
   turntableGroupRef,
   captureRef,
+  captureNeedsAlpha,
+  captureFlatten,
+  exportFlattenColor,
+  maskShadowMeshRef,
+  exportHelpersRef,
+  exportMask,
 }: {
   turntableGroupRef: MutableRefObject<Group | null>
   captureRef: MutableRefObject<CaptureHandle | null>
+  captureNeedsAlpha: boolean
+  captureFlatten: boolean
+  exportFlattenColor: string
+  maskShadowMeshRef: MutableRefObject<Mesh | null>
+  exportHelpersRef: MutableRefObject<Group | null>
+  exportMask: boolean
 }) {
   const { gl, scene, camera } = useThree()
+  const controls = useThree(s => s.controls) as OrbitControlsLike | null
 
-  useEffect(() => {
+  // useLayoutEffect: capture API must match alpha mode before paint / before App resumes after recording:true.
+  useLayoutEffect(() => {
+    const captureFrameInternal = (
+      rotationY: number,
+      outputSize: { width: number; height: number },
+      renderScale: number,
+      options: {
+        stageAlphaEnabled: boolean
+        /**
+         * Render to an offscreen RGBA target and read pixels.
+         * Avoids default framebuffer alpha/MSAA issues that turn clears into opaque black.
+         */
+        useAlphaRenderTarget?: boolean
+        preFill?: string
+        prepareScene?: () => void
+        restoreScene?: () => void
+      }
+    ): Promise<ArrayBuffer> => {
+      return new Promise((resolve, reject) => {
+        const prevPixelRatio = gl.getPixelRatio()
+        const prevSize = new Vector2()
+        gl.getSize(prevSize)
+        const prevRenderTarget = gl.getRenderTarget()
+        let alphaTarget: WebGLRenderTarget | null = null
+        try {
+          const root = turntableGroupRef.current
+          if (root) root.rotation.y = rotationY
+
+          options.prepareScene?.()
+
+          const tw = outputSize.width
+          const th = outputSize.height
+          const sourceAspect = prevSize.x / Math.max(prevSize.y, 1)
+          const targetAspect = tw / Math.max(th, 1)
+          let rw = tw
+          let rh = th
+          if (sourceAspect > targetAspect) {
+            rh = th
+            rw = Math.max(tw, Math.round(th * sourceAspect))
+          } else if (sourceAspect < targetAspect) {
+            rw = tw
+            rh = Math.max(th, Math.round(tw / Math.max(sourceAspect, 0.001)))
+          }
+
+          // Transparent (alpha render-target) captures have hard 0/255 alpha edges with
+          // no GPU MSAA available (three.js classic WebGLRenderer ignores `samples` on
+          // custom render targets), so force modest extra supersampling to smooth
+          // silhouette edges regardless of the user's selected quality/renderScale.
+          // A light alpha-channel feather pass (below) does the rest of the AA work
+          // cheaply, so we don't need a large (and costly) supersample factor here.
+          // Clamp against the GPU's *real* max texture size — planCapture only vetted
+          // the un-boosted scale, and the old hardcoded 4096 cap silently defeated this
+          // boost for large (e.g. 4K) export sizes.
+          const MIN_ALPHA_SSAA = 1.5
+          let ssaa = options.useAlphaRenderTarget
+            ? Math.max(renderScale, MIN_ALPHA_SSAA)
+            : Math.max(1, renderScale)
+          if (options.useAlphaRenderTarget) {
+            const maxTexture = gl.capabilities.maxTextureSize
+            const safeMaxDim = Math.max(1024, Math.floor(maxTexture * 0.92))
+            const largestDim = Math.max(rw, rh) * ssaa
+            if (largestDim > safeMaxDim) {
+              ssaa = Math.max(1, ssaa * (safeMaxDim / largestDim))
+            }
+          }
+          const renderW = Math.round(rw * ssaa)
+          const renderH = Math.round(rh * ssaa)
+
+          const stage = document.createElement('canvas')
+          stage.width = tw
+          stage.height = th
+          const ctx = stage.getContext('2d', { alpha: options.stageAlphaEnabled }) as
+            | CanvasRenderingContext2D
+            | null
+          if (!ctx) {
+            reject(new Error('Failed to get 2D context for capture'))
+            return
+          }
+          const cropW = Math.round(tw * ssaa)
+          const cropH = Math.round(th * ssaa)
+          const sx = Math.max(0, Math.floor((renderW - cropW) / 2))
+          const syTop = Math.max(0, Math.floor((renderH - cropH) / 2))
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = 'high'
+
+          if (options.useAlphaRenderTarget) {
+            alphaTarget = new WebGLRenderTarget(renderW, renderH, {
+              format: RGBAFormat,
+              type: UnsignedByteType,
+              colorSpace: gl.outputColorSpace as ColorSpace,
+              depthBuffer: true,
+              stencilBuffer: false,
+              // Classic WebGLRenderer does not implement MSAA for custom render
+              // targets (samples is a no-op here); edge AA comes from the forced
+              // supersampling above (MIN_ALPHA_SSAA) instead.
+              samples: 0,
+            })
+            gl.setRenderTarget(alphaTarget)
+            gl.setClearColor(0x000000, 0)
+            gl.clear(true, true, true)
+            gl.render(scene, camera)
+
+            const pixels = new Uint8Array(renderW * renderH * 4)
+            gl.readRenderTargetPixels(alphaTarget, 0, 0, renderW, renderH, pixels)
+            gl.setRenderTarget(prevRenderTarget)
+
+            const raw = document.createElement('canvas')
+            raw.width = renderW
+            raw.height = renderH
+            const rawCtx = raw.getContext('2d', { alpha: true })
+            if (!rawCtx) {
+              reject(new Error('Failed to get 2D context for alpha render target'))
+              return
+            }
+            const imageData = rawCtx.createImageData(renderW, renderH)
+            const rowBytes = renderW * 4
+            // WebGL origin is bottom-left; canvas ImageData is top-left.
+            for (let y = 0; y < renderH; y++) {
+              const srcOffset = (renderH - 1 - y) * rowBytes
+              const dstOffset = y * rowBytes
+              imageData.data.set(pixels.subarray(srcOffset, srcOffset + rowBytes), dstOffset)
+            }
+            rawCtx.putImageData(imageData, 0, 0)
+            ctx.clearRect(0, 0, tw, th)
+            ctx.drawImage(raw, sx, syTop, cropW, cropH, 0, 0, tw, th)
+
+            // Cheap resolution-independent AA pass: soften the hard 0/255 alpha edges
+            // left over after downsampling. Only the alpha channel is blurred — RGB is
+            // left untouched so semi-transparent edge pixels keep the true foreground
+            // color instead of darkening toward the (black) cleared background.
+            const finalFrame = ctx.getImageData(0, 0, tw, th)
+            featherAlphaChannel(finalFrame.data, tw, th, 1)
+            ctx.putImageData(finalFrame, 0, 0)
+          } else {
+            gl.setPixelRatio(1)
+            gl.setSize(renderW, renderH, false)
+            gl.render(scene, camera)
+            gl.getContext().finish()
+
+            if (options.preFill) {
+              ctx.fillStyle = options.preFill
+              ctx.fillRect(0, 0, tw, th)
+            }
+            ctx.drawImage(gl.domElement, sx, syTop, cropW, cropH, 0, 0, tw, th)
+          }
+
+          stage.toBlob(
+            blob => {
+              if (!blob) {
+                reject(new Error('toBlob failed'))
+                return
+              }
+              blob.arrayBuffer().then(resolve).catch(reject)
+            },
+            'image/png'
+          )
+        } catch (err) {
+          reject(err)
+        } finally {
+          options.restoreScene?.()
+          if (alphaTarget) {
+            gl.setRenderTarget(prevRenderTarget)
+            alphaTarget.dispose()
+          }
+          if (!options.useAlphaRenderTarget) {
+            gl.setPixelRatio(prevPixelRatio)
+            gl.setSize(prevSize.x, prevSize.y, false)
+          }
+        }
+      })
+    }
+
     captureRef.current = {
+      /**
+       * Apply orbit elevation during recording. Uses live camera radius/azimuth
+       * unless `baseSettings` is provided (preferred for multi-axis batches so
+       * each pitch starts from the same freeze-frame pose).
+       */
+      setOrbitElevationDegrees: (elevationDeg: number, baseSettings?: CameraSettings) => {
+        if (!(camera instanceof PerspectiveCamera)) return
+        if (baseSettings) {
+          applyCameraSettings(camera, controls, baseSettings)
+        }
+        applyLiveOrbitElevation(camera, controls, elevationDeg)
+      },
+      /** Restore a full CameraSettings pose (e.g. after multi-axis batch). */
+      applyCameraPose: (settings: CameraSettings) => {
+        if (!(camera instanceof PerspectiveCamera)) return
+        applyCameraSettings(camera, controls, settings)
+      },
       planCapture: (
         outputSize: { width: number; height: number },
         renderScale: number
@@ -987,90 +1347,95 @@ function CaptureBridge({
         outputSize: { width: number; height: number },
         renderScale = 1
       ): Promise<ArrayBuffer> => {
-        return new Promise((resolve, reject) => {
-          const src = gl.domElement
-          const prevPixelRatio = gl.getPixelRatio()
-          const prevSize = new Vector2()
-          gl.getSize(prevSize)
-          try {
-            // Set rotation on the turntable group
-            const root = turntableGroupRef.current
-            if (root) root.rotation.y = rotationY
-
-            // Render at native output-resolved pixels (no upscale blur),
-            // then center-crop to keep "cover fill" behavior.
-            const tw = outputSize.width
-            const th = outputSize.height
-            const sourceAspect = prevSize.x / Math.max(prevSize.y, 1)
-            const targetAspect = tw / Math.max(th, 1)
-            let rw = tw
-            let rh = th
-            if (sourceAspect > targetAspect) {
-              rh = th
-              rw = Math.max(tw, Math.round(th * sourceAspect))
-            } else if (sourceAspect < targetAspect) {
-              rw = tw
-              rh = Math.max(th, Math.round(tw / Math.max(sourceAspect, 0.001)))
-            }
-
-            // Supersample: render at `renderScale`x the resolved size, then
-            // downscale (with high-quality filtering) while cropping to the
-            // final "cover fill" output. This sharply reduces jagged edges
-            // and shimmer compared to rendering directly at target size.
-            const ssaa = Math.max(1, renderScale)
-            const renderW = Math.round(rw * ssaa)
-            const renderH = Math.round(rh * ssaa)
-
-            gl.setPixelRatio(1)
-            gl.setSize(renderW, renderH, false)
-            gl.render(scene, camera)
-            gl.getContext().finish()
-
-            const stage = document.createElement('canvas')
-            stage.width = tw
-            stage.height = th
-            const ctx = stage.getContext('2d', { alpha: false })
-            if (!ctx) {
-              reject(new Error('Failed to get 2D context for capture'))
-              return
-            }
-            // Cover crop from the (possibly supersampled) rendered frame,
-            // then downscale to the target size in a single draw.
-            const cropW = Math.round(tw * ssaa)
-            const cropH = Math.round(th * ssaa)
-            const sx = Math.max(0, Math.floor((renderW - cropW) / 2))
-            const sy = Math.max(0, Math.floor((renderH - cropH) / 2))
-            ctx.imageSmoothingEnabled = true
-            ctx.imageSmoothingQuality = 'high'
-            ctx.fillStyle = '#000'
-            ctx.fillRect(0, 0, tw, th)
-            ctx.drawImage(src, sx, sy, cropW, cropH, 0, 0, tw, th)
-
-            // Encode to PNG (lossless intermediate frames)
-            stage.toBlob(
-              blob => {
-                if (!blob) {
-                  reject(new Error('toBlob failed'))
-                  return
-                }
-                blob.arrayBuffer().then(resolve).catch(reject)
-              },
-              'image/png'
-            )
-          } catch (err) {
-            reject(err)
-          } finally {
-            gl.setPixelRatio(prevPixelRatio)
-            gl.setSize(prevSize.x, prevSize.y, false)
-          }
+        if (captureNeedsAlpha) {
+          const prevClear = new Color()
+          gl.getClearColor(prevClear)
+          const prevClearAlpha = gl.getClearAlpha()
+          const prevBackground = scene.background
+          const prevFog = scene.fog
+          const helpers = exportHelpersRef.current
+          const prevHelpersVisible = helpers ? helpers.visible : true
+          return captureFrameInternal(rotationY, outputSize, renderScale, {
+            stageAlphaEnabled: true,
+            useAlphaRenderTarget: true,
+            prepareScene: () => {
+              scene.background = null
+              scene.fog = null
+              if (helpers) helpers.visible = false
+              gl.setClearColor(0x000000, 0)
+            },
+            restoreScene: () => {
+              scene.background = prevBackground
+              scene.fog = prevFog
+              if (helpers) helpers.visible = prevHelpersVisible
+              gl.setClearColor(prevClear, prevClearAlpha)
+            },
+          })
+        }
+        return captureFrameInternal(rotationY, outputSize, renderScale, {
+          stageAlphaEnabled: false,
+          preFill: captureFlatten ? exportFlattenColor : '#000',
         })
       },
+      captureMaskFrame: exportMask
+        ? (
+            rotationY: number,
+            outputSize: { width: number; height: number },
+            renderScale = 1
+          ): Promise<ArrayBuffer> => {
+            const prevClear = new Color()
+            gl.getClearColor(prevClear)
+            const prevClearAlpha = gl.getClearAlpha()
+            const prevEnvironment = scene.environment
+            const prevBackground = scene.background
+            const prevFog = scene.fog
+            const helpers = exportHelpersRef.current
+            const prevHelpersVisible = helpers ? helpers.visible : true
+            return captureFrameInternal(rotationY, outputSize, renderScale, {
+              stageAlphaEnabled: false,
+              preFill: '#000000',
+              prepareScene: () => {
+                applyMaskMaterials(turntableGroupRef.current)
+                const maskMesh = maskShadowMeshRef.current
+                if (maskMesh) maskMesh.visible = true
+                scene.environment = null
+                scene.background = null
+                scene.fog = null
+                if (helpers) helpers.visible = false
+                gl.setClearColor(0x000000, 1)
+              },
+              restoreScene: () => {
+                restoreMaskMaterials(turntableGroupRef.current)
+                const maskMesh = maskShadowMeshRef.current
+                if (maskMesh) maskMesh.visible = false
+                scene.environment = prevEnvironment
+                scene.background = prevBackground
+                scene.fog = prevFog
+                if (helpers) helpers.visible = prevHelpersVisible
+                gl.setClearColor(prevClear, prevClearAlpha)
+              },
+            })
+          }
+        : undefined,
     }
 
     return () => {
       captureRef.current = null
     }
-  }, [gl, scene, camera, turntableGroupRef, captureRef])
+  }, [
+    gl,
+    scene,
+    camera,
+    controls,
+    turntableGroupRef,
+    captureRef,
+    captureFlatten,
+    captureNeedsAlpha,
+    exportFlattenColor,
+    maskShadowMeshRef,
+    exportHelpersRef,
+    exportMask,
+  ])
 
   return null
 }
@@ -1260,6 +1625,22 @@ export type CaptureHandle = {
     adjusted: boolean
     reason?: string
   }
+  /**
+   * Change orbit elevation while recording (bypasses panel sync freeze).
+   * When `baseSettings` is set, restores that pose first then applies elevation.
+   */
+  setOrbitElevationDegrees: (elevationDeg: number, baseSettings?: CameraSettings) => void
+  /** Apply a full camera pose (used to restore after multi-axis batch). */
+  applyCameraPose: (settings: CameraSettings) => void
+  /**
+   * Grayscale mask pass: white unlit model + contact shadow on black.
+   * Only available when exportMask is enabled (JPEG + no background).
+   */
+  captureMaskFrame?: (
+    rotationY: number,
+    outputSize: { width: number; height: number },
+    renderScale?: number
+  ) => Promise<ArrayBuffer>
 }
 
 type ViewerSceneProps = {
@@ -1268,6 +1649,15 @@ type ViewerSceneProps = {
   lightingSettings: LightingSettings
   shadingMode: ShadingMode
   recording: boolean
+  recordingMode: RecordingMode
+  /** When false: remove background layers from exports. */
+  exportBackground: boolean
+  /** Used to decide JPEG opaque flatten vs PNG/WebP alpha capture. */
+  imageFormat?: RecordingImageFormat
+  /** JPEG + no background → companion grayscale mask PNGs. */
+  exportMask?: boolean
+  /** Solid fill for Video / JPEG when exportBackground is false. */
+  exportFlattenColor?: string
   secondsPerRevolution: number
   msaa?: boolean
   maxTextureSize?: number
@@ -1286,6 +1676,11 @@ export function ViewerScene({
   lightingSettings,
   shadingMode,
   recording,
+  recordingMode,
+  exportBackground,
+  imageFormat = 'png',
+  exportMask = false,
+  exportFlattenColor = DEFAULT_FLATTEN_COLOR,
   secondsPerRevolution,
   msaa = true,
   maxTextureSize = 0,
@@ -1300,6 +1695,12 @@ export function ViewerScene({
   const { previewTheme } = usePreviewTheme()
   const sceneBg = sceneBgForTheme(previewTheme)
   const sceneBgCss = sceneBgCssForTheme(previewTheme)
+  const noExportBackground = recording && !exportBackground
+  const jpegNoBg = noExportBackground && recordingMode === 'images' && imageFormat === 'jpeg'
+  const captureFlatten = noExportBackground && (recordingMode === 'video' || jpegNoBg)
+  const captureNeedsAlpha =
+    noExportBackground && recordingMode === 'images' && imageFormat !== 'jpeg'
+  const flattenCss = normalizeFlattenColor(exportFlattenColor)
   const navGizmoApiRef = useRef<NavGizmoApi | null>(null)
   const navGizmoOrientationRef = useMemo(() => createNavGizmoOrientationRef(), [])
   const [hierarchyRoot, setHierarchyRoot] = useState<HierarchyNode | null>(null)
@@ -1307,6 +1708,8 @@ export function ViewerScene({
   const [inspectRoot, setInspectRoot] = useState<Object3D | null>(null)
   const modelRootRef = useRef<Object3D | null>(null)
   const turntableGroupRef = useRef<Group | null>(null)
+  const maskShadowMeshRef = useRef<Mesh | null>(null)
+  const exportHelpersRef = useRef<Group | null>(null)
   const syncSourceRef = useRef<'panel' | 'viewport'>('panel')
   const cameraSettingsRef = useRef(cameraSettings)
   cameraSettingsRef.current = cameraSettings
@@ -1479,7 +1882,11 @@ export function ViewerScene({
         }}
         gl={{
           antialias: msaa,
-          alpha: false,
+          // Always RGBA so PNG/WebP "no background" can capture true transparency
+          // without remounting when export starts. Unpremultiplied keeps clear(a=0)
+          // from collapsing into opaque black.
+          alpha: true,
+          premultipliedAlpha: false,
           preserveDrawingBuffer: true,
           powerPreference: 'high-performance',
         }}
@@ -1490,27 +1897,46 @@ export function ViewerScene({
         }}
       >
         <CanvasBridge onCanvasReady={onCanvasReady} />
-        {captureRef && <CaptureBridge turntableGroupRef={turntableGroupRef} captureRef={captureRef} />}
+        {captureRef && (
+          <CaptureBridge
+            turntableGroupRef={turntableGroupRef}
+            captureRef={captureRef}
+            captureNeedsAlpha={captureNeedsAlpha}
+            captureFlatten={captureFlatten}
+            exportFlattenColor={flattenCss}
+            maskShadowMeshRef={maskShadowMeshRef}
+            exportHelpersRef={exportHelpersRef}
+            exportMask={exportMask}
+          />
+        )}
         <SceneLighting
           settings={lightingSettings}
           modelRoot={modelRoot}
           previewTheme={previewTheme}
           fogNear={helperExtents.fogNear}
           fogFar={helperExtents.fogFar}
+          noExportBackground={noExportBackground}
+          captureFlatten={captureFlatten}
+          exportFlattenColor={flattenCss}
         />
-        {isProfessional ? (
-          <ProfessionalFloor
-            showAxes={!recording}
-            gridSize={helperExtents.gridSize}
-            gridDivisions={helperExtents.gridDivisions}
-            axesLength={helperExtents.axesLength}
-          />
-        ) : (
-          <>
-            <Ground size={helperExtents.groundSize} />
-            <SoftContactShadow size={helperExtents.shadowSize} />
-          </>
-        )}
+        <group ref={exportHelpersRef} visible={!noExportBackground}>
+          {isProfessional ? (
+            <ProfessionalFloor
+              showAxes={!recording}
+              gridSize={helperExtents.gridSize}
+              gridDivisions={helperExtents.gridDivisions}
+              axesLength={helperExtents.axesLength}
+            />
+          ) : (
+            <>
+              <Ground size={helperExtents.groundSize} />
+              <SoftContactShadow size={helperExtents.shadowSize} />
+            </>
+          )}
+        </group>
+        {exportMask ? (
+          <MaskContactShadow size={helperExtents.shadowSize} meshRef={maskShadowMeshRef} />
+        ) : null}
         <ViewportCameraControls
           syncSourceRef={syncSourceRef}
           cameraSettingsRef={cameraSettingsRef}
