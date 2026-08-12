@@ -1,6 +1,25 @@
 import { DEFAULT_LIGHTING, type LightingSettings } from '../config/lightingDefaults'
-import type { RecordingExportFormat, RecordingQuality } from '../desktopTypes'
-import { normalizeRecordingQuality } from './recordingPresets'
+import type {
+  AtlasPackMode,
+  JpegNoBgMode,
+  RecordingExportFormat,
+  RecordingImageFormat,
+  RecordingMode,
+  RecordingQuality,
+  RecordingSequencePackage,
+} from '../desktopTypes'
+import { ATLAS_MAX_EDGE_DEFAULT, clampAtlasMaxEdge } from './atlasLayout'
+import { DEFAULT_PITCH_ANGLES } from './multiAxisManifest'
+import {
+  DEFAULT_FLATTEN_COLOR,
+  isAtlasPackMode,
+  isJpegNoBgMode,
+  isRecordingImageFormat,
+  isRecordingSequencePackage,
+  isVideoExportFormat,
+  normalizeFlattenColor,
+  normalizeRecordingQuality,
+} from './recordingPresets'
 import {
   DEFAULT_UI_THEME,
   isUiTheme,
@@ -13,12 +32,57 @@ export const PREFERENCES_STORAGE_KEY = 'swiftmesh.preferences'
 export type RecordingPreferences = {
   /** When false, hide viewport record controls. Default true. */
   enabled: boolean
+  /** Default mode for new tabs / FAB quick-record. */
+  recordingMode: RecordingMode
+
+  /** Video: container format. */
+  videoExportFormat: RecordingExportFormat
+  videoSizeId: string
+  videoQuality: RecordingQuality
   secondsPerRevolution: number
-  recordingExportFormat: RecordingExportFormat
-  recordingQuality: RecordingQuality
-  recordingSizeId: string
-  /** Absolute directory for silent save after recording; empty = prompt Save As. */
-  outputDir: string
+  recordingFps: number
+  /** Absolute dir for silent video save; empty = prompt Save As. */
+  videoOutputDir: string
+
+  /** Images: outputs and encoding. */
+  exportSequence: boolean
+  exportAtlas: boolean
+  /**
+   * When false: remove background layers from exports.
+   * - Images (PNG/WebP): keep transparency (alpha).
+   * - Images (JPEG): solid fill and/or mask, per jpegNoBgMode.
+   * - Video: flatten to videoFlattenColor.
+   */
+  exportBackground: boolean
+  /** JPEG + no background. Default solid. */
+  jpegNoBgMode: JpegNoBgMode
+  /** JPEG flatten fill when exportBackground is false. */
+  imageFlattenColor: string
+  /** Video flatten fill when exportBackground is false. */
+  videoFlattenColor: string
+  /** When packing atlas: preserve multi-sheet or force one scaled sheet. */
+  atlasPackMode: AtlasPackMode
+  /** Max atlas sheet edge (px). Default 8192. */
+  atlasMaxEdge: number
+  imageFormat: RecordingImageFormat
+  /** 1–100; ignored for PNG. */
+  imageQuality: number
+  sequencePackage: RecordingSequencePackage
+  imageSizeId: string
+  /** Used when imageSizeId / videoSizeId is `custom`. */
+  imageCustomWidth: number
+  imageCustomHeight: number
+  videoCustomWidth: number
+  videoCustomHeight: number
+  /** Capture supersampling profile for image mode. */
+  imageCaptureQuality: RecordingQuality
+  frameCount: number
+  /** Absolute dir for silent image/atlas save; empty = prompt Save As. */
+  imageOutputDir: string
+  /** Images: capture multiple pitch elevations in one run. */
+  multiAxisEnabled: boolean
+  /** Pitch angles in degrees (horizon = 0). */
+  pitchAngles: number[]
 }
 
 export type StartupBehavior = 'blank' | 'restoreSession' | 'openRecent'
@@ -68,11 +132,34 @@ export type AppPreferences = {
 
 export const DEFAULT_RECORDING_PREFERENCES: RecordingPreferences = {
   enabled: true,
+  recordingMode: 'video',
+  videoExportFormat: 'mp4',
+  videoSizeId: 'viewport',
+  videoQuality: 'high',
   secondsPerRevolution: 8,
-  recordingExportFormat: 'mp4',
-  recordingQuality: 'high',
-  recordingSizeId: 'viewport',
-  outputDir: '',
+  recordingFps: 30,
+  videoOutputDir: '',
+  exportSequence: true,
+  exportAtlas: true,
+  exportBackground: true,
+  jpegNoBgMode: 'solid',
+  imageFlattenColor: DEFAULT_FLATTEN_COLOR,
+  videoFlattenColor: DEFAULT_FLATTEN_COLOR,
+  atlasPackMode: 'preserve',
+  atlasMaxEdge: ATLAS_MAX_EDGE_DEFAULT,
+  imageFormat: 'png',
+  imageQuality: 92,
+  sequencePackage: 'folder',
+  imageSizeId: 'viewport',
+  imageCustomWidth: 1280,
+  imageCustomHeight: 720,
+  videoCustomWidth: 1920,
+  videoCustomHeight: 1080,
+  imageCaptureQuality: 'high',
+  frameCount: 36,
+  imageOutputDir: '',
+  multiAxisEnabled: false,
+  pitchAngles: [...DEFAULT_PITCH_ANGLES],
 }
 
 export const RECENT_FILES_MAX_MIN = 5
@@ -104,8 +191,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   uiTheme: DEFAULT_UI_THEME,
 }
 
-function isExportFormat(value: unknown): value is RecordingExportFormat {
-  return value === 'mp4' || value === 'webm' || value === 'both'
+function isRecordingMode(value: unknown): value is RecordingMode {
+  return value === 'video' || value === 'images'
 }
 
 function isLightingMode(value: unknown): value is LightingSettings['mode'] {
@@ -126,6 +213,19 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
   return Math.min(max, Math.max(min, n))
 }
 
+function normalizePitchAngles(value: unknown): number[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [...DEFAULT_RECORDING_PREFERENCES.pitchAngles]
+  }
+  const angles: number[] = []
+  for (const item of value) {
+    const n = typeof item === 'number' ? item : Number(item)
+    if (!Number.isFinite(n)) continue
+    angles.push(Math.max(-89, Math.min(89, n)))
+  }
+  return angles.length > 0 ? angles : [...DEFAULT_RECORDING_PREFERENCES.pitchAngles]
+}
+
 export function normalizePreferences(raw: unknown): AppPreferences {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const generalRaw =
@@ -144,6 +244,60 @@ export function normalizePreferences(raw: unknown): AppPreferences {
     obj.lighting && typeof obj.lighting === 'object'
       ? (obj.lighting as Record<string, unknown>)
       : {}
+
+  let exportSequence =
+    recordingRaw.exportSequence === undefined
+      ? DEFAULT_RECORDING_PREFERENCES.exportSequence
+      : recordingRaw.exportSequence !== false
+  const exportAtlas =
+    recordingRaw.exportAtlas === undefined
+      ? DEFAULT_RECORDING_PREFERENCES.exportAtlas
+      : recordingRaw.exportAtlas !== false
+  if (!exportSequence && !exportAtlas) exportSequence = true
+
+  const exportBackground =
+    recordingRaw.exportBackground === undefined
+      ? DEFAULT_RECORDING_PREFERENCES.exportBackground
+      : recordingRaw.exportBackground !== false
+
+  const legacyFormat = recordingRaw.recordingExportFormat
+  const legacySize =
+    typeof recordingRaw.recordingSizeId === 'string' && recordingRaw.recordingSizeId
+      ? recordingRaw.recordingSizeId
+      : null
+  const legacyQuality = normalizeRecordingQuality(recordingRaw.recordingQuality)
+
+  let recordingMode: RecordingMode = DEFAULT_RECORDING_PREFERENCES.recordingMode
+  if (isRecordingMode(recordingRaw.recordingMode)) {
+    recordingMode = recordingRaw.recordingMode
+  } else if (legacyFormat === 'images') {
+    recordingMode = 'images'
+  }
+
+  let videoExportFormat: RecordingExportFormat = DEFAULT_RECORDING_PREFERENCES.videoExportFormat
+  if (isVideoExportFormat(recordingRaw.videoExportFormat)) {
+    videoExportFormat = recordingRaw.videoExportFormat
+  } else if (isVideoExportFormat(legacyFormat)) {
+    videoExportFormat = legacyFormat
+  }
+
+  const videoSizeId =
+    typeof recordingRaw.videoSizeId === 'string' && recordingRaw.videoSizeId
+      ? recordingRaw.videoSizeId
+      : (legacySize ?? DEFAULT_RECORDING_PREFERENCES.videoSizeId)
+  const imageSizeId =
+    typeof recordingRaw.imageSizeId === 'string' && recordingRaw.imageSizeId
+      ? recordingRaw.imageSizeId
+      : (legacySize ?? DEFAULT_RECORDING_PREFERENCES.imageSizeId)
+
+  const videoQuality =
+    recordingRaw.videoQuality !== undefined
+      ? normalizeRecordingQuality(recordingRaw.videoQuality)
+      : legacyQuality
+  const imageCaptureQuality =
+    recordingRaw.imageCaptureQuality !== undefined
+      ? normalizeRecordingQuality(recordingRaw.imageCaptureQuality)
+      : legacyQuality
 
   return {
     general: {
@@ -178,22 +332,101 @@ export function normalizePreferences(raw: unknown): AppPreferences {
     },
     recording: {
       enabled: recordingRaw.enabled !== false,
+      recordingMode,
+      videoExportFormat,
+      videoSizeId,
+      videoQuality,
       secondsPerRevolution: clampNumber(
         recordingRaw.secondsPerRevolution,
         DEFAULT_RECORDING_PREFERENCES.secondsPerRevolution,
         3,
         60
       ),
-      recordingExportFormat: isExportFormat(recordingRaw.recordingExportFormat)
-        ? recordingRaw.recordingExportFormat
-        : DEFAULT_RECORDING_PREFERENCES.recordingExportFormat,
-      recordingQuality: normalizeRecordingQuality(recordingRaw.recordingQuality),
-      recordingSizeId:
-        typeof recordingRaw.recordingSizeId === 'string' && recordingRaw.recordingSizeId
-          ? recordingRaw.recordingSizeId
-          : DEFAULT_RECORDING_PREFERENCES.recordingSizeId,
-      outputDir:
-        typeof recordingRaw.outputDir === 'string' ? recordingRaw.outputDir.trim() : '',
+      recordingFps: Math.round(
+        clampNumber(recordingRaw.recordingFps, DEFAULT_RECORDING_PREFERENCES.recordingFps, 1, 120)
+      ),
+      videoOutputDir:
+        typeof recordingRaw.videoOutputDir === 'string'
+          ? recordingRaw.videoOutputDir.trim()
+          : typeof recordingRaw.outputDir === 'string'
+            ? recordingRaw.outputDir.trim()
+            : '',
+      exportSequence,
+      exportAtlas,
+      exportBackground,
+      jpegNoBgMode: isJpegNoBgMode(recordingRaw.jpegNoBgMode)
+        ? recordingRaw.jpegNoBgMode
+        : DEFAULT_RECORDING_PREFERENCES.jpegNoBgMode,
+      imageFlattenColor: normalizeFlattenColor(
+        recordingRaw.imageFlattenColor,
+        DEFAULT_RECORDING_PREFERENCES.imageFlattenColor
+      ),
+      videoFlattenColor: normalizeFlattenColor(
+        recordingRaw.videoFlattenColor,
+        DEFAULT_RECORDING_PREFERENCES.videoFlattenColor
+      ),
+      atlasPackMode: isAtlasPackMode(recordingRaw.atlasPackMode)
+        ? recordingRaw.atlasPackMode
+        : DEFAULT_RECORDING_PREFERENCES.atlasPackMode,
+      atlasMaxEdge: clampAtlasMaxEdge(
+        recordingRaw.atlasMaxEdge,
+        DEFAULT_RECORDING_PREFERENCES.atlasMaxEdge
+      ),
+      imageFormat: isRecordingImageFormat(recordingRaw.imageFormat)
+        ? recordingRaw.imageFormat
+        : DEFAULT_RECORDING_PREFERENCES.imageFormat,
+      imageQuality: Math.round(
+        clampNumber(
+          recordingRaw.imageQuality,
+          DEFAULT_RECORDING_PREFERENCES.imageQuality,
+          1,
+          100
+        )
+      ),
+      sequencePackage: isRecordingSequencePackage(recordingRaw.sequencePackage)
+        ? recordingRaw.sequencePackage
+        : DEFAULT_RECORDING_PREFERENCES.sequencePackage,
+      imageSizeId,
+      imageCustomWidth: Math.round(
+        clampNumber(
+          recordingRaw.imageCustomWidth,
+          DEFAULT_RECORDING_PREFERENCES.imageCustomWidth,
+          2,
+          8192
+        )
+      ),
+      imageCustomHeight: Math.round(
+        clampNumber(
+          recordingRaw.imageCustomHeight,
+          DEFAULT_RECORDING_PREFERENCES.imageCustomHeight,
+          2,
+          8192
+        )
+      ),
+      videoCustomWidth: Math.round(
+        clampNumber(
+          recordingRaw.videoCustomWidth,
+          DEFAULT_RECORDING_PREFERENCES.videoCustomWidth,
+          2,
+          8192
+        )
+      ),
+      videoCustomHeight: Math.round(
+        clampNumber(
+          recordingRaw.videoCustomHeight,
+          DEFAULT_RECORDING_PREFERENCES.videoCustomHeight,
+          2,
+          8192
+        )
+      ),
+      imageCaptureQuality,
+      frameCount: Math.round(
+        clampNumber(recordingRaw.frameCount, DEFAULT_RECORDING_PREFERENCES.frameCount, 1, 720)
+      ),
+      imageOutputDir:
+        typeof recordingRaw.imageOutputDir === 'string' ? recordingRaw.imageOutputDir.trim() : '',
+      multiAxisEnabled: recordingRaw.multiAxisEnabled === true,
+      pitchAngles: normalizePitchAngles(recordingRaw.pitchAngles),
     },
     lighting: {
       mode: isLightingMode(lightingRaw.mode) ? lightingRaw.mode : DEFAULT_LIGHTING.mode,

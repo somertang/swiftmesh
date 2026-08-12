@@ -2,7 +2,7 @@
   "name": "swiftmesh",
   "version": "0.2.11",
   "private": true,
-  "description": "SwiftMesh \u2014 open local .glb / .gltf / .obj, inspect, record turntable",
+  "description": "SwiftMesh — open local .glb / .gltf / .obj, inspect, record turntable",
   "author": "Somer Tang",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,8 @@
       "electron",
       "electron-winstaller",
       "esbuild",
-      "ffmpeg-static"
+      "ffmpeg-static",
+      "sharp"
     ]
   },
   "dependencies": {
@@ -38,7 +39,9 @@
     "dompurify": "^3.4.12",
     "electron-updater": "^6.8.9",
     "ffmpeg-static": "^5.2.0",
-    "marked": "^18.0.7"
+    "marked": "^18.0.7",
+    "sharp": "^0.35.3",
+    "yazl": "^3.3.1"
   },
   "devDependencies": {
     "@react-three/drei": "^10.7.5",
@@ -47,13 +50,13 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@types/three": "^0.181.0",
+    "@types/yazl": "^2.4.5",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.1.2",
     "electron-builder": "^26.0.12",
     "png-to-ico": "^3.0.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "three": "^0.170.0",
     "typescript": "^5.5.0",
@@ -82,6 +85,10 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/**/*"
+    ],
     "fileAssociations": [
       {
         "ext": "glb",

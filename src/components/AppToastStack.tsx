@@ -30,6 +30,15 @@ type StackItem = {
 const MAX_TOASTS = 3
 const TOAST_ANIM_MS = 280
 
+// Recording output paths we generate ourselves either point at a single file
+// (atlas image, zip package, video) or a folder (unpacked image sequence).
+// A known extension reliably distinguishes the two since we control naming.
+const FILE_PATH_PATTERN = /\.(zip|mp4|webm|mov|png|jpe?g|webp)$/i
+
+function isFilePath(path: string): boolean {
+  return FILE_PATH_PATTERN.test(path)
+}
+
 export function createToastId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -81,7 +90,7 @@ function ToastCard({
   onOpenRecordingFailed: (reason: string) => void
 }) {
   const t = useT()
-  const [openingVideo, setOpeningVideo] = useState(false)
+  const [openingPath, setOpeningPath] = useState(false)
 
   useEffect(() => {
     if (phase !== 'enter') return
@@ -123,8 +132,8 @@ function ToastCard({
         <LoadingButton
           color="primary"
           size="small"
-          loading={openingVideo}
-          loadingText={t('record.openingVideo')}
+          loading={openingPath}
+          loadingText={t('record.openingFile')}
           sx={{
             mt: 1.75,
             px: 1,
@@ -136,17 +145,17 @@ function ToastCard({
           }}
           onClick={() => {
             void (async () => {
-              setOpeningVideo(true)
+              setOpeningPath(true)
               try {
                 const res = await window.desktop?.openPath?.(toast.path)
                 if (res && !res.ok) onOpenRecordingFailed(res.reason)
               } finally {
-                setOpeningVideo(false)
+                setOpeningPath(false)
               }
             })()
           }}
         >
-          {t('record.openVideo')}
+          {isFilePath(toast.path) ? t('record.openFile') : t('record.openFolder')}
         </LoadingButton>
       </Alert>
     ) : (

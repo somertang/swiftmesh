@@ -74,6 +74,35 @@ body,
   min-width: 0;
 }
 
+.flatten-color-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.flatten-color-field input[type='color'] {
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--border-strong, #666);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.flatten-color-field input[type='color']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.flatten-color-field .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
+}
+
 .field-control .MuiInputBase-root {
   max-width: 100%;
 }
@@ -1965,11 +1994,20 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 }
 
 .record-fab-inner {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: #ff3b30;
   box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.record-fab-inner .iconify {
+  width: 18px;
+  height: 18px;
 }
 
 .record-fab-settings {
@@ -1995,6 +2033,8 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   bottom: 82px;
   transform: translateX(-50%);
   width: min(360px, calc(100vw - 28px));
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: rgba(24, 24, 24, 0.96);
@@ -2006,7 +2046,44 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   gap: 0.5rem;
 }
 
+.record-popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.record-popover-start {
+  margin-top: 0.15rem;
+  align-self: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: rgba(232, 93, 52, 0.18);
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+}
+
+.record-popover-start:hover:not(:disabled) {
+  background: rgba(232, 93, 52, 0.28);
+}
+
+.record-popover-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Number TextField vs Select: same control height (legacy input rules otherwise inflate number). */
+.record-popover .flatten-color-field input[type='color'] {
+  width: 2rem;
+  height: 2rem;
+}
+
 .record-popover .field-control .MuiOutlinedInput-root {
   height: 2rem;
   min-height: 2rem;
@@ -2052,6 +2129,24 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 .record-popover-summary {
   color: var(--text-muted);
   font-size: 0.68rem;
+}
+
+.record-atlas-preview {
+  margin: 0.35rem 0 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-content, currentColor) 6%, transparent);
+}
+
+.recording-mode-toggle {
+  width: 100%;
+}
+
+.recording-mode-toggle .MuiButton-root {
+  flex: 1;
+  font-size: 0.7rem;
+  padding-inline: 0.35rem;
+  text-transform: none;
 }
 
 /* —— Preferences (Obsidian-style shell) —— */

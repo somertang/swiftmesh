@@ -16,7 +16,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['ffmpeg-static', 'electron-updater'],
+              external: ['ffmpeg-static', 'electron-updater', 'sharp', 'yazl'],
               output: {
                 entryFileNames: 'main.js',
               },

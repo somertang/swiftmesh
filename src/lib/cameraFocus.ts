@@ -1,4 +1,4 @@
-import { Box3, MathUtils, Vector3, type PerspectiveCamera, type Object3D } from 'three'
+import { Box3, MathUtils, Spherical, Vector3, type PerspectiveCamera, type Object3D } from 'three'
 import type { CameraSettings } from '../config/cameraDefaults'
 
 type ControlsLike = {
@@ -7,6 +7,8 @@ type ControlsLike = {
 }
 
 const CAMERA_SETTINGS_EPS = 1e-4
+/** Keep away from poles to avoid orbit gimbal lock (matches NavGizmo). */
+const PHI_EPS = 0.05
 
 /** Snapshot live camera + orbit target into panel settings shape. */
 export function readCameraSettings(
@@ -76,6 +78,62 @@ export function focusCameraOnObject(
 
   if (controls) {
     controls.target.copy(center)
+    controls.update()
+  }
+}
+
+/**
+ * Elevation from horizon in degrees (0 = level, positive = look down / higher cam).
+ * Maps to Three.js spherical φ via φ = 90° − elevation.
+ */
+export function readOrbitElevationDegrees(settings: CameraSettings): number {
+  const target = new Vector3(settings.targetX, settings.targetY, settings.targetZ)
+  const pos = new Vector3(settings.posX, settings.posY, settings.posZ)
+  const offset = pos.clone().sub(target)
+  if (offset.lengthSq() < 1e-12) return 0
+  const spherical = new Spherical().setFromVector3(offset)
+  return 90 - MathUtils.radToDeg(spherical.phi)
+}
+
+/**
+ * Return new CameraSettings with the same target, radius, and azimuth, but
+ * orbit elevation set to `elevationDeg` (degrees from horizon).
+ */
+export function applyOrbitElevationDegrees(
+  settings: CameraSettings,
+  elevationDeg: number
+): CameraSettings {
+  const target = new Vector3(settings.targetX, settings.targetY, settings.targetZ)
+  const pos = new Vector3(settings.posX, settings.posY, settings.posZ)
+  const offset = pos.clone().sub(target)
+  const spherical = new Spherical().setFromVector3(offset)
+  if (spherical.radius < 1e-6) {
+    spherical.radius = 1
+  }
+  const phi = MathUtils.degToRad(90 - elevationDeg)
+  spherical.phi = MathUtils.clamp(phi, PHI_EPS, Math.PI - PHI_EPS)
+  offset.setFromSpherical(spherical)
+  const next = target.clone().add(offset)
+  return {
+    ...settings,
+    posX: next.x,
+    posY: next.y,
+    posZ: next.z,
+  }
+}
+
+/** Apply elevation to a live camera + OrbitControls pair. */
+export function setOrbitElevationDegrees(
+  camera: PerspectiveCamera,
+  controls: ControlsLike | null | undefined,
+  elevationDeg: number
+) {
+  const settings = readCameraSettings(camera, controls)
+  const next = applyOrbitElevationDegrees(settings, elevationDeg)
+  camera.position.set(next.posX, next.posY, next.posZ)
+  camera.updateProjectionMatrix()
+  if (controls) {
+    controls.target.set(next.targetX, next.targetY, next.targetZ)
     controls.update()
   }
 }

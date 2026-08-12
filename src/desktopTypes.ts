@@ -17,8 +17,36 @@ export type OpenedModel = {
 export type OpenedGlb = OpenedModel
 
 export type RecordingExportFormat = 'mp4' | 'webm' | 'both'
-/** Encode profile for final video (frames are always lossless PNG; maxCompatible is near-lossless H.264/VP9). */
+/** Top-level capture mode: video encode vs image sequence/atlas. */
+export type RecordingMode = 'video' | 'images'
+/** Encode profile for final video / capture supersampling. */
 export type RecordingQuality = 'standard' | 'high' | 'maxCompatible'
+
+export type RecordingImageFormat = 'png' | 'jpeg' | 'webp'
+export type RecordingSequencePackage = 'folder' | 'zip'
+/** How to pack spritesheet atlases when frames exceed max edge. */
+export type AtlasPackMode = 'preserve' | 'fitSingle'
+/** JPEG + no scene background: solid fill, or solid fill plus grayscale mask. */
+export type JpegNoBgMode = 'mask' | 'solid'
+
+export type RecordingImagesOptions = {
+  exportSequence: boolean
+  exportAtlas: boolean
+  /** When false: export transparent frames (PNG/WebP) and flatten to background for JPEG. */
+  exportBackground: boolean
+  /** JPEG + no background. Default solid. */
+  jpegNoBgMode?: JpegNoBgMode
+  /** JPEG flatten fill when exportBackground is false. Default #a0a0a0. */
+  imageFlattenColor?: string
+  imageFormat: RecordingImageFormat
+  /** 1–100; ignored for PNG. */
+  imageQuality: number
+  sequencePackage: RecordingSequencePackage
+  /** Used when exportAtlas is true. Default preserve. */
+  atlasPackMode?: AtlasPackMode
+  /** Atlas sheet max edge in px. Default 8192. */
+  atlasMaxEdge?: number
+}
 
 export type SaveRecordingPayload = {
   defaultName: string
@@ -33,11 +61,16 @@ export type SaveRecordingResult =
   | { ok: true; path: string; paths: string[] }
   | { ok: false; reason: string }
 
+/** Session export kind sent over IPC (video containers or images). */
+export type RecordingSessionFormat = RecordingExportFormat | 'images'
+
 export type StartRecordingSessionPayload = {
   defaultName: string
-  format: RecordingExportFormat
+  format: RecordingSessionFormat
   quality: RecordingQuality
   fps: number
+  /** Required when format is `images`. */
+  images?: RecordingImagesOptions
 }
 
 export type StartRecordingSessionResult =
@@ -49,6 +82,8 @@ export type AppendRecordingFramePayload = {
   index: number
   /** PNG bytes */
   data: ArrayBuffer
+  /** Grayscale mask PNG bytes (JPEG + no background export). */
+  maskData?: ArrayBuffer
 }
 
 export type FinishRecordingSessionPayload = {
@@ -128,6 +163,12 @@ export type DesktopApi = {
   ) => Promise<SaveRecordingResult>
   /** Pick a folder for default recording output (null if canceled). */
   chooseRecordingOutputDir: () => Promise<string | null>
+  /** Write a JSON manifest next to recording outputs (narrow write API). */
+  writeRecordingManifest: (payload: {
+    outputDir: string
+    fileName: string
+    json: string
+  }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
   /** Pick a folder for cache / temporary files (null if canceled). */
   chooseCacheDir: () => Promise<string | null>
   /** Sync preferred cache root to the main process (empty = OS temp). */

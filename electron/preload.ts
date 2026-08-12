@@ -42,6 +42,13 @@ const desktop: DesktopApi = {
   chooseRecordingOutputDir: (): Promise<string | null> =>
     ipcRenderer.invoke('desktop:choose-recording-output-dir'),
 
+  writeRecordingManifest: (payload: {
+    outputDir: string
+    fileName: string
+    json: string
+  }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('desktop:write-recording-manifest', payload),
+
   chooseCacheDir: (): Promise<string | null> => ipcRenderer.invoke('desktop:choose-cache-dir'),
 
   setCacheDir: (dir: string): Promise<void> => ipcRenderer.invoke('desktop:set-cache-dir', dir),

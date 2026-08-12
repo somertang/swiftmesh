@@ -10,7 +10,7 @@ export type CaptureFrameSequenceOptions = {
   captureHandle: CaptureHandle
   totalFrames: number
   outputSize: RecordingOutputSize
-  onFrame: (frameIndex: number, pngData: ArrayBuffer) => Promise<void>
+  onFrame: (frameIndex: number, pngData: ArrayBuffer, maskData?: ArrayBuffer) => Promise<void>
   onProgress?: (capturedFrames: number, totalFrames: number) => void
   /** Signal to abort early. */
   signal?: { aborted: boolean }
@@ -19,6 +19,8 @@ export type CaptureFrameSequenceOptions = {
    * downscale with high-quality filtering). Defaults to 1 (no supersampling).
    */
   renderScale?: number
+  /** Capture companion grayscale mask PNGs after each color frame. */
+  exportMask?: boolean
 }
 
 /**
@@ -34,6 +36,7 @@ export async function captureFrameSequence({
   onProgress,
   signal,
   renderScale = 1,
+  exportMask = false,
 }: CaptureFrameSequenceOptions): Promise<number> {
   const tw = toEvenDimension(outputSize.width)
   const th = toEvenDimension(outputSize.height)
@@ -46,7 +49,17 @@ export async function captureFrameSequence({
     if (i === 0 && !isLikelyPng(pngData)) {
       throw new Error('Captured frame is invalid (PNG signature check failed).')
     }
-    await onFrame(i, pngData)
+    let maskData: ArrayBuffer | undefined
+    if (exportMask) {
+      if (!captureHandle.captureMaskFrame) {
+        throw new Error('Mask export requested but capture handle has no mask pass.')
+      }
+      maskData = await captureHandle.captureMaskFrame(rotationY, { width: tw, height: th }, renderScale)
+      if (!isLikelyPng(maskData)) {
+        throw new Error('Captured mask frame is invalid (PNG signature check failed).')
+      }
+    }
+    await onFrame(i, pngData, maskData)
     onProgress?.(i + 1, totalFrames)
   }
 

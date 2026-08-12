@@ -1,7 +1,15 @@
 import { DEFAULT_CAMERA, type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
 import type { ExportPhase } from '../components/ExportProgressModal'
-import type { RecordingExportFormat, RecordingQuality } from '../desktopTypes'
+import type {
+  AtlasPackMode,
+  JpegNoBgMode,
+  RecordingExportFormat,
+  RecordingImageFormat,
+  RecordingMode,
+  RecordingQuality,
+  RecordingSequencePackage,
+} from '../desktopTypes'
 import { basenameOf, revokeModelSource, type ModelSource } from './modelSource'
 import {
   DEFAULT_RECORDING_PREFERENCES,
@@ -18,10 +26,32 @@ export type ModelTab = {
   camera: CameraSettings
   lighting: LightingSettings
   shadingMode: ShadingMode
+  recordingMode: RecordingMode
+  videoExportFormat: RecordingExportFormat
+  videoSizeId: string
+  videoQuality: RecordingQuality
   secondsPerRevolution: number
-  recordingExportFormat: RecordingExportFormat
-  recordingQuality: RecordingQuality
-  recordingSizeId: string
+  recordingFps: number
+  exportSequence: boolean
+  exportAtlas: boolean
+  exportBackground: boolean
+  jpegNoBgMode: JpegNoBgMode
+  imageFlattenColor: string
+  videoFlattenColor: string
+  atlasPackMode: AtlasPackMode
+  atlasMaxEdge: number
+  imageFormat: RecordingImageFormat
+  imageQuality: number
+  sequencePackage: RecordingSequencePackage
+  imageSizeId: string
+  imageCustomWidth: number
+  imageCustomHeight: number
+  videoCustomWidth: number
+  videoCustomHeight: number
+  imageCaptureQuality: RecordingQuality
+  frameCount: number
+  multiAxisEnabled: boolean
+  pitchAngles: number[]
   loading: boolean
   recording: boolean
   exporting: boolean
@@ -91,10 +121,32 @@ export function createEmptyTab(prefs?: AppPreferences): ModelTab {
       ? { ...lighting }
       : { mode: 'studio', exposure: 1, envIntensity: 1 },
     shadingMode: DEFAULT_SHADING_MODE,
+    recordingMode: recording.recordingMode,
+    videoExportFormat: recording.videoExportFormat,
+    videoSizeId: recording.videoSizeId,
+    videoQuality: recording.videoQuality,
     secondsPerRevolution: recording.secondsPerRevolution,
-    recordingExportFormat: recording.recordingExportFormat,
-    recordingQuality: recording.recordingQuality,
-    recordingSizeId: recording.recordingSizeId,
+    recordingFps: recording.recordingFps,
+    exportSequence: recording.exportSequence,
+    exportAtlas: recording.exportAtlas,
+    exportBackground: recording.exportBackground,
+    jpegNoBgMode: recording.jpegNoBgMode,
+    imageFlattenColor: recording.imageFlattenColor,
+    videoFlattenColor: recording.videoFlattenColor,
+    atlasPackMode: recording.atlasPackMode,
+    atlasMaxEdge: recording.atlasMaxEdge,
+    imageFormat: recording.imageFormat,
+    imageQuality: recording.imageQuality,
+    sequencePackage: recording.sequencePackage,
+    imageSizeId: recording.imageSizeId,
+    imageCustomWidth: recording.imageCustomWidth,
+    imageCustomHeight: recording.imageCustomHeight,
+    videoCustomWidth: recording.videoCustomWidth,
+    videoCustomHeight: recording.videoCustomHeight,
+    imageCaptureQuality: recording.imageCaptureQuality,
+    frameCount: recording.frameCount,
+    multiAxisEnabled: recording.multiAxisEnabled,
+    pitchAngles: [...recording.pitchAngles],
     loading: false,
     recording: false,
     exporting: false,
