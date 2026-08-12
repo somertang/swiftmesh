@@ -15,6 +15,7 @@
     "dev": "node scripts/sync-gltf-vendor.mjs && vite",
     "build": "node scripts/sync-gltf-vendor.mjs && tsc -p tsconfig.json --noEmit && vite build",
     "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
+    "sync:release-notes": "node scripts/sync-release-notes.mjs",
     "brand-icons": "node scripts/generate-brand-icons.mjs",
     "prepare-ffmpeg-mac": "node scripts/prepare-ffmpeg-mac.mjs",
     "dist:win": "pnpm run build && pnpm run brand-icons && electron-builder --win --publish never",
