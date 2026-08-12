@@ -473,7 +473,11 @@ export default function App() {
 
   useEffect(() => {
     if (!window.desktop?.setAutoUpdateEnabled) return
-    void window.desktop.setAutoUpdateEnabled(readPreferences().general.autoUpdate)
+    void (async () => {
+      const chrome = await window.desktop?.getWindowChrome?.()
+      if (chrome?.platform === 'darwin') return
+      void window.desktop!.setAutoUpdateEnabled!(readPreferences().general.autoUpdate)
+    })()
   }, [])
 
   useEffect(() => {
@@ -2184,6 +2188,10 @@ export default function App() {
             }
           }}
           onUpdateNow={() => {
+            if (updatePrompt?.releaseUrl) {
+              void window.desktop?.openExternalUrl?.(updatePrompt.releaseUrl)
+              return
+            }
             setUpdatePromptBusy(true)
             setUpdateDialogPhase('downloading')
             setUpdateProgressPercent(0)

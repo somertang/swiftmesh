@@ -1167,7 +1167,7 @@ ipcMain.handle('desktop:dismiss-update', async () => {
 
 ipcMain.handle('desktop:set-auto-update-enabled', async (_event, enabled: boolean) => {
   setAutoUpdateEnabled(enabled === true)
-  if (enabled === true && app.isPackaged) {
+  if (enabled === true && app.isPackaged && process.platform !== 'darwin') {
     void checkForAppUpdates({ silent: true })
   }
 })

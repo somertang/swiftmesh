@@ -126,7 +126,7 @@ export type UpdateStatus =
   | { phase: 'dev' }
   | { phase: 'checking' }
   | { phase: 'upToDate'; version: string }
-  | { phase: 'available'; version: string; releaseNotes?: string }
+  | { phase: 'available'; version: string; releaseNotes?: string; releaseUrl?: string }
   | { phase: 'downloading'; percent: number }
   | { phase: 'ready'; version: string }
   | { phase: 'error'; message: string }
@@ -135,6 +135,8 @@ export type UpdatePromptEvent = {
   version: string
   currentVersion: string
   releaseNotes: string
+  /** When set, the user should open this URL to download manually (macOS). */
+  releaseUrl?: string
 }
 
 export type WindowChromePlatform = 'win32' | 'darwin' | 'linux'

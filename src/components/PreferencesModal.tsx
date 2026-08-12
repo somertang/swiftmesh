@@ -480,11 +480,12 @@ function PrefToggle({
 function formatUpdateStatus(
   t: (key: MessageKey, vars?: Record<string, string | number>) => string,
   status: UpdateStatus,
-  currentVersion: string
+  currentVersion: string,
+  macManualUpdate: boolean
 ): string {
   switch (status.phase) {
     case 'idle':
-      return t('prefs.desc.appUpdate')
+      return t(macManualUpdate ? 'prefs.desc.appUpdateMac' : 'prefs.desc.appUpdate')
     case 'dev':
       return t('update.devMessage')
     case 'checking':
@@ -492,7 +493,10 @@ function formatUpdateStatus(
     case 'upToDate':
       return t('update.upToDateMessage', { version: status.version || currentVersion })
     case 'available':
-      return t('prefs.updateStatus.available', { version: status.version })
+      return t(
+        macManualUpdate ? 'prefs.updateStatus.availableMac' : 'prefs.updateStatus.available',
+        { version: status.version }
+      )
     case 'downloading':
       return t('prefs.updateStatus.downloading', { percent: Math.round(status.percent) })
     case 'ready':
@@ -518,6 +522,7 @@ export const PreferencesModal: FC<Props> = ({
   const [search, setSearch] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: 'idle' })
+  const [macManualUpdate, setMacManualUpdate] = useState(false)
   const [installingUpdate, setInstallingUpdate] = useState(false)
   const [openingRepo, setOpeningRepo] = useState(false)
   const manualUpdateCheckRef = useRef(false)
@@ -533,6 +538,17 @@ export const PreferencesModal: FC<Props> = ({
     setInstallingUpdate(false)
     setOpeningRepo(false)
   }, [open, initialSection])
+
+  useEffect(() => {
+    if (!open || !window.desktop?.getWindowChrome) return
+    let cancelled = false
+    void window.desktop.getWindowChrome().then(chrome => {
+      if (!cancelled) setMacManualUpdate(chrome.platform === 'darwin')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open || !window.desktop?.getAppVersion) return
@@ -599,7 +615,7 @@ export const PreferencesModal: FC<Props> = ({
     if (patch.recentFilesMax !== undefined && window.desktop?.setRecentMax) {
       void window.desktop.setRecentMax(patch.recentFilesMax)
     }
-    if (patch.autoUpdate !== undefined && window.desktop?.setAutoUpdateEnabled) {
+    if (patch.autoUpdate !== undefined && window.desktop?.setAutoUpdateEnabled && !macManualUpdate) {
       void window.desktop.setAutoUpdateEnabled(patch.autoUpdate)
     }
   }
@@ -625,7 +641,7 @@ export const PreferencesModal: FC<Props> = ({
     if (window.desktop?.setCacheDir) {
       void window.desktop.setCacheDir(next.performance.cacheDir)
     }
-    if (window.desktop?.setAutoUpdateEnabled) {
+    if (window.desktop?.setAutoUpdateEnabled && !macManualUpdate) {
       void window.desktop.setAutoUpdateEnabled(next.general.autoUpdate)
     }
   }
@@ -1983,7 +1999,7 @@ export const PreferencesModal: FC<Props> = ({
 
           {hasAnyVisible && section === 'about' ? (
             <>
-              {show('appUpdate') || show('autoUpdate') ? (
+              {show('appUpdate') || (show('autoUpdate') && !macManualUpdate) ? (
                 <PrefGroup title={t('prefs.group.updates')}>
                   {show('appUpdate') ? (
                     <PrefRow
@@ -1992,15 +2008,15 @@ export const PreferencesModal: FC<Props> = ({
                           ? t('prefs.appUpdate', { version: appVersion })
                           : t('prefs.appUpdatePending')
                       }
-                      description={formatUpdateStatus(t, updateStatus, appVersion)}
+                      description={formatUpdateStatus(t, updateStatus, appVersion, macManualUpdate)}
                       controlClassName="is-actions"
                     >
                       <LoadingButton
                         variant="outlined"
                         loading={
                           updateStatus.phase === 'checking' ||
-                          updateStatus.phase === 'downloading' ||
-                          installingUpdate
+                          (!macManualUpdate && updateStatus.phase === 'downloading') ||
+                          (!macManualUpdate && installingUpdate)
                         }
                         loadingText={
                           installingUpdate
@@ -2018,7 +2034,7 @@ export const PreferencesModal: FC<Props> = ({
                         disabled={!desktopAvailable}
                         onClick={() => {
                           if (!window.desktop) return
-                          if (updateStatus.phase === 'ready') {
+                          if (!macManualUpdate && updateStatus.phase === 'ready') {
                             setInstallingUpdate(true)
                             void window.desktop.installUpdate?.()
                             return
@@ -2027,13 +2043,13 @@ export const PreferencesModal: FC<Props> = ({
                           void window.desktop.checkForUpdates?.()
                         }}
                       >
-                        {updateStatus.phase === 'ready'
+                        {!macManualUpdate && updateStatus.phase === 'ready'
                           ? t('prefs.relaunchApp')
                           : t('prefs.checkForUpdates')}
                       </LoadingButton>
                     </PrefRow>
                   ) : null}
-                  {show('autoUpdate') ? (
+                  {show('autoUpdate') && !macManualUpdate ? (
                     <PrefRow
                       id="prefs-auto-update"
                       title={t('prefs.autoUpdate')}

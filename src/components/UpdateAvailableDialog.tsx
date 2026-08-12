@@ -41,6 +41,7 @@ export const UpdateAvailableDialog: FC<Props> = ({
 
   const releaseNotesHtml = formatReleaseNotesHtml(prompt.releaseNotes)
   const percent = Math.min(100, Math.max(0, Math.round(progressPercent)))
+  const manualRelease = Boolean(prompt.releaseUrl)
   const canDismiss = !busy || phase === 'downloading'
 
   let title = t('update.availableDialogTitle')
@@ -62,7 +63,7 @@ export const UpdateAvailableDialog: FC<Props> = ({
         {phase === 'available' ? (
           <>
             <Typography variant="body2" sx={{ mb: 1.25, color: 'text.secondary' }}>
-              {t('update.availableDialogIntro', {
+              {t(manualRelease ? 'update.availableDialogIntroMac' : 'update.availableDialogIntro', {
                 version: prompt.version,
                 current: prompt.currentVersion,
               })}
@@ -109,11 +110,11 @@ export const UpdateAvailableDialog: FC<Props> = ({
           <LoadingButton
             variant="contained"
             onClick={onUpdateNow}
-            loading={busy}
+            loading={busy && !manualRelease}
             loadingText={t('update.startingDownload')}
             autoFocus
           >
-            {t('update.now')}
+            {manualRelease ? t('update.openRelease') : t('update.now')}
           </LoadingButton>
         ) : null}
         {phase === 'ready' ? (
