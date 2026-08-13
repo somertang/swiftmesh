@@ -38,13 +38,18 @@ function tagForVersion(version) {
   return `v${version}`
 }
 
+function resolveTagArg(argv, envTag) {
+  const args = argv.slice(2).filter((arg) => arg !== '--')
+  return args[0] || envTag
+}
+
 function usage() {
   console.error('Usage: node scripts/sync-release-notes.mjs <tag>')
-  console.error('Example: pnpm run sync:release-notes -- v0.2.13')
+  console.error('Example: node scripts/sync-release-notes.mjs v0.2.14')
   process.exit(1)
 }
 
-const tagArg = process.argv[2] || process.env.GITHUB_REF_NAME
+const tagArg = resolveTagArg(process.argv, process.env.GITHUB_REF_NAME)
 if (!tagArg) usage()
 
 const version = versionFromTag(tagArg)
