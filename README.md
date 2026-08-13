@@ -1,6 +1,6 @@
 # SwiftMesh
 
-Desktop app for viewing local 3D models, inspecting scene data, and recording a one-revolution turntable video.
+Desktop app for viewing local 3D models, inspecting scene data, and capturing turntable video or stills.
 
 **Formats:** `.glb` / `.gltf` / `.obj`  
 **Platforms:** Windows x64 · macOS (Apple Silicon + Intel)  
@@ -47,21 +47,23 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 ### Features
 
 - Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
-- Multi-tab viewing and camera controls
+- Multi-tab viewing; perspective / orthographic camera
 - Inspect hierarchy, textures, materials, geometries, and model info
-- Record a turntable clip (MP4 / WebM) with size and quality presets (MP4 via bundled ffmpeg)
-- Preferences: appearance themes, lighting, recording output folder, performance options, updates, and About
+- Viewport **Annotate** and **Measure** tools
+- Capture a turntable as **video** (MP4 / WebM via bundled ffmpeg) or **stills** (frame sequence / spritesheet atlas, optional multi-axis)
+- Recording size, quality (**Near-lossless (compatible)** is the top video preset), and image options live in **Preferences**; the viewport FAB starts capture
+- Preferences: appearance themes, lighting, recording output, performance, updates, and About
 - UI language: English / 中文
-- Optional auto-update from GitHub Releases (Windows NSIS; macOS zip channel)
+- Updates: Windows NSIS in-app auto-update; macOS checks GitHub Releases and you install the DMG manually
 
 ### Quick usage
 
 1. Install and launch SwiftMesh.
 2. Open a `.glb`, `.gltf`, or `.obj` file.
-3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info.
-4. Adjust lighting and camera as needed.
-5. In **Record**, pick export format, size, and quality, then record one revolution.
-6. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording save location, updates, and license/repo info.
+3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info, plus Annotate / Measure.
+4. Adjust lighting, camera, and perspective / orthographic as needed.
+5. Use the viewport record button to capture a turntable video or stills. Set format, size, quality, and image options in Preferences.
+6. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording defaults, updates, and license/repo info.
 
 Remote URL / cloud loading is not included.
 
@@ -133,8 +135,8 @@ git push origin v0.2.5
 
 In-app updates:
 
-- **Windows NSIS** reads `latest.yml`
-- **macOS** reads `latest-mac.yml` (zip artifacts)
+- **Windows NSIS** reads `latest.yml` and can download / relaunch
+- **macOS** checks GitHub Releases and prompts you to download the DMG (unsigned builds cannot auto-install). CI still uploads zip artifacts and `latest-mac.yml`
 
 Local packaging (optional, for debugging):
 

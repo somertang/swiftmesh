@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows and macOS." />
+  <meta name="description" content="SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and capture turntable video or stills on Windows and macOS." />
   <title>SwiftMesh — Local 3D Model Viewer</title>
   <link rel="icon" href="assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -492,8 +492,51 @@
       color: var(--muted);
     }
 
+    .feature-points {
+      margin: 0.95rem 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 0.48rem;
+    }
+
+    .feature-points li {
+      position: relative;
+      padding-left: 1.05rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .feature-points li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 0.38rem;
+      height: 0.38rem;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
     .showcase-visual {
       min-width: 0;
+    }
+
+    .showcase-pair {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .showcase-pair .media-frame,
+    .showcase-visual > .media-frame {
+      box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+
+    .showcase-visual > .video-caption {
+      margin-top: 0.65rem;
     }
 
     .theme-compare {
@@ -561,9 +604,27 @@
         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     }
 
-    .showcase-stack .media-frame:last-of-type {
-      /* Video sits under settings shot */
-      border-radius: 12px;
+    .capability-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1.15rem 0 0;
+    }
+
+    .capability-row span {
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.32rem 0.72rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+
+    .theme-compare .theme-note {
+      margin: 1.15rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
     }
 
     .video-caption {
@@ -716,7 +777,7 @@
     <div class="hero-visual" aria-hidden="true"></div>
     <div class="hero-content">
       <h1 class="brand">Swift<span>Mesh</span></h1>
-      <p class="tagline" data-i18n="hero.tagline">Open local 3D models. Inspect. Record a turntable.</p>
+      <p class="tagline" data-i18n="hero.tagline">Open local 3D models. Inspect. Capture a turntable.</p>
       <div class="cta-block">
         <div class="cta-row">
           <a
@@ -770,7 +831,7 @@
       </div>
       <div>
         <h3 data-i18n="values.inspect.title">Inspect deeply</h3>
-        <p data-i18n="values.inspect.desc">Hierarchy, textures, materials, and geometries.</p>
+        <p data-i18n="values.inspect.desc">Hierarchy, textures, materials, geometries, plus annotate and measure.</p>
       </div>
     </article>
     <article class="value">
@@ -784,7 +845,7 @@
       </div>
       <div>
         <h3 data-i18n="values.record.title">Record turntables</h3>
-        <p data-i18n="values.record.desc">One-revolution clips in MP4 or WebM.</p>
+        <p data-i18n="values.record.desc">One-revolution video, frame sequences, or spritesheet atlases.</p>
       </div>
     </article>
   </div>
@@ -792,12 +853,17 @@
   <section class="block" id="features" aria-labelledby="features-title">
     <p class="section-label" data-i18n="features.label">Features</p>
     <h2 class="section-title" id="features-title" data-i18n="features.title">Built for local model work</h2>
-    <p class="section-lead" data-i18n="features.lead">No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable clip.</p>
+    <p class="section-lead" data-i18n="features.lead">No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable — as video or stills.</p>
     <div class="showcase-grid">
       <article class="showcase-item">
         <div class="showcase-copy">
-          <h3 data-i18n="features.open.title">Open &amp; multi-tab</h3>
-          <p data-i18n="features.open.desc">File → Open, drag-and-drop, or Open Recent. Work across multiple models with camera controls that stay out of the way.</p>
+          <h3 data-i18n="features.open.title">Work across local models</h3>
+          <p data-i18n="features.open.desc">Keep files on disk. Open several at once, with camera controls that stay out of the way.</p>
+          <ul class="feature-points">
+            <li data-i18n="features.open.p1">File → Open, drag-and-drop, or Open Recent</li>
+            <li data-i18n="features.open.p2">Tabs and split panes for side-by-side work</li>
+            <li data-i18n="features.open.p3">Perspective or orthographic camera</li>
+          </ul>
         </div>
         <div class="showcase-visual">
           <figure class="media-frame">
@@ -805,7 +871,7 @@
               src="assets/shots/open.png"
               width="1280"
               height="720"
-              alt="SwiftMesh with multiple model tabs open"
+              alt="SwiftMesh with a model tab and a new tab in the workspace"
               data-i18n-alt="shots.open"
               loading="lazy"
               decoding="async"
@@ -815,83 +881,74 @@
       </article>
       <article class="showcase-item">
         <div class="showcase-copy">
-          <h3 data-i18n="features.inspect.title">Inspect panels</h3>
-          <p data-i18n="features.inspect.desc">Hierarchy, textures, materials, geometries, and model info — see what the file actually contains.</p>
+          <h3 data-i18n="features.inspect.title">See what the file contains</h3>
+          <p data-i18n="features.inspect.desc">Inspect the scene, then mark notes and distances on the mesh itself.</p>
+          <ul class="feature-points">
+            <li data-i18n="features.inspect.p1">Hierarchy, textures, materials, geometries, and info</li>
+            <li data-i18n="features.inspect.p2">Annotate on the model, ground, or view plane</li>
+            <li data-i18n="features.inspect.p3">Measure two points — overlay lines stay visible</li>
+          </ul>
         </div>
         <div class="showcase-visual">
-          <figure class="media-frame">
-            <img
-              src="assets/shots/inspect.png"
-              width="1280"
-              height="720"
-              alt="SwiftMesh inspect panel open beside the 3D viewport"
-              data-i18n-alt="shots.inspect"
-              loading="lazy"
-              decoding="async"
-            />
-          </figure>
-        </div>
-      </article>
-      <article class="showcase-item">
-        <div class="showcase-copy">
-          <h3 data-i18n="features.record.title">Turntable recording</h3>
-          <p data-i18n="features.record.desc">Export one-revolution clips with size and quality presets. MP4 uses bundled ffmpeg; WebM is available too.</p>
-        </div>
-        <div class="showcase-visual">
-          <div class="showcase-stack">
+          <div class="showcase-pair">
             <figure class="media-frame">
               <img
-                src="assets/shots/record.png"
+                src="assets/shots/inspect.png"
                 width="1280"
                 height="720"
-                alt="SwiftMesh recording settings open in the app window"
-                data-i18n-alt="shots.record"
+                alt="SwiftMesh inspect panel open beside the 3D viewport"
+                data-i18n-alt="shots.inspect"
                 loading="lazy"
                 decoding="async"
               />
             </figure>
             <figure class="media-frame">
-              <video
-                id="record-demo"
-                poster="assets/shots/record.png"
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                aria-label="Turntable recording demo"
-                data-i18n-aria="shots.recordVideo"
-              >
-                <source src="assets/shots/record.mp4" type="video/mp4" />
-              </video>
+              <img
+                src="assets/shots/annotate.png"
+                width="1280"
+                height="720"
+                alt="SwiftMesh Measure tool showing a distance on the model"
+                data-i18n-alt="shots.annotate"
+                loading="lazy"
+                decoding="async"
+              />
             </figure>
-            <p class="video-caption" data-i18n="shots.recordCaption">Turntable output preview</p>
           </div>
         </div>
       </article>
       <article class="showcase-item">
         <div class="showcase-copy">
-          <h3 data-i18n="features.prefs.title">Preferences that fit</h3>
-          <p data-i18n="features.prefs.desc">Themes, lighting, recording folder, performance options, English / 中文 UI, and optional auto-update from Releases.</p>
+          <h3 data-i18n="features.record.title">One revolution, video or stills</h3>
+          <p data-i18n="features.record.desc">Capture a clean turntable for review, the web, or an asset pipeline.</p>
+          <ul class="feature-points">
+            <li data-i18n="features.record.p1">Video as MP4 or WebM</li>
+            <li data-i18n="features.record.p2">Frame sequences and spritesheet atlases</li>
+            <li data-i18n="features.record.p3">Optional multi-axis batch and camera projection</li>
+          </ul>
         </div>
         <div class="showcase-visual">
           <figure class="media-frame">
-            <img
-              src="assets/shots/prefs.png"
-              width="1280"
-              height="720"
-              alt="SwiftMesh Preferences dialog"
-              data-i18n-alt="shots.prefs"
-              loading="lazy"
-              decoding="async"
-            />
+            <video
+              id="record-demo"
+              poster="assets/shots/record.png"
+              muted
+              loop
+              playsinline
+              preload="metadata"
+              aria-label="Turntable recording demo"
+              data-i18n-aria="shots.recordVideo"
+            >
+              <source src="assets/shots/record.mp4" type="video/mp4" />
+            </video>
           </figure>
+          <p class="video-caption" data-i18n="shots.recordCaption">Turntable output preview</p>
         </div>
       </article>
     </div>
 
     <div class="theme-compare">
-      <h3 data-i18n="features.theme.title">Model Theme</h3>
-      <p data-i18n="features.theme.desc">Choose how the viewport presents your model: a light studio look, or a darker professional stage with floor grid and a navigation gizmo.</p>
+      <h3 data-i18n="features.theme.title">A viewport that fits the work</h3>
+      <p data-i18n="features.theme.desc">Simple is a light studio. Professional is a darker stage with a floor grid and nav gizmo.</p>
       <div class="theme-compare-grid">
         <figure class="theme-card">
           <figcaption data-i18n="features.theme.simple">Simple</figcaption>
@@ -922,13 +979,20 @@
           </div>
         </figure>
       </div>
+      <div class="capability-row" aria-label="Also included" data-i18n-aria="features.chips.aria">
+        <span data-i18n="features.chip.themes">Four interface themes</span>
+        <span data-i18n="features.chip.lang">English / 中文</span>
+        <span data-i18n="features.chip.shading">Wireframe · Solid · Material</span>
+        <span data-i18n="features.chip.updates">Windows auto-update · macOS DMG</span>
+      </div>
+      <p class="theme-note" data-i18n-html="features.theme.note">Recording, lighting, and updates live in Preferences. See the <a href="help/index.html">Guide</a>.</p>
     </div>
   </section>
 
   <section class="block" id="formats" aria-labelledby="formats-title">
     <p class="section-label" data-i18n="formats.label">Formats &amp; requirements</p>
     <h2 class="section-title" id="formats-title" data-i18n="formats.title">What you need</h2>
-    <p class="section-lead" data-i18n="formats.lead">Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS auto-update uses the zip channel. Portable Windows builds may appear in some releases.</p>
+    <p class="section-lead" data-i18n="formats.lead">Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS checks Releases and you install the DMG yourself. Portable Windows builds may appear in some releases.</p>
     <div class="format-row" aria-label="Supported formats">
       <code>.glb</code>
       <code>.gltf</code>
@@ -972,7 +1036,7 @@
           "nav.formats": "Formats",
           "nav.github": "GitHub",
           "nav.menu": "Menu",
-          "hero.tagline": "Open local 3D models. Inspect. Record a turntable.",
+          "hero.tagline": "Open local 3D models. Inspect. Capture a turntable.",
           "hero.download.win": "Download for Windows",
           "hero.download.macArm": "Download for macOS (Apple Silicon)",
           "hero.download.macIntel": "Download for macOS (Intel)",
@@ -985,27 +1049,40 @@
           "values.local.title": "Local-first",
           "values.local.desc": "Open files from disk — no cloud uploads.",
           "values.inspect.title": "Inspect deeply",
-          "values.inspect.desc": "Hierarchy, textures, materials, and geometries.",
+          "values.inspect.desc": "Hierarchy, textures, materials, geometries, plus annotate and measure.",
           "values.record.title": "Record turntables",
-          "values.record.desc": "One-revolution clips in MP4 or WebM.",
+          "values.record.desc": "One-revolution video, frame sequences, or spritesheet atlases.",
           "features.label": "Features",
           "features.title": "Built for local model work",
-          "features.lead": "No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable clip.",
-          "features.open.title": "Open & multi-tab",
-          "features.open.desc": "File → Open, drag-and-drop, or Open Recent. Work across multiple models with camera controls that stay out of the way.",
-          "features.inspect.title": "Inspect panels",
-          "features.inspect.desc": "Hierarchy, textures, materials, geometries, and model info — see what the file actually contains.",
-          "features.record.title": "Turntable recording",
-          "features.record.desc": "Export one-revolution clips with size and quality presets. MP4 uses bundled ffmpeg; WebM is available too.",
-          "features.prefs.title": "Preferences that fit",
-          "features.prefs.desc": "Themes, lighting, recording folder, performance options, English / 中文 UI, and optional auto-update from Releases.",
-          "features.theme.title": "Model Theme",
-          "features.theme.desc": "Choose how the viewport presents your model: a light studio look, or a darker professional stage with floor grid and a navigation gizmo.",
+          "features.lead": "No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable — as video or stills.",
+          "features.open.title": "Work across local models",
+          "features.open.desc": "Keep files on disk. Open several at once, with camera controls that stay out of the way.",
+          "features.open.p1": "File → Open, drag-and-drop, or Open Recent",
+          "features.open.p2": "Tabs and split panes for side-by-side work",
+          "features.open.p3": "Perspective or orthographic camera",
+          "features.inspect.title": "See what the file contains",
+          "features.inspect.desc": "Inspect the scene, then mark notes and distances on the mesh itself.",
+          "features.inspect.p1": "Hierarchy, textures, materials, geometries, and info",
+          "features.inspect.p2": "Annotate on the model, ground, or view plane",
+          "features.inspect.p3": "Measure two points — overlay lines stay visible",
+          "features.record.title": "One revolution, video or stills",
+          "features.record.desc": "Capture a clean turntable for review, the web, or an asset pipeline.",
+          "features.record.p1": "Video as MP4 or WebM",
+          "features.record.p2": "Frame sequences and spritesheet atlases",
+          "features.record.p3": "Optional multi-axis batch and camera projection",
+          "features.theme.title": "A viewport that fits the work",
+          "features.theme.desc": "Simple is a light studio. Professional is a darker stage with a floor grid and nav gizmo.",
+          "features.theme.note": "Recording, lighting, and updates live in Preferences. See the <a href=\"help/index.html\">Guide</a>.",
+          "features.chips.aria": "Also included",
+          "features.chip.themes": "Four interface themes",
+          "features.chip.lang": "English / 中文",
+          "features.chip.shading": "Wireframe · Solid · Material",
+          "features.chip.updates": "Windows auto-update · macOS DMG",
           "features.theme.simple": "Simple",
           "features.theme.professional": "Professional",
           "formats.label": "Formats & requirements",
           "formats.title": "What you need",
-          "formats.lead": "Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS auto-update uses the zip channel. Portable Windows builds may appear in some releases.",
+          "formats.lead": "Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS checks Releases and you install the DMG yourself. Portable Windows builds may appear in some releases.",
           "formats.platform": "Platform",
           "formats.platformValue": "Windows x64 · macOS (Apple Silicon + Intel)",
           "formats.license": "License",
@@ -1018,16 +1095,17 @@
           "footer.releases": "Releases",
           "footer.license": "License",
           "shots.hero": "SwiftMesh app window with a 3D model in the viewport",
-          "shots.open": "SwiftMesh with multiple model tabs open",
+          "shots.open": "SwiftMesh with a model tab and a new tab in the workspace",
           "shots.inspect": "SwiftMesh inspect panel open beside the 3D viewport",
-          "shots.record": "SwiftMesh recording settings open in the app window",
+          "shots.annotate": "SwiftMesh Measure tool showing a distance on the model",
+          "shots.record": "SwiftMesh viewport with turntable record controls",
           "shots.prefs": "SwiftMesh Preferences dialog",
           "shots.recordVideo": "Turntable recording demo",
           "shots.recordCaption": "Turntable output preview",
           "shots.themeSimple": "SwiftMesh Simple model theme with a light studio viewport",
           "shots.themeProfessional": "SwiftMesh Professional model theme with a dark viewport and navigation gizmo",
           "meta.title": "SwiftMesh — Local 3D Model Viewer",
-          "meta.description": "SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and record turntable videos on Windows and macOS."
+          "meta.description": "SwiftMesh — open local .glb, .gltf, and .obj files, inspect scene data, and capture turntable video or stills on Windows and macOS."
         },
         zh: {
           "nav.guide": "指南",
@@ -1035,7 +1113,7 @@
           "nav.formats": "格式",
           "nav.github": "GitHub",
           "nav.menu": "菜单",
-          "hero.tagline": "打开本地 3D 模型。检查。录制转台动画。",
+          "hero.tagline": "打开本地 3D 模型。检查。捕捉转台动画。",
           "hero.download.win": "下载 Windows 版",
           "hero.download.macArm": "下载 macOS 版（Apple Silicon）",
           "hero.download.macIntel": "下载 macOS 版（Intel）",
@@ -1048,27 +1126,40 @@
           "values.local.title": "本地优先",
           "values.local.desc": "从磁盘打开文件——无需上传云端。",
           "values.inspect.title": "深度检查",
-          "values.inspect.desc": "层级、贴图、材质与几何体一览。",
+          "values.inspect.desc": "层级、贴图、材质、几何体，以及视口标注与测距。",
           "values.record.title": "转台录制",
-          "values.record.desc": "一圈旋转，导出 MP4 或 WebM。",
+          "values.record.desc": "一圈视频、帧序列或精灵图集。",
           "features.label": "功能",
           "features.title": "为本地模型工作流而生",
-          "features.lead": "无需云端。从磁盘打开文件，检查内容，并导出干净的转台片段。",
-          "features.open.title": "打开与多标签",
-          "features.open.desc": "文件 → 打开、拖放或最近打开。多模型并行查看，相机控制不挡视线。",
-          "features.inspect.title": "检查面板",
-          "features.inspect.desc": "层级、贴图、材质、几何体与模型信息——看清文件里到底有什么。",
-          "features.record.title": "转台录制",
-          "features.record.desc": "按尺寸与质量预设导出一圈片段。MP4 使用内置 ffmpeg，也支持 WebM。",
-          "features.prefs.title": "贴合的偏好设置",
-          "features.prefs.desc": "主题、光照、录制目录、性能选项、中英文界面，以及可选的 Releases 自动更新。",
-          "features.theme.title": "模型主题",
-          "features.theme.desc": "选择视口如何呈现模型：浅色工作室风格，或带地面网格与导航 gizmo 的深色专业舞台。",
+          "features.lead": "无需云端。从磁盘打开文件，检查内容，并导出干净的转台视频或静帧。",
+          "features.open.title": "在本地模型之间工作",
+          "features.open.desc": "文件留在磁盘。一次打开多个，相机控制不挡视线。",
+          "features.open.p1": "文件 → 打开、拖放或最近打开",
+          "features.open.p2": "多标签与分栏，并排查看",
+          "features.open.p3": "透视或正交相机",
+          "features.inspect.title": "看清文件里有什么",
+          "features.inspect.desc": "检查场景，再在网格上标注和测距。",
+          "features.inspect.p1": "层级、贴图、材质、几何体与信息",
+          "features.inspect.p2": "在模型、地面或视平面上标注",
+          "features.inspect.p3": "两点测距，叠加线不被模型挡住",
+          "features.record.title": "一圈转台，视频或静帧",
+          "features.record.desc": "为审阅、网页或资产管线捕捉干净的转台。",
+          "features.record.p1": "导出 MP4 或 WebM 视频",
+          "features.record.p2": "帧序列与精灵图集",
+          "features.record.p3": "可选多轴批次与相机投影",
+          "features.theme.title": "视口跟着工作走",
+          "features.theme.desc": "简洁是浅色工作室；专业是带地面网格与导航 gizmo 的深色舞台。",
+          "features.theme.note": "录制、光照与更新在偏好设置中。详见<a href=\"help/index.html\">指南</a>。",
+          "features.chips.aria": "同时包含",
+          "features.chip.themes": "四种界面主题",
+          "features.chip.lang": "English / 中文",
+          "features.chip.shading": "线框 · 实体 · 材质",
+          "features.chip.updates": "Windows 自动更新 · macOS DMG",
           "features.theme.simple": "简洁",
           "features.theme.professional": "专业",
           "formats.label": "格式与要求",
           "formats.title": "你需要准备什么",
-          "formats.lead": "从 GitHub Releases 安装：Windows NSIS 安装包（支持应用内自动更新），或 macOS DMG（Apple Silicon / Intel）。macOS 自动更新走 zip 通道。部分版本可能含 Windows 便携版。",
+          "formats.lead": "从 GitHub Releases 安装：Windows NSIS 安装包（支持应用内自动更新），或 macOS DMG（Apple Silicon / Intel）。macOS 会检查 Releases，由你自行安装 DMG。部分版本可能含 Windows 便携版。",
           "formats.platform": "平台",
           "formats.platformValue": "Windows x64 · macOS（Apple Silicon + Intel）",
           "formats.license": "许可证",
@@ -1081,16 +1172,17 @@
           "footer.releases": "发布",
           "footer.license": "许可证",
           "shots.hero": "SwiftMesh 应用窗口，视口中显示 3D 模型",
-          "shots.open": "SwiftMesh 多标签打开多个模型",
+          "shots.open": "SwiftMesh 工作区中同时有模型标签和新标签",
           "shots.inspect": "SwiftMesh 检查面板在 3D 视口旁打开",
-          "shots.record": "SwiftMesh 录制设置在应用窗口中打开",
+          "shots.annotate": "SwiftMesh 测距工具在模型上显示距离",
+          "shots.record": "SwiftMesh 视口中的转台录制控件",
           "shots.prefs": "SwiftMesh 偏好设置对话框",
           "shots.recordVideo": "转台录制演示",
           "shots.recordCaption": "转台成片预览",
           "shots.themeSimple": "SwiftMesh 简洁模型主题，浅色工作室视口",
           "shots.themeProfessional": "SwiftMesh 专业模型主题，深色视口与导航 gizmo",
           "meta.title": "SwiftMesh — 本地 3D 模型查看器",
-          "meta.description": "SwiftMesh — 在 Windows 与 macOS 上打开本地 .glb / .gltf / .obj，检查场景数据，并录制转台视频。"
+          "meta.description": "SwiftMesh — 在 Windows 与 macOS 上打开本地 .glb / .gltf / .obj，检查场景数据，并捕捉转台视频或静帧。"
         }
       };
 

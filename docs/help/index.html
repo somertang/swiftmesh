@@ -202,6 +202,42 @@
       margin: 0.9rem 0;
     }
 
+    figure.shot {
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    figure.shot img,
+    figure.shot video {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    figure.shot figcaption {
+      padding: 0.55rem 0.8rem 0.7rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    .shot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem;
+      margin: 1rem 0;
+    }
+
+    .shot-grid figure.shot { margin: 0; }
+
+    @media (max-width: 640px) {
+      .shot-grid { grid-template-columns: 1fr; }
+    }
+
     footer {
       margin-top: 2.5rem;
       padding-top: 1rem;
@@ -249,7 +285,7 @@
           <h1>SwiftMesh User Guide</h1>
           <p>
             SwiftMesh is a desktop app for Windows and macOS for viewing local 3D models,
-            inspecting scene data, and recording a one-revolution turntable video.
+            inspecting scene data, and capturing a one-revolution turntable as video or stills.
             Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, and <strong>.obj</strong>.
           </p>
         </header>
@@ -260,15 +296,20 @@
             <ul>
               <li>Open local models from the File menu, empty-state button, drag-and-drop, or Open Recent.</li>
               <li>Work in one or more tabs; optionally split the workspace.</li>
-              <li>Inspect Hierarchy, Textures, Materials, Geometries, and Info.</li>
-              <li>Record a turntable clip as MP4 and/or WebM.</li>
+              <li>Inspect Hierarchy, Textures, Materials, Geometries, and Info; Annotate or Measure in the viewport.</li>
+              <li>Capture a turntable as video (MP4 / WebM) or stills (frame sequence / spritesheet atlas, optional multi-axis).</li>
               <li>Configure language, themes, performance, recording defaults, lighting, and updates in Preferences.</li>
             </ul>
           </div>
+          <figure class="shot">
+            <img src="../assets/shots/hero.png" width="1600" height="900" alt="SwiftMesh with a model open in the Professional viewport" />
+            <figcaption>SwiftMesh with a local model in the Professional viewport.</figcaption>
+          </figure>
           <p class="note">
-            Prefer the <strong>Windows NSIS installer</strong> or a packaged <strong>macOS</strong> build from GitHub Releases if you want in-app auto-update
-            (Windows reads <code>latest.yml</code>; macOS uses the zip channel / <code>latest-mac.yml</code>).
-            Portable Windows builds are not the update target. Install macOS from the <code>.dmg</code>; builds are not code-signed—see the product page if Gatekeeper reports the app as damaged.
+            Prefer the <strong>Windows NSIS installer</strong> from GitHub Releases for in-app auto-update
+            (Windows reads <code>latest.yml</code>).
+            macOS builds are not code-signed: install from the <code>.dmg</code>, then check for updates in the app and download a newer DMG from Releases.
+            Portable Windows builds are not the update target. See the product page if Gatekeeper reports the app as damaged.
           </p>
         </section>
 
@@ -285,6 +326,10 @@
             For <code>.gltf</code> and <code>.obj</code> with external buffers, materials, or textures,
             keep companion files next to the model so SwiftMesh can resolve them from the same folder.
           </p>
+          <figure class="shot">
+            <img src="../assets/shots/open.png" width="1280" height="720" alt="SwiftMesh with multiple model tabs open" />
+            <figcaption>Open several models at once with tabs.</figcaption>
+          </figure>
         </section>
 
         <section id="tabs">
@@ -312,6 +357,12 @@
             <li>Right mouse button — pan</li>
           </ul>
 
+          <h3>Projection</h3>
+          <p>
+            Use the camera projection control to <strong>Switch to orthographic</strong> or <strong>Switch to perspective</strong>.
+            Fit-on-load, selection fit, orbit zoom, and the nav gizmo work in both projections.
+          </p>
+
           <h3>Shading</h3>
           <p>Use the shading toolbar to switch between <strong>Wireframe</strong>, <strong>Solid</strong>, and <strong>Material</strong> (default).</p>
 
@@ -331,6 +382,21 @@
             <strong>Preferences → Appearance → Model Theme</strong> is set to <strong>Professional</strong>.
             It is hidden in Simple theme and while recording.
           </p>
+          <figure class="shot">
+            <img src="../assets/shots/model-theme-professional.png" width="1280" height="720" alt="Professional model theme with floor grid and navigation gizmo" />
+            <figcaption>Professional theme: floor grid and nav gizmo.</figcaption>
+          </figure>
+
+          <h3>Annotate &amp; Measure</h3>
+          <p>The left viewport toolbar includes two overlay tools. Hits work on the model, the ground plane, or the view plane; overlay lines are not occluded by the mesh.</p>
+          <ul>
+            <li><strong>Annotate</strong> — draw in the viewport; pick a <strong>Stroke color</strong>; <strong>Clear annotations</strong> removes them.</li>
+            <li><strong>Measure</strong> — click two points for a distance; <strong>Clear measurements</strong> removes them.</li>
+          </ul>
+          <figure class="shot">
+            <img src="../assets/shots/annotate.png" width="1280" height="720" alt="SwiftMesh Annotate and Measure tools on a model" />
+            <figcaption>Annotate and Measure on the left toolbar.</figcaption>
+          </figure>
 
           <h3>Status bar</h3>
           <p>
@@ -369,39 +435,87 @@
               </tr>
             </tbody>
           </table>
+          <figure class="shot">
+            <img src="../assets/shots/inspect.png" width="1280" height="720" alt="Inspect panel open beside the 3D viewport" />
+            <figcaption>Inspect panels dock beside the 3D view.</figcaption>
+          </figure>
         </section>
 
         <section id="recording">
           <h2>6. Recording</h2>
           <p>
             Recording requires a loaded model in the desktop app.
-            Use <strong>Record 1 rev</strong> to capture one turntable revolution; press again or use Stop to cancel when supported.
+            Circular buttons on the viewport start capture; all other parameters live in
+            <strong>Preferences → Recording</strong>.
           </p>
           <ul>
-            <li>Short press starts recording.</li>
-            <li>Long-press or open the gear control for <strong>Recording settings</strong> on the current tab (temporary overrides).</li>
+            <li><strong>Start video recording</strong> captures one turntable revolution as MP4 and/or WebM.</li>
+            <li><strong>Start image export</strong> captures stills (frame sequence and/or spritesheet atlas).</li>
+            <li>Use <strong>Switch to frame images</strong> / <strong>Switch to video recording</strong> to change mode on the current tab only.</li>
+            <li>A progress dialog can <strong>Stop recording</strong> (confirm <strong>Stop recording now?</strong>).</li>
           </ul>
+          <figure class="shot">
+            <img src="../assets/shots/record.png" width="1280" height="720" alt="SwiftMesh viewport with turntable record controls" />
+            <figcaption>Viewport FABs start video or stills. Settings are in Preferences.</figcaption>
+          </figure>
+          <figure class="shot">
+            <video src="../assets/shots/record.mp4" muted loop playsinline controls poster="../assets/shots/record.png"></video>
+            <figcaption>Example turntable output.</figcaption>
+          </figure>
 
-          <h3>Settings</h3>
+          <h3>Shared defaults</h3>
+          <p>
+            These settings apply to every open tab. A job already in progress keeps the snapshot from when it started.
+          </p>
           <table>
             <thead>
               <tr><th>Control</th><th>Options</th></tr>
             </thead>
             <tbody>
-              <tr><td>Sec / rev</td><td>3–60 seconds per revolution</td></tr>
-              <tr><td>Export</td><td>MP4 (H.264), WebM, or MP4 + WebM</td></tr>
-              <tr>
-                <td>Size</td>
-                <td>Viewport; PC 720p / 1080p / 1440p / 4K; several mobile presets</td>
-              </tr>
-              <tr><td>Quality</td><td>Standard, High bitrate, Max quality (compatible)</td></tr>
+              <tr><td>Recording mode</td><td>Record video, or Frame images (default for new tabs and the quick-record button)</td></tr>
+              <tr><td>Camera projection</td><td>Follow viewport, Perspective, or Orthographic (overrides the live view for capture, then restores)</td></tr>
             </tbody>
           </table>
 
+          <h3>Video defaults</h3>
+          <table>
+            <thead>
+              <tr><th>Control</th><th>Options</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Sec / rev</td><td>Seconds per revolution</td></tr>
+              <tr><td>FPS</td><td>24 / 30 / 60</td></tr>
+              <tr><td>Export</td><td>MP4 (H.264), WebM, or MP4 + WebM</td></tr>
+              <tr>
+                <td>Size</td>
+                <td>Viewport; PC 720p / 1080p / 1440p / 4K; several mobile presets; Custom</td>
+              </tr>
+              <tr><td>Quality</td><td>Standard, High bitrate, Near-lossless (compatible)</td></tr>
+            </tbody>
+          </table>
+          <p>MP4 encoding uses the bundled ffmpeg binary.</p>
+
+          <h3>Image defaults</h3>
+          <table>
+            <thead>
+              <tr><th>Control</th><th>Options</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Frame count</td><td>Frames for one revolution</td></tr>
+              <tr><td>Frame sequence</td><td>Export individual frames (folder or ZIP)</td></tr>
+              <tr><td>Spritesheet atlas</td><td>Pack frames into one or more sheets</td></tr>
+              <tr><td>Image format</td><td>PNG, JPEG, or WebP</td></tr>
+              <tr><td>Multi-axis (pitch batch)</td><td>One yaw turntable at each pitch angle; writes a MultiAxisManifest JSON</td></tr>
+            </tbody>
+          </table>
+          <p>
+            Multi-axis stills ask once for an output folder and filename prefix (not once per axis).
+            Select at least frame sequence or atlas before starting an image export.
+          </p>
+
           <h3>Saving</h3>
           <ul>
-            <li>Preferences → Recording → <strong>Default save location</strong>: Ask each time, or Specified folder.</li>
-            <li>MP4 encoding uses the bundled ffmpeg binary.</li>
+            <li>Video and image exports each have their own <strong>Default save location</strong>: Ask each time, or Specified folder.</li>
             <li>While recording or exporting, model interaction is locked and a progress dialog may appear.</li>
             <li>Disable <strong>Enable recording</strong> in Preferences to hide viewport record controls.</li>
           </ul>
@@ -409,19 +523,27 @@
 
         <section id="preferences">
           <h2>7. Preferences</h2>
-          <p>Open with <strong>Preferences…</strong> (<kbd>Ctrl+,</kbd>). Use the search box to filter settings.</p>
+          <p>
+            Open with <strong>Preferences…</strong> (<kbd>Ctrl+,</kbd> / <kbd>⌘,</kbd>). Use the search box to filter settings.
+            Edits stay in a draft until you <strong>Save</strong>; <strong>Discard</strong> reverts them.
+            Language and UI / model themes preview live and restore if you close without saving.
+            Closing with unsaved changes asks <strong>Save changes?</strong> (Save / Discard / Don't save).
+          </p>
+          <figure class="shot">
+            <img src="../assets/shots/prefs.png" width="1280" height="720" alt="SwiftMesh Preferences dialog" />
+            <figcaption>Preferences stay in a draft until Save.</figcaption>
+          </figure>
 
           <h3>General</h3>
           <table>
             <thead><tr><th>Setting</th><th>Purpose</th></tr></thead>
             <tbody>
-              <tr><td>Language</td><td>English or 简体中文 for menus, dialogs, and labels</td></tr>
+              <tr><td>Language</td><td>English or 简体中文 for menus, dialogs, and labels (live preview)</td></tr>
               <tr><td>On startup</td><td>Blank window, restore last session, or open most recent file</td></tr>
               <tr><td>Recent files limit</td><td>Maximum Open Recent entries (5–30)</td></tr>
               <tr><td>Show status bar</td><td>Default visibility of the bottom status bar</td></tr>
               <tr><td>Confirm before closing tabs</td><td>Ask before closing tabs that have a model</td></tr>
-              <tr><td>Updates</td><td>Check for updates / Auto-update (see next section)</td></tr>
-              <tr><td>Reset all preferences</td><td>Restore defaults; language is kept</td></tr>
+              <tr><td>Reset all preferences</td><td>In-app confirm, then writes immediately; language is kept</td></tr>
             </tbody>
           </table>
 
@@ -430,6 +552,16 @@
             <li><strong>Interface theme</strong> — SwiftMesh (default), Dark, Business, Night</li>
             <li><strong>Model Theme</strong> — Simple or Professional (controls nav gizmo availability)</li>
           </ul>
+          <div class="shot-grid">
+            <figure class="shot">
+              <img src="../assets/shots/model-theme-simple.png" width="1280" height="720" alt="Simple model theme with a light studio viewport" />
+              <figcaption>Simple</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="../assets/shots/model-theme-professional.png" width="1280" height="720" alt="Professional model theme with a dark viewport and navigation gizmo" />
+              <figcaption>Professional</figcaption>
+            </figure>
+          </div>
 
           <h3>Performance</h3>
           <table>
@@ -437,6 +569,7 @@
             <tbody>
               <tr><td>Anti-aliasing (MSAA)</td><td>Smoother edges; remounts the 3D view when changed</td></tr>
               <tr><td>Maximum texture size</td><td>Automatic, or cap at 2048 / 4096 / 8192 px</td></tr>
+              <tr><td>Auto-normalize model units</td><td>Scale cm/mm assets to meter-sized display units</td></tr>
               <tr><td>Reload on file change</td><td>Reload a tab when its file changes on disk</td></tr>
               <tr><td>Cache / temp folder</td><td>System temporary directory or a specified folder</td></tr>
               <tr><td>Telemetry</td><td>Preference only — no telemetry is collected yet</td></tr>
@@ -445,8 +578,9 @@
 
           <h3>Recording</h3>
           <p>
-            Defaults for new tabs: enable recording, sec/rev, export format, size, quality, and save location.
-            The viewport gear applies temporary overrides for the current tab only.
+            Global defaults for every tab: enable recording, mode, camera projection, video and image options, and save locations.
+            The viewport button can still switch video vs images per tab.
+            A recording or export already in progress keeps the settings it started with.
           </p>
 
           <h3>Lighting</h3>
@@ -460,20 +594,20 @@
             <li>Author</li>
             <li>Repository — open the GitHub project in your browser</li>
             <li>Open-source license — MIT</li>
+            <li>Updates — check for a newer GitHub Release (see next section)</li>
           </ul>
         </section>
 
         <section id="updates">
           <h2>8. Updates</h2>
-          <p>Updates are available in Preferences → General → Updates for packaged installs (Windows NSIS; macOS zip channel).</p>
+          <p>Updates live in <strong>Preferences → About</strong> for packaged installs.</p>
           <ul>
-            <li><strong>Check for updates</strong> runs a manual check and downloads when a newer release exists.</li>
-            <li>When a download finishes, use <strong>Relaunch application</strong> to install.</li>
-            <li><strong>Auto-update</strong> on: background check/download; off: only the button checks.</li>
+            <li><strong>Windows NSIS:</strong> <strong>Check for updates</strong> downloads when a newer release exists. Use <strong>Relaunch application</strong> to install. <strong>Auto-update</strong> on: background check/download; off: only the button checks.</li>
+            <li><strong>macOS:</strong> the app checks GitHub Releases and prompts you to <strong>Download from GitHub</strong> (install the DMG yourself). There is no Auto-update toggle on macOS because unsigned builds cannot install updates in-app.</li>
           </ul>
           <p class="note">
             Development builds (<code>pnpm run dev</code>) cannot install updates.
-            The UI reports that update checks run only in the packaged desktop app.
+            Portable Windows builds are not the update target.
           </p>
         </section>
 
@@ -501,8 +635,8 @@
             <li>Local files only — no remote URL or cloud loading.</li>
             <li>Formats limited to <code>.glb</code>, <code>.gltf</code>, and <code>.obj</code>.</li>
             <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>
-            <li>Auto-update targets packaged Windows NSIS installs and macOS zip-channel builds, not portable or dev sessions.</li>
-            <li>One turntable revolution per recording pass.</li>
+            <li>In-app auto-update targets packaged Windows NSIS installs only. macOS checks Releases and you install the DMG manually. Portable and dev sessions cannot auto-update.</li>
+            <li>One turntable revolution per video pass; image mode can also export a sequence, atlas, or multi-axis batch.</li>
             <li>Telemetry preference does not send data yet.</li>
           </ul>
         </section>
