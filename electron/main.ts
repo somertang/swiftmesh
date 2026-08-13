@@ -490,7 +490,7 @@ function applyAppLocale(locale: Locale) {
   void rebuildApplicationMenu()
 }
 
-const TITLEBAR_OVERLAY_HEIGHT = 36
+const TITLEBAR_OVERLAY_HEIGHT = 44
 /** macOS traffic lights at trafficLightPosition.x=14 + button cluster + gap. */
 const TRAFFIC_LIGHT_CONTROLS_INSET = 80
 
@@ -734,18 +734,18 @@ function createWindow() {
     title: 'SwiftMesh',
     icon: resolveAppIconPath(),
     show: false,
-    backgroundColor: '#12151a',
+    backgroundColor: '#141A21',
     titleBarStyle: 'hidden',
     ...(process.platform === 'win32'
       ? {
           titleBarOverlay: {
-            color: '#1c1c1c',
-            symbolColor: '#f2f2f2',
+            color: '#141A21',
+            symbolColor: '#FFFFFF',
             height: TITLEBAR_OVERLAY_HEIGHT,
           },
         }
       : process.platform === 'darwin'
-        ? { trafficLightPosition: { x: 14, y: 11 } }
+        ? { trafficLightPosition: { x: 14, y: 14 } }
         : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

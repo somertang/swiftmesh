@@ -1,9 +1,9 @@
 import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
 import { useMemo, useState, type MouseEvent } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
 import type { GeometryInspectItem } from '../../lib/inspectScene'
+import { PanelSearchField } from '../PanelSearchField'
 import { InspectPanelShell } from './InspectPanelShell'
 
 type GeometriesPanelProps = {
@@ -45,18 +45,12 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
       open={open}
       onClose={onClose}
     >
-      <div className="inspect-search">
-        <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <TextField
-          type="search"
-          size="small"
-          fullWidth
-          placeholder={t('geometries.searchPlaceholder')}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label={t('geometries.search')}
-        />
-      </div>
+      <PanelSearchField
+        placeholder={t('geometries.searchPlaceholder')}
+        value={query}
+        aria-label={t('geometries.search')}
+        onChange={setQuery}
+      />
 
       {filtered.length === 0 ? (
         <div className="inspect-empty">
@@ -118,9 +112,17 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
                         {item.meshIds.length > 0 ? (
                           <Button
                             className="inspect-table-mesh-btn"
+                            variant="text"
                             size="small"
+                            disableRipple
                             title={item.meshNames.join(', ')}
                             onClick={selectFirstMesh}
+                            sx={{
+                              px: 0,
+                              minWidth: 0,
+                              justifyContent: 'flex-start',
+                              textAlign: 'left',
+                            }}
                           >
                             {meshLabel}
                           </Button>

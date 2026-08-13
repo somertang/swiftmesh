@@ -1,9 +1,9 @@
 import IconButton from '@mui/material/IconButton'
-import TextField from '@mui/material/TextField'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import { StripeCircularLoader } from './StripeCircularLoader'
+import { PanelSearchField } from './PanelSearchField'
 import {
   collectAllExpandIds,
   filterHierarchy,
@@ -252,18 +252,13 @@ export function HierarchyPanel({
         </IconButton>
       </div>
 
-      <div className="hier-search">
-        <Icon icon="material-symbols:search" className="hier-search-icon" aria-hidden />
-        <TextField
-          type="search"
-          size="small"
-          fullWidth
-          placeholder={t('hierarchy.searchPlaceholder')}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label={t('hierarchy.search')}
-        />
-      </div>
+      <PanelSearchField
+        className="hier-search"
+        placeholder={t('hierarchy.searchPlaceholder')}
+        value={query}
+        aria-label={t('hierarchy.search')}
+        onChange={setQuery}
+      />
 
       <div className="hier-tree">
         {filtered ? (

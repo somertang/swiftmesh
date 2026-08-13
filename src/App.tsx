@@ -1,7 +1,5 @@
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
-import MenuItem from '@mui/material/MenuItem'
-import TextField from '@mui/material/TextField'
 import Alert from '@mui/material/Alert'
 import {
   useCallback,
@@ -10,7 +8,6 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type ReactNode,
   type CSSProperties,
 } from 'react'
 import { ViewerScene, type CaptureHandle, type RecordDrive } from './components/ViewerScene'
@@ -32,17 +29,12 @@ import {
   type UpdateDialogPhase,
 } from './components/UpdateAvailableDialog'
 import { SceneSettingsPanels } from './components/SceneSettingsPanels'
-import { FrameCountControl } from './components/FrameCountControl'
-import { RecordingModeToggle } from './components/RecordingModeToggle'
-import { AtlasPreviewSummary } from './components/AtlasPreviewSummary'
 import { DEFAULT_CAMERA } from './config/cameraDefaults'
-import { ATLAS_MAX_EDGE_DEFAULT, ATLAS_MAX_EDGE_PRESETS, clampAtlasMaxEdge, previewAtlasPack } from './lib/atlasLayout'
+import { ATLAS_MAX_EDGE_DEFAULT, clampAtlasMaxEdge, previewAtlasPack } from './lib/atlasLayout'
 import {
   buildMultiAxisManifest,
   buildPitchLevelFromPreview,
   formatPitchForFilename,
-  parsePitchAnglesText,
-  pitchAnglesToText,
   stemFromAtlasPath,
   type PitchLevelSheet,
 } from './lib/multiAxisManifest'
@@ -50,19 +42,11 @@ import { captureFrameSequence } from './lib/recordCanvas'
 import {
   getRecordingSizePreset,
   normalizeRecordingQuality,
-  RECORDING_EXPORT_FORMAT_OPTIONS,
-  RECORDING_FPS_OPTIONS,
-  RECORDING_IMAGE_FORMAT_OPTIONS,
-  RECORDING_QUALITY_OPTIONS,
-  ATLAS_PACK_MODE_OPTIONS,
-  RECORDING_SEQUENCE_PACKAGE_OPTIONS,
-  RECORDING_SIZE_PRESETS,
   renderScaleForQuality,
   resolveRecordingCapturePlan,
   toEvenDimension,
   resolveRecordingOutputSize,
   needsExportMask,
-  JPEG_NO_BG_MODE_OPTIONS,
 } from './lib/recordingPresets'
 import { patchPreferences, readPreferences } from './lib/preferences'
 import {
@@ -71,13 +55,8 @@ import {
   writeSession,
 } from './lib/sessionRestore'
 import type {
-  AtlasPackMode,
-  JpegNoBgMode,
   OpenedModel,
-  RecordingExportFormat,
-  RecordingImageFormat,
   RecordingMode,
-  RecordingSequencePackage,
   UpdatePromptEvent,
 } from './desktopTypes'
 import { MODEL_FILE_ACCEPT } from './lib/modelSource'
@@ -108,33 +87,9 @@ import {
   type TabState,
 } from './lib/modelTab'
 import logoUrl from './assets/logo.png'
-import { FlattenColorField } from './components/FlattenColorField'
 import { Icon } from './icons'
-import { useT, type MessageKey } from './i18n'
+import { useT } from './i18n'
 import './styles.css'
-
-function FieldRow({
-  id,
-  label,
-  children,
-}: {
-  id?: string
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className="field-row">
-      {id ? (
-        <label className="field-label" htmlFor={id}>
-          {label}
-        </label>
-      ) : (
-        <span className="field-label">{label}</span>
-      )}
-      <div className="field-control">{children}</div>
-    </div>
-  )
-}
 
 export default function App() {
   const t = useT()
@@ -143,7 +98,6 @@ export default function App() {
   const [statusBarVisible, setStatusBarVisible] = useState(
     () => readPreferences().general.statusBarVisible
   )
-  const [recordPopoverGroupId, setRecordPopoverGroupId] = useState<string | null>(null)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [updatePrompt, setUpdatePrompt] = useState<UpdatePromptEvent | null>(null)
   const [updatePromptOpen, setUpdatePromptOpen] = useState(false)
@@ -181,8 +135,6 @@ export default function App() {
   const abortRef = useRef({ aborted: false })
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const tabStateRef = useRef(tabState)
-  const longPressTimerRef = useRef<number | null>(null)
-  const longPressTriggeredRef = useRef(false)
   tabStateRef.current = tabState
 
   const driveRefs = useRef<Record<string, { current: RecordDrive }>>({})
@@ -1109,41 +1061,6 @@ export default function App() {
     abortRef.current.aborted = true
   }
 
-  const clearLongPressTimer = () => {
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-  }
-
-  const onRecordButtonPointerDown = (groupId: string) => {
-    const locked = tabStateRef.current.tabs.some(tab => tab.recording || tab.exporting)
-    const groupTab = getActiveTab(tabStateRef.current, groupId)
-    if (locked || groupTab.loading || !groupTab.model) return
-    setTabState(prev => focusGroup(prev, groupId))
-    longPressTriggeredRef.current = false
-    clearLongPressTimer()
-    longPressTimerRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true
-      setRecordPopoverGroupId(groupId)
-    }, 450)
-  }
-
-  const onRecordButtonPointerUp = (groupId: string) => {
-    const locked = tabStateRef.current.tabs.some(tab => tab.recording || tab.exporting)
-    const groupTab = getActiveTab(tabStateRef.current, groupId)
-    if (locked || groupTab.loading || !groupTab.model) return
-    const triggered = longPressTriggeredRef.current
-    clearLongPressTimer()
-    if (!triggered) {
-      void startRecording(groupId)
-    }
-  }
-
-  const onRecordButtonPointerLeave = () => {
-    clearLongPressTimer()
-  }
-
   const onDragOver = (event: DragEvent) => {
     event.preventDefault()
     if (recording || exporting) return
@@ -1181,19 +1098,6 @@ export default function App() {
   const progressPct = Math.min(100, (progressRad / (Math.PI * 2)) * 100)
   const sessionLocked = tabState.tabs.some(tab => tab.recording || tab.exporting)
   const pickerDisabled = sessionLocked
-
-  useEffect(() => {
-    if (sessionLocked) {
-      setRecordPopoverGroupId(null)
-      return
-    }
-    if (
-      recordPopoverGroupId &&
-      !getActiveTab(tabState, recordPopoverGroupId).model
-    ) {
-      setRecordPopoverGroupId(null)
-    }
-  }, [sessionLocked, recordPopoverGroupId, tabState])
 
   const fileInput = (
     <input
@@ -1391,8 +1295,7 @@ export default function App() {
                       {recordingEnabled ? (
                         <div className="record-fab-wrap">
                           <IconButton
-                            className="record-fab"
-                            color="error"
+                            className={`record-fab record-fab--${groupTab.recordingMode}`}
                             disabled={groupLocked || groupTab.loading}
                             aria-label={
                               groupTab.recordingMode === 'video'
@@ -1404,713 +1307,54 @@ export default function App() {
                                 ? t('record.start.video')
                                 : t('record.start.images')
                             }
-                            onPointerDown={() => onRecordButtonPointerDown(group.id)}
-                            onPointerUp={() => onRecordButtonPointerUp(group.id)}
-                            onPointerCancel={onRecordButtonPointerLeave}
-                            onPointerLeave={onRecordButtonPointerLeave}
+                            onClick={() => {
+                              setTabState(prev => focusGroup(prev, group.id))
+                              void startRecording(group.id)
+                            }}
                           >
                             <span className="record-fab-inner" aria-hidden>
                               <Icon
                                 icon={
                                   groupTab.recordingMode === 'video'
                                     ? 'material-symbols:videocam'
-                                    : 'material-symbols:burst-mode'
+                                    : 'material-symbols:photo-camera'
                                 }
                                 aria-hidden
                               />
                             </span>
                           </IconButton>
-                          <button
-                            type="button"
-                            className="record-fab-settings"
+                          <IconButton
+                            className={`record-fab-mode record-fab-mode--${groupTab.recordingMode}`}
                             disabled={groupLocked || groupTab.loading}
-                            aria-label={t('record.settings')}
-                            title={t('record.settings')}
+                            aria-label={
+                              groupTab.recordingMode === 'video'
+                                ? t('record.switchTo.images')
+                                : t('record.switchTo.video')
+                            }
+                            title={
+                              groupTab.recordingMode === 'video'
+                                ? t('record.switchTo.images')
+                                : t('record.switchTo.video')
+                            }
                             onClick={() => {
-                              setTabState(prev => focusGroup(prev, group.id))
-                              setRecordPopoverGroupId(id => (id === group.id ? null : group.id))
+                              setTabState(prev => {
+                                const focused = focusGroup(prev, group.id)
+                                const tab = getActiveTab(focused, group.id)
+                                const nextMode =
+                                  tab.recordingMode === 'video' ? 'images' : 'video'
+                                return patchTab(focused, tab.id, { recordingMode: nextMode })
+                              })
                             }}
                           >
-                            <Icon icon="material-symbols:adjust" aria-hidden />
-                          </button>
-                          {recordPopoverGroupId === group.id && !groupLocked ? (
-                            <div className="record-popover" role="dialog" aria-label={t('record.settings')}>
-                              <div className="record-popover-header">
-                                <strong>{t('record.settings')}</strong>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => setRecordPopoverGroupId(null)}
-                                  aria-label={t('common.close')}
-                                  title={t('common.close')}
-                                >
-                                  <Icon icon="material-symbols:close" aria-hidden />
-                                </IconButton>
-                              </div>
-                              <p className="scene-settings-hint">{t('prefs.recording.hint')}</p>
-                              <FieldRow id={`record-pop-mode-${group.id}`} label={t('record.mode')}>
-                                <RecordingModeToggle
-                                  id={`record-pop-mode-${group.id}`}
-                                  value={groupTab.recordingMode}
-                                  onChange={recordingMode =>
-                                    setTabState(prev => patchTab(prev, groupTab.id, { recordingMode }))
-                                  }
-                                />
-                              </FieldRow>
-                              {groupTab.recordingMode === 'video' ? (
-                                <div className="record-popover-section">
-                                  <div className="record-popover-summary">
-                                    {`${groupTab.secondsPerRevolution}s×${groupTab.recordingFps}fps · ${groupTab.videoExportFormat.toUpperCase()} · ${groupTab.videoSizeId} · ${normalizeRecordingQuality(groupTab.videoQuality)}`}
-                                  </div>
-                                  <FieldRow id={`record-pop-format-${group.id}`} label={t('record.export')}>
-                                    <TextField
-                                      id={`record-pop-format-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.videoExportFormat}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            videoExportFormat: e.target.value as RecordingExportFormat,
-                                          })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_EXPORT_FORMAT_OPTIONS.map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>
-                                          {t(`record.format.${opt.value}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                  <FieldRow id={`record-pop-seconds-${group.id}`} label={t('record.secPerRev')}>
-                                    <TextField
-                                      id={`record-pop-seconds-${group.id}`}
-                                      type="number"
-                                      size="small"
-                                      slotProps={{ htmlInput: { min: 3, max: 60, step: 1 } }}
-                                      value={groupTab.secondsPerRevolution}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            secondsPerRevolution:
-                                              Number(e.target.value) || DEFAULT_SECONDS_PER_REV,
-                                          })
-                                        )
-                                      }
-                                    />
-                                  </FieldRow>
-                                  <FieldRow id={`record-pop-fps-${group.id}`} label={t('record.fps')}>
-                                    <TextField
-                                      id={`record-pop-fps-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.recordingFps}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            recordingFps: Number(e.target.value) || 30,
-                                          })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_FPS_OPTIONS.map(n => (
-                                        <MenuItem key={n} value={n}>
-                                          {n}
-                                        </MenuItem>
-                                      ))}
-                                      {!(RECORDING_FPS_OPTIONS as readonly number[]).includes(
-                                        groupTab.recordingFps
-                                      ) ? (
-                                        <MenuItem value={groupTab.recordingFps}>
-                                          {groupTab.recordingFps}
-                                        </MenuItem>
-                                      ) : null}
-                                    </TextField>
-                                  </FieldRow>
-                                  <FieldRow id={`record-pop-export-bg-${group.id}`} label={t('record.exportBackground')}>
-                                    <TextField
-                                      id={`record-pop-export-bg-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.exportBackground ? 'yes' : 'no'}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            exportBackground: e.target.value === 'yes',
-                                          })
-                                        )
-                                      }
-                                    >
-                                      <MenuItem value="yes">{t('common.yes')}</MenuItem>
-                                      <MenuItem value="no">{t('common.no')}</MenuItem>
-                                    </TextField>
-                                  </FieldRow>
-                                  {!groupTab.exportBackground ? (
-                                    <FieldRow
-                                      id={`record-pop-vid-flatten-${group.id}`}
-                                      label={t('record.flattenColor')}
-                                    >
-                                      <FlattenColorField
-                                        id={`record-pop-vid-flatten-${group.id}`}
-                                        value={groupTab.videoFlattenColor}
-                                        ariaLabel={t('record.flattenColor')}
-                                        onChange={videoFlattenColor =>
-                                          setTabState(prev =>
-                                            patchTab(prev, groupTab.id, { videoFlattenColor })
-                                          )
-                                        }
-                                      />
-                                    </FieldRow>
-                                  ) : null}
-                                  <FieldRow id={`record-pop-size-${group.id}`} label={t('record.size')}>
-                                    <TextField
-                                      id={`record-pop-size-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.videoSizeId}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, { videoSizeId: e.target.value })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_SIZE_PRESETS.map(preset => (
-                                        <MenuItem key={preset.id} value={preset.id}>
-                                          {t(`record.size.${preset.id}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                  {groupTab.videoSizeId === 'custom' ? (
-                                    <>
-                                      <FieldRow
-                                        id={`record-pop-vid-cw-${group.id}`}
-                                        label={t('record.customWidth')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-vid-cw-${group.id}`}
-                                          type="number"
-                                          size="small"
-                                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
-                                          value={groupTab.videoCustomWidth}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                videoCustomWidth: Math.max(
-                                                  2,
-                                                  Math.min(8192, Number(e.target.value) || 1920)
-                                                ),
-                                              })
-                                            )
-                                          }
-                                        />
-                                      </FieldRow>
-                                      <FieldRow
-                                        id={`record-pop-vid-ch-${group.id}`}
-                                        label={t('record.customHeight')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-vid-ch-${group.id}`}
-                                          type="number"
-                                          size="small"
-                                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
-                                          value={groupTab.videoCustomHeight}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                videoCustomHeight: Math.max(
-                                                  2,
-                                                  Math.min(8192, Number(e.target.value) || 1080)
-                                                ),
-                                              })
-                                            )
-                                          }
-                                        />
-                                      </FieldRow>
-                                    </>
-                                  ) : null}
-                                  <FieldRow id={`record-pop-quality-${group.id}`} label={t('record.quality')}>
-                                    <TextField
-                                      id={`record-pop-quality-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={normalizeRecordingQuality(groupTab.videoQuality)}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            videoQuality: normalizeRecordingQuality(e.target.value),
-                                          })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_QUALITY_OPTIONS.map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>
-                                          {t(`record.quality.${opt.value}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                </div>
-                              ) : (
-                                <div className="record-popover-section">
-                                  <div className="record-popover-summary">
-                                    {`${groupTab.frameCount}f · IMAGES · ${groupTab.imageSizeId}`}
-                                  </div>
-                                  <FieldRow id={`record-pop-frames-${group.id}`} label={t('record.frameCount')}>
-                                    <FrameCountControl
-                                      id={`record-pop-frames-${group.id}`}
-                                      value={groupTab.frameCount}
-                                      ariaLabel={t('record.frameCount')}
-                                      onChange={frameCount =>
-                                        setTabState(prev => patchTab(prev, groupTab.id, { frameCount }))
-                                      }
-                                    />
-                                  </FieldRow>
-                                  <FieldRow id={`record-pop-seq-${group.id}`} label={t('record.exportSequence')}>
-                                    <TextField
-                                      id={`record-pop-seq-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.exportSequence ? 'yes' : 'no'}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            exportSequence: e.target.value === 'yes',
-                                          })
-                                        )
-                                      }
-                                    >
-                                      <MenuItem value="yes">{t('common.yes')}</MenuItem>
-                                      <MenuItem value="no">{t('common.no')}</MenuItem>
-                                    </TextField>
-                                  </FieldRow>
-                                  <FieldRow id={`record-pop-atlas-${group.id}`} label={t('record.exportAtlas')}>
-                                    <TextField
-                                      id={`record-pop-atlas-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.exportAtlas ? 'yes' : 'no'}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            exportAtlas: e.target.value === 'yes',
-                                          })
-                                        )
-                                      }
-                                    >
-                                      <MenuItem value="yes">{t('common.yes')}</MenuItem>
-                                      <MenuItem value="no">{t('common.no')}</MenuItem>
-                                    </TextField>
-                                  </FieldRow>
-                                  {groupTab.exportAtlas ? (
-                                    <>
-                                      <FieldRow
-                                        id={`record-pop-atlas-pack-${group.id}`}
-                                        label={t('record.atlasPackMode')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-atlas-pack-${group.id}`}
-                                          select
-                                          size="small"
-                                          value={groupTab.atlasPackMode}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                atlasPackMode: e.target.value as AtlasPackMode,
-                                              })
-                                            )
-                                          }
-                                        >
-                                          {ATLAS_PACK_MODE_OPTIONS.map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>
-                                              {t(`record.atlasPackMode.${opt.value}` as MessageKey)}
-                                            </MenuItem>
-                                          ))}
-                                        </TextField>
-                                      </FieldRow>
-                                      <FieldRow
-                                        id={`record-pop-atlas-edge-${group.id}`}
-                                        label={t('record.atlasMaxEdge')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-atlas-edge-${group.id}`}
-                                          select
-                                          size="small"
-                                          value={
-                                            (ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
-                                              groupTab.atlasMaxEdge
-                                            )
-                                              ? String(groupTab.atlasMaxEdge)
-                                              : 'custom'
-                                          }
-                                          onChange={e => {
-                                            const v = e.target.value
-                                            if (v === 'custom') {
-                                              setTabState(prev =>
-                                                patchTab(prev, groupTab.id, {
-                                                  atlasMaxEdge: clampAtlasMaxEdge(
-                                                    (ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
-                                                      groupTab.atlasMaxEdge
-                                                    )
-                                                      ? 3072
-                                                      : groupTab.atlasMaxEdge
-                                                  ),
-                                                })
-                                              )
-                                              return
-                                            }
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                atlasMaxEdge: clampAtlasMaxEdge(Number(v)),
-                                              })
-                                            )
-                                          }}
-                                        >
-                                          {ATLAS_MAX_EDGE_PRESETS.map(edge => (
-                                            <MenuItem key={edge} value={String(edge)}>
-                                              {edge}
-                                            </MenuItem>
-                                          ))}
-                                          <MenuItem value="custom">
-                                            {t('record.atlasMaxEdge.custom')}
-                                          </MenuItem>
-                                        </TextField>
-                                      </FieldRow>
-                                      {!(ATLAS_MAX_EDGE_PRESETS as readonly number[]).includes(
-                                        groupTab.atlasMaxEdge
-                                      ) ? (
-                                        <FieldRow
-                                          id={`record-pop-atlas-edge-custom-${group.id}`}
-                                          label={t('record.atlasMaxEdge')}
-                                        >
-                                          <TextField
-                                            id={`record-pop-atlas-edge-custom-${group.id}`}
-                                            type="number"
-                                            size="small"
-                                            slotProps={{ htmlInput: { min: 256, max: 16384, step: 1 } }}
-                                            value={groupTab.atlasMaxEdge}
-                                            onChange={e =>
-                                              setTabState(prev =>
-                                                patchTab(prev, groupTab.id, {
-                                                  atlasMaxEdge: clampAtlasMaxEdge(
-                                                    Number(e.target.value)
-                                                  ),
-                                                })
-                                              )
-                                            }
-                                          />
-                                        </FieldRow>
-                                      ) : null}
-                                    </>
-                                  ) : null}
-                                  <FieldRow id={`record-pop-multiaxis-${group.id}`} label={t('record.multiAxis')}>
-                                    <TextField
-                                      id={`record-pop-multiaxis-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.multiAxisEnabled ? 'yes' : 'no'}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            multiAxisEnabled: e.target.value === 'yes',
-                                          })
-                                        )
-                                      }
-                                    >
-                                      <MenuItem value="yes">{t('common.yes')}</MenuItem>
-                                      <MenuItem value="no">{t('common.no')}</MenuItem>
-                                    </TextField>
-                                  </FieldRow>
-                                  {groupTab.multiAxisEnabled ? (
-                                    <FieldRow
-                                      id={`record-pop-pitches-${group.id}`}
-                                      label={t('record.pitchAngles')}
-                                    >
-                                      <TextField
-                                        id={`record-pop-pitches-${group.id}`}
-                                        size="small"
-                                        value={pitchAnglesToText(groupTab.pitchAngles)}
-                                        onChange={e => {
-                                          const parsed = parsePitchAnglesText(e.target.value)
-                                          if (!parsed) return
-                                          setTabState(prev =>
-                                            patchTab(prev, groupTab.id, { pitchAngles: parsed })
-                                          )
-                                        }}
-                                        placeholder="-15, 0, 25, 50, 75"
-                                      />
-                                    </FieldRow>
-                                  ) : null}
-                                  <FieldRow id={`record-pop-imgfmt-${group.id}`} label={t('record.imageFormat')}>
-                                    <TextField
-                                      id={`record-pop-imgfmt-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.imageFormat}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            imageFormat: e.target.value as RecordingImageFormat,
-                                          })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_IMAGE_FORMAT_OPTIONS.map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>
-                                          {t(`record.imageFormat.${opt.value}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                  <FieldRow
-                                    id={`record-pop-export-bg-img-${group.id}`}
-                                    label={t('record.exportBackground')}
-                                  >
-                                    <TextField
-                                      id={`record-pop-export-bg-img-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.exportBackground ? 'yes' : 'no'}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            exportBackground: e.target.value === 'yes',
-                                          })
-                                        )
-                                      }
-                                    >
-                                      <MenuItem value="yes">{t('common.yes')}</MenuItem>
-                                      <MenuItem value="no">{t('common.no')}</MenuItem>
-                                    </TextField>
-                                  </FieldRow>
-                                  {!groupTab.exportBackground && groupTab.imageFormat === 'jpeg' ? (
-                                    <>
-                                      <FieldRow
-                                        id={`record-pop-jpeg-nobg-${group.id}`}
-                                        label={t('record.jpegNoBgMode')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-jpeg-nobg-${group.id}`}
-                                          select
-                                          size="small"
-                                          value={groupTab.jpegNoBgMode ?? 'solid'}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                jpegNoBgMode: e.target.value as JpegNoBgMode,
-                                              })
-                                            )
-                                          }
-                                        >
-                                          {JPEG_NO_BG_MODE_OPTIONS.map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>
-                                              {t(`record.jpegNoBgMode.${opt.value}` as MessageKey)}
-                                            </MenuItem>
-                                          ))}
-                                        </TextField>
-                                      </FieldRow>
-                                      <FieldRow
-                                        id={`record-pop-img-flatten-${group.id}`}
-                                        label={t('record.flattenColor')}
-                                      >
-                                        <FlattenColorField
-                                          id={`record-pop-img-flatten-${group.id}`}
-                                          value={groupTab.imageFlattenColor}
-                                          ariaLabel={t('record.flattenColor')}
-                                          onChange={imageFlattenColor =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, { imageFlattenColor })
-                                            )
-                                          }
-                                        />
-                                      </FieldRow>
-                                    </>
-                                  ) : null}
-                                  {groupTab.imageFormat !== 'png' ? (
-                                    <FieldRow
-                                      id={`record-pop-imgq-${group.id}`}
-                                      label={t('record.imageQuality')}
-                                    >
-                                      <TextField
-                                        id={`record-pop-imgq-${group.id}`}
-                                        type="number"
-                                        size="small"
-                                        slotProps={{ htmlInput: { min: 1, max: 100, step: 1 } }}
-                                        value={groupTab.imageQuality}
-                                        onChange={e =>
-                                          setTabState(prev =>
-                                            patchTab(prev, groupTab.id, {
-                                              imageQuality: Math.max(
-                                                1,
-                                                Math.min(100, Number(e.target.value) || 92)
-                                              ),
-                                            })
-                                          )
-                                        }
-                                      />
-                                    </FieldRow>
-                                  ) : null}
-                                  {groupTab.exportSequence ? (
-                                    <FieldRow
-                                      id={`record-pop-pkg-${group.id}`}
-                                      label={t('record.sequencePackage')}
-                                    >
-                                      <TextField
-                                        id={`record-pop-pkg-${group.id}`}
-                                        select
-                                        size="small"
-                                        value={groupTab.sequencePackage}
-                                        onChange={e =>
-                                          setTabState(prev =>
-                                            patchTab(prev, groupTab.id, {
-                                              sequencePackage: e.target
-                                                .value as RecordingSequencePackage,
-                                            })
-                                          )
-                                        }
-                                      >
-                                        {RECORDING_SEQUENCE_PACKAGE_OPTIONS.map(opt => (
-                                          <MenuItem key={opt.value} value={opt.value}>
-                                            {t(`record.sequencePackage.${opt.value}` as MessageKey)}
-                                          </MenuItem>
-                                        ))}
-                                      </TextField>
-                                    </FieldRow>
-                                  ) : null}
-                                  <FieldRow id={`record-pop-img-size-${group.id}`} label={t('record.size')}>
-                                    <TextField
-                                      id={`record-pop-img-size-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={groupTab.imageSizeId}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, { imageSizeId: e.target.value })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_SIZE_PRESETS.map(preset => (
-                                        <MenuItem key={preset.id} value={preset.id}>
-                                          {t(`record.size.${preset.id}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                  {groupTab.imageSizeId === 'custom' ? (
-                                    <>
-                                      <FieldRow
-                                        id={`record-pop-img-cw-${group.id}`}
-                                        label={t('record.customWidth')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-img-cw-${group.id}`}
-                                          type="number"
-                                          size="small"
-                                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
-                                          value={groupTab.imageCustomWidth}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                imageCustomWidth: Math.max(
-                                                  2,
-                                                  Math.min(8192, Number(e.target.value) || 1280)
-                                                ),
-                                              })
-                                            )
-                                          }
-                                        />
-                                      </FieldRow>
-                                      <FieldRow
-                                        id={`record-pop-img-ch-${group.id}`}
-                                        label={t('record.customHeight')}
-                                      >
-                                        <TextField
-                                          id={`record-pop-img-ch-${group.id}`}
-                                          type="number"
-                                          size="small"
-                                          slotProps={{ htmlInput: { min: 2, max: 8192, step: 2 } }}
-                                          value={groupTab.imageCustomHeight}
-                                          onChange={e =>
-                                            setTabState(prev =>
-                                              patchTab(prev, groupTab.id, {
-                                                imageCustomHeight: Math.max(
-                                                  2,
-                                                  Math.min(8192, Number(e.target.value) || 720)
-                                                ),
-                                              })
-                                            )
-                                          }
-                                        />
-                                      </FieldRow>
-                                    </>
-                                  ) : null}
-                                  {groupTab.exportAtlas ? (
-                                    <AtlasPreviewSummary
-                                      tileW={
-                                        groupTab.imageSizeId === 'custom'
-                                          ? groupTab.imageCustomWidth
-                                          : getRecordingSizePreset(groupTab.imageSizeId).width ??
-                                            canvasRefs.current[group.id]?.width ??
-                                            1280
-                                      }
-                                      tileH={
-                                        groupTab.imageSizeId === 'custom'
-                                          ? groupTab.imageCustomHeight
-                                          : getRecordingSizePreset(groupTab.imageSizeId).height ??
-                                            canvasRefs.current[group.id]?.height ??
-                                            720
-                                      }
-                                      frameCount={groupTab.frameCount}
-                                      packMode={groupTab.atlasPackMode}
-                                      maxEdge={groupTab.atlasMaxEdge}
-                                      pitchCount={
-                                        groupTab.multiAxisEnabled ? groupTab.pitchAngles.length : 1
-                                      }
-                                    />
-                                  ) : null}
-                                  <FieldRow
-                                    id={`record-pop-img-quality-${group.id}`}
-                                    label={t('record.quality')}
-                                  >
-                                    <TextField
-                                      id={`record-pop-img-quality-${group.id}`}
-                                      select
-                                      size="small"
-                                      value={normalizeRecordingQuality(groupTab.imageCaptureQuality)}
-                                      onChange={e =>
-                                        setTabState(prev =>
-                                          patchTab(prev, groupTab.id, {
-                                            imageCaptureQuality: normalizeRecordingQuality(
-                                              e.target.value
-                                            ),
-                                          })
-                                        )
-                                      }
-                                    >
-                                      {RECORDING_QUALITY_OPTIONS.map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>
-                                          {t(`record.quality.${opt.value}` as MessageKey)}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  </FieldRow>
-                                </div>
-                              )}
-                              <button
-                                type="button"
-                                className="record-popover-start"
-                                disabled={groupLocked || groupTab.loading || recording || exporting}
-                                onClick={() => {
-                                  setRecordPopoverGroupId(null)
-                                  void startRecording(group.id, groupTab.recordingMode)
-                                }}
-                              >
-                                {groupTab.recordingMode === 'video'
-                                  ? t('record.start.video')
-                                  : t('record.start.images')}
-                              </button>
-                            </div>
-                          ) : null}
+                            <Icon
+                              icon={
+                                groupTab.recordingMode === 'video'
+                                  ? 'material-symbols:photo-camera'
+                                  : 'material-symbols:videocam'
+                              }
+                              aria-hidden
+                            />
+                          </IconButton>
                         </div>
                       ) : null}
                     </>
@@ -2251,7 +1495,6 @@ export default function App() {
         }
         onPreferencesChange={prefs => {
           setRecordingEnabled(prefs.recording.enabled)
-          if (!prefs.recording.enabled) setRecordPopoverGroupId(null)
           setStatusBarVisible(prefs.general.statusBarVisible)
           confirmCloseTabsRef.current = prefs.general.confirmCloseTabs
           setPerformancePrefs(prefs.performance)

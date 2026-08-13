@@ -8,14 +8,36 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.json" />
     <style>
+      @font-face {
+        font-family: 'Public Sans';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/public-sans-400.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Public Sans';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/public-sans-600.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Public Sans';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/public-sans-700.woff2') format('woff2');
+      }
+
       html,
       body {
         margin: 0;
         width: 100%;
         height: 100%;
-        background: #12151a;
+        background: #141A21;
         color: #e8eaed;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        font-family: 'Public Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
         overflow: hidden;
       }
 
@@ -66,7 +88,7 @@
         height: 100%;
         width: 8%;
         border-radius: inherit;
-        background: linear-gradient(90deg, #50af8e, #6bc4a4);
+        background: linear-gradient(90deg, #ec7700, #f59a33);
         transition: width 0.25s ease;
       }
 

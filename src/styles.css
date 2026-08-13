@@ -1,5 +1,37 @@
 @import './styles/titlebar.css';
 
+@font-face {
+  font-family: 'Public Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/public-sans-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/public-sans-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/public-sans-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/public-sans-700.woff2') format('woff2');
+}
+
 *,
 *::before,
 *::after {
@@ -7,19 +39,33 @@
 }
 
 :root {
-  --bg-app: #1c1c1c;
-  --bg-panel: #242424;
-  --bg-header: #2a2a2a;
-  --bg-input: #1a1a1a;
-  --bg-hover: #303030;
-  --border: #3c3c3c;
-  --border-strong: #555;
-  --text: #f2f2f2;
-  --text-muted: #a6a6a6;
+  --bg-app: #141a21;
+  --bg-panel: #1c252e;
+  --bg-header: #212b36;
+  --bg-input: #161c24;
+  --bg-hover: #2d3843;
+  --border: #2d3843;
+  --border-strong: #454f5b;
+  --text: #ffffff;
+  --text-muted: #919eab;
   --accent: #ec7700;
   --danger: #c0392b;
   --viewport-bg: #a0a0a0;
-  --font: 'Segoe UI', system-ui, sans-serif;
+  --font: 'Public Sans', 'Segoe UI', system-ui, sans-serif;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-z8: 0 8px 16px 0 rgba(0, 0, 0, 0.16);
+  --shadow-card: 0 0 2px 0 rgba(0, 0, 0, 0.2), 0 12px 24px -4px rgba(0, 0, 0, 0.12);
+  --shadow-dropdown: 0 0 2px 0 rgba(0, 0, 0, 0.24), -20px 20px 40px -4px rgba(0, 0, 0, 0.24);
+  --shadow-dialog: -40px 40px 80px -8px rgba(0, 0, 0, 0.24);
+  --titlebar-height: 44px;
+  /* Shared floating chrome over the 3D viewport (toolbars, panels, gizmo) */
+  --chrome-float-bg: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+  --chrome-float-border: color-mix(in srgb, var(--text) 10%, transparent);
+  --chrome-float-shadow: var(--shadow-card);
+  --chrome-float-radius: var(--radius, 12px);
+  --chrome-float-blur: 8px;
 }
 
 html,
@@ -39,7 +85,7 @@ body,
 }
 
 .app.has-custom-titlebar {
-  grid-template-rows: var(--titlebar-height, 36px) minmax(0, 1fr);
+  grid-template-rows: var(--titlebar-height, 44px) minmax(0, 1fr);
 }
 
 /* titlebar: see styles/titlebar.css */
@@ -50,10 +96,10 @@ body,
   display: grid;
   grid-template-columns: minmax(88px, 36%) minmax(0, 1fr);
   align-items: center;
-  gap: 0.45rem;
-  min-height: 1.65rem;
-  margin-bottom: 0.28rem;
-  font-size: 0.74rem;
+  gap: 0.5rem;
+  min-height: 1.85rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8125rem;
 }
 
 .field-label {
@@ -87,7 +133,7 @@ body,
   height: 1.85rem;
   padding: 0;
   border: 1px solid var(--border-strong, #666);
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
   cursor: pointer;
   flex: 0 0 auto;
@@ -119,14 +165,14 @@ body,
 .field-control select {
   width: 100%;
   min-width: 0;
-  height: 1.55rem;
-  padding: 0 0.4rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-sm, 8px);
   background: var(--bg-input);
   color: var(--text);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
 }
 
 .field-control input[type='file'] {
@@ -149,22 +195,22 @@ body,
   margin: 0.2rem 0 0.15rem;
 }
 
-/* Legacy chrome buttons — exclude MUI, titlebar, and Preferences modal natives */
-button:not(.MuiButtonBase-root):not(.app-titlebar-menu-trigger):not(:where(.prefs-modal *)) {
+/* Legacy chrome buttons — exclude MUI, titlebar, tabs, inspect/scene chrome, and Preferences */
+button:not(.MuiButtonBase-root):not(.app-titlebar-menu-trigger):not(.model-tab):not(.model-tab-close):not(.model-tab-add):not(.model-tab-split):not(:where(.prefs-modal *)):not(:where(.inspect-panel *)):not(:where(.hier-panel *)):not(:where(.scene-settings *)) {
   cursor: pointer;
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.22rem 0.5rem;
+  border-radius: var(--radius-sm, 8px);
+  padding: 0.28rem 0.65rem;
   font: inherit;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   line-height: 1.2;
-  background: #333;
+  background: var(--bg-header);
   color: var(--text);
 }
 
-button:not(.MuiButtonBase-root):not(.app-titlebar-menu-trigger):not(:where(.prefs-modal *)):hover:not(:disabled) {
-  background: #3a3a3a;
+button:not(.MuiButtonBase-root):not(.app-titlebar-menu-trigger):not(.model-tab):not(.model-tab-close):not(.model-tab-add):not(.model-tab-split):not(:where(.prefs-modal *)):not(:where(.inspect-panel *)):not(:where(.hier-panel *)):not(:where(.scene-settings *)):hover:not(:disabled) {
+  background: var(--bg-hover);
   border-color: var(--border-strong);
 }
 
@@ -210,7 +256,7 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -220,7 +266,7 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
 }
 
 .meta-row strong {
-  color: #ccc;
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -324,11 +370,11 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
-  gap: 0;
-  height: 36px;
-  padding: 0;
-  background: #181818;
-  border-bottom: 1px solid #2a2a2a;
+  gap: 4px;
+  height: 44px;
+  padding: 4px 6px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
   user-select: none;
   -webkit-user-select: none;
   z-index: 8;
@@ -339,7 +385,7 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   display: flex;
   flex: 1;
   align-items: stretch;
-  gap: 0;
+  gap: 4px;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -358,22 +404,21 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   flex: 0 1 12rem;
   width: 12rem;
   max-width: 12rem;
   min-width: 8rem;
   height: 100%;
   margin: 0;
-  padding: 0 0.35rem 0 0.7rem;
+  padding: 0 0.4rem 0 0.7rem;
   border: 0;
-  border-radius: 0;
-  border-right: 1px solid #2a2a2a;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
   cursor: pointer;
-  box-shadow: inset 0 2px 0 transparent;
+  box-shadow: none;
 }
 
 .model-tab.is-dragging {
@@ -387,14 +432,12 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   z-index: 1000;
   margin: 0;
   height: 36px;
-  opacity: 0.55;
+  opacity: 0.9;
   pointer-events: none;
-  box-shadow:
-    inset 0 2px 0 var(--accent),
-    0 6px 18px rgba(0, 0, 0, 0.35);
-  background: #2a2a2a;
+  box-shadow: var(--shadow-z8);
+  background: var(--bg-header);
   color: var(--text);
-  border-right: 1px solid #2a2a2a;
+  border-radius: var(--radius-sm, 8px);
 }
 
 .model-tab-ghost .model-tab-close,
@@ -404,25 +447,26 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
 
 .model-tab-drop-indicator {
   position: absolute;
-  top: 0;
+  top: 6px;
+  bottom: 6px;
   left: 0;
   width: 2px;
-  height: 100%;
-  border-radius: 0;
+  height: auto;
+  border-radius: 999px;
   background: var(--accent);
   pointer-events: none;
   z-index: 3;
 }
 
 .model-tab:hover:not(.is-disabled) {
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text);
 }
 
 .model-tab.is-active {
-  background: #2a2a2a;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-header));
   color: var(--text);
-  box-shadow: inset 0 2px 0 var(--accent);
+  box-shadow: none;
   z-index: 1;
 }
 
@@ -436,7 +480,8 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   flex: 1;
   min-width: 0;
   margin-right: 0.35rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
   line-height: 1;
   text-align: left;
   white-space: nowrap;
@@ -465,7 +510,7 @@ button.ghost:not(.MuiButtonBase-root):not(:where(.prefs-modal *)):hover:not(:dis
   width: 1.15rem;
   height: 1.15rem;
   margin-right: 0.15rem;
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 8px);
   font-size: 0.9rem;
   line-height: 1;
   opacity: 0;
@@ -500,8 +545,8 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 }
 
 .model-tab-close:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  color: var(--text);
 }
 
 .model-tab-close:disabled {
@@ -514,7 +559,8 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   display: flex;
   flex-shrink: 0;
   align-items: stretch;
-  border-left: 1px solid #2a2a2a;
+  gap: 2px;
+  padding-left: 4px;
 }
 
 .model-tab-actions > .model-tab-add,
@@ -529,7 +575,7 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
   color: var(--text-muted);
   font-size: 1.05rem;
@@ -551,7 +597,7 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 
 .model-tab-actions > .model-tab-add:hover:not(:disabled),
 .model-tab-actions > .model-tab-split:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text);
 }
 
@@ -568,12 +614,12 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 }
 
 .viewport.is-dragover {
-  outline: 2px dashed rgba(80, 175, 142, 0.85);
+  outline: 2px dashed color-mix(in srgb, var(--accent) 85%, transparent);
   outline-offset: -10px;
 }
 
 .app.is-dragover .viewport {
-  outline: 2px dashed rgba(80, 175, 142, 0.85);
+  outline: 2px dashed color-mix(in srgb, var(--accent) 85%, transparent);
   outline-offset: -10px;
 }
 
@@ -621,10 +667,12 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   flex-direction: column;
   gap: 2px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(28, 28, 28, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg) !important;
+  color: var(--text);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
 }
 
 .viewport-toolbar-btn {
@@ -634,9 +682,9 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
-  color: #c8c8c8;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -646,18 +694,25 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 }
 
 .viewport-toolbar-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .viewport-toolbar-btn.is-active {
-  background: rgba(80, 175, 142, 0.22);
-  color: #7ad4b4;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
 }
 
-.viewport-toolbar-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.viewport-toolbar.MuiPaper-root,
+.shading-toolbar.MuiPaper-root {
+  background-image: none;
+}
+
+.viewport-toolbar .MuiIconButton-root.is-active,
+.shading-toolbar .MuiIconButton-root.is-active,
+.scene-settings-btn.is-active.MuiIconButton-root {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
 }
 
 .shading-toolbar {
@@ -670,10 +725,11 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   align-items: center;
   gap: 2px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(28, 28, 28, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
 }
 
 .shading-toolbar-btn {
@@ -683,9 +739,9 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
-  color: #c8c8c8;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -695,8 +751,8 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 }
 
 .shading-toolbar-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .shading-toolbar-btn.is-active {
@@ -717,10 +773,11 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   width: 110px;
   height: 110px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(28, 28, 28, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
   pointer-events: auto;
   touch-action: none;
   user-select: none;
@@ -799,12 +856,12 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   flex-direction: column;
   width: min(280px, 100%);
   max-height: min(440px, calc(100vh - 120px));
-  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-app) 92%, transparent);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
   color: var(--text);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
   overflow: hidden;
 }
 
@@ -849,14 +906,14 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .inspect-panel-title {
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .inspect-panel-close {
@@ -876,8 +933,8 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 }
 
 .inspect-panel-close:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .inspect-panel-body {
@@ -886,37 +943,79 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   min-height: 0;
   flex: 1;
   overflow: hidden;
+  padding: 0.5rem;
 }
 
-.inspect-search {
+.inspect-search,
+.hier-search {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin: 0.45rem 0.55rem 0;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  min-height: 1.75rem;
+  margin: 0 0.5rem 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-input);
 }
 
+.inspect-panel-body > .inspect-search {
+  margin: 0 0 0.35rem;
+}
+
+.panel-search-icon,
+.hier-search-icon,
 .inspect-search-icon {
   flex-shrink: 0;
-  color: #888;
-  font-size: 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  line-height: 1;
 }
 
-.inspect-search input {
+.inspect-search .MuiTextField-root,
+.hier-search .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspect-search .MuiInputBase-root,
+.hier-search .MuiInputBase-root {
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.inspect-search .MuiInputBase-input,
+.hier-search .MuiInputBase-input {
+  padding: 0.2rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  height: auto;
+}
+
+.inspect-search .MuiInputBase-input::placeholder,
+.hier-search .MuiInputBase-input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.inspect-search input,
+.hier-search input {
   flex: 1;
   min-width: 0;
   border: none;
   background: transparent;
-  color: #eee;
-  font-size: 0.72rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
   outline: none;
 }
 
-.inspect-search input::placeholder {
-  color: #777;
+.inspect-search input::placeholder,
+.hier-search input::placeholder {
+  color: var(--text-muted);
 }
 
 .inspect-list {
@@ -933,8 +1032,8 @@ button.model-tab-close:not(.MuiButtonBase-root) {
 
 .inspect-empty {
   padding: 0.85rem 0.75rem;
-  color: #888;
-  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 
@@ -942,10 +1041,10 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   display: flex;
   align-items: flex-start;
   gap: 0.45rem;
-  padding: 0.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: var(--radius-sm, 8px);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .inspect-card.is-stack {
@@ -965,9 +1064,9 @@ button.inspect-card-toggle {
   border: none;
   border-radius: 0;
   background: transparent;
-  color: #e8e8e8;
+  color: var(--text);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.4;
   text-align: left;
@@ -976,7 +1075,7 @@ button.inspect-card-toggle {
 }
 
 button.inspect-card-toggle:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   border-color: transparent;
 }
 
@@ -1025,10 +1124,10 @@ button.inspect-card-toggle svg {
 
 .inspect-card-title {
   display: block;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.35;
-  color: #eee;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1037,9 +1136,9 @@ button.inspect-card-toggle svg {
 .inspect-card-meta,
 .inspect-card-sub {
   display: block;
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   line-height: 1.35;
-  color: #8a8a8a;
+  color: var(--text-muted);
 }
 
 .inspect-icon-btn {
@@ -1210,7 +1309,7 @@ button.inspect-link-btn:hover:not(:disabled) {
   font-weight: 650;
   letter-spacing: 0.02em;
   color: #9a9a9a;
-  background: rgba(28, 28, 28, 0.96);
+  background: var(--chrome-float-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1282,8 +1381,13 @@ button.inspect-table-mesh-btn,
 .inspect-table-mesh-btn.MuiButton-root {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   max-width: 100%;
-  padding: 0.1rem 0.2rem;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  /* Flush with th text so Meshes header and cell share the same left edge */
+  padding: 0.1rem 0;
   border: none;
   border-radius: 3px;
   background: transparent;
@@ -1293,13 +1397,20 @@ button.inspect-table-mesh-btn,
   font-weight: 500;
   line-height: 1.35;
   text-align: left;
+  text-transform: none;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-button.inspect-table-mesh-btn:hover:not(:disabled) {
+.inspect-table-mesh-btn.MuiButton-root .MuiButton-startIcon,
+.inspect-table-mesh-btn.MuiButton-root .MuiButton-endIcon {
+  margin: 0;
+}
+
+button.inspect-table-mesh-btn:hover:not(:disabled),
+.inspect-table-mesh-btn.MuiButton-root:hover:not(:disabled) {
   background: rgba(80, 175, 142, 0.14);
   border-color: transparent;
   color: #9be0c8;
@@ -1343,10 +1454,11 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
 }
 
 .hier-search-icon,
-.inspect-search-icon {
+.inspect-search-icon,
+.panel-search-icon {
   flex-shrink: 0;
-  color: #888;
-  font-size: 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 .hier-icon {
@@ -1368,12 +1480,12 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   flex-direction: column;
   width: min(280px, 100%);
   max-height: min(420px, calc(100vh - 120px));
-  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-app) 92%, transparent);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
   color: var(--text);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
   overflow: hidden;
 }
 
@@ -1382,12 +1494,12 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.45rem 0.55rem 0.35rem;
+  padding: 0.65rem 0.75rem 0.4rem;
 }
 
 .hier-header-title {
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .hier-close {
@@ -1407,35 +1519,9 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
 }
 
 .hier-close:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
   border: 0;
-}
-
-.hier-search {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0 0.55rem 0.4rem;
-  padding: 0.28rem 0.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.hier-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: #eee;
-  font: inherit;
-  font-size: 0.72rem;
-  outline: none;
-}
-
-.hier-search input::placeholder {
-  color: #777;
 }
 
 .hier-tree {
@@ -1447,8 +1533,8 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
 
 .hier-empty {
   padding: 0.6rem 0.7rem;
-  color: #777;
-  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 
 .hier-row {
@@ -1456,19 +1542,19 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   grid-template-columns: 1rem 1rem minmax(0, 1fr) 1.25rem;
   align-items: center;
   gap: 0.2rem;
-  min-height: 1.45rem;
+  min-height: 1.65rem;
   padding-right: 0.25rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 8px);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
 }
 
 .hier-row:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .hier-row.is-selected {
-  background: rgba(77, 163, 255, 0.22);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .hier-row.is-hidden .hier-name {
@@ -1766,9 +1852,9 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
 
 .scene-settings-hint {
   margin: 0.15rem 0 0;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 .scene-settings {
@@ -1788,10 +1874,11 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   align-items: center;
   gap: 2px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(28, 28, 28, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
 }
 
 .scene-settings-toolbar-sep {
@@ -1799,7 +1886,7 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   height: 20px;
   margin: 0 4px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--text) 16%, transparent);
 }
 
 .scene-settings-btn {
@@ -1809,9 +1896,9 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
-  color: #c8c8c8;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -1820,8 +1907,8 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
 }
 
 .scene-settings-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .scene-settings-btn.is-active {
@@ -1838,14 +1925,15 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   width: min(320px, calc(100vw - 40px));
   max-height: min(420px, calc(100vh - 160px));
   overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(24, 24, 24, 0.96);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  padding: 0.65rem;
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
+  padding: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .scene-settings-panel-header {
@@ -1853,6 +1941,11 @@ button.inspect-table-mesh-btn:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.scene-settings-panel-header strong {
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .scene-settings-panel-actions {
@@ -1954,7 +2047,7 @@ button.viewport-error-banner-close:not(.MuiButtonBase-root) {
   opacity: 1;
 }
 
-button.record-fab-settings:not(.MuiButtonBase-root) {
+button.record-fab-mode:not(.MuiButtonBase-root) {
   padding: 0;
   font-weight: 500;
   box-shadow: none;
@@ -1968,28 +2061,25 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   z-index: 35;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.record-fab {
+.record-fab.MuiIconButton-root {
   width: 64px;
   height: 64px;
-  border-radius: 999px;
-  border: 3px solid rgba(255, 255, 255, 0.92);
-  background: rgba(20, 20, 20, 0.64);
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 999px !important;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  background: rgba(20, 20, 20, 0.72);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
-.record-fab:hover:not(:disabled) {
-  background: rgba(36, 36, 36, 0.8);
+.record-fab.MuiIconButton-root:hover:not(:disabled) {
+  background: rgba(36, 36, 36, 0.88);
   border-color: #fff;
 }
 
-.record-fab:disabled {
+.record-fab.MuiIconButton-root:disabled {
   opacity: 0.5;
 }
 
@@ -1997,12 +2087,20 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: #ff3b30;
-  box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
+}
+
+.record-fab--video .record-fab-inner {
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.35);
+}
+
+.record-fab--images .record-fab-inner {
+  background: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
 .record-fab-inner .iconify {
@@ -2010,125 +2108,37 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   height: 18px;
 }
 
-.record-fab-settings {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: rgba(20, 20, 20, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+.record-fab-mode.MuiIconButton-root {
+  width: 40px;
+  height: 40px;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 999px !important;
+  background: rgba(20, 20, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
-.record-fab-settings .iconify {
-  width: 18px;
-  height: 18px;
+.record-fab-mode.MuiIconButton-root:hover:not(:disabled) {
+  background: rgba(36, 36, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
-.record-popover {
-  position: absolute;
-  left: 50%;
-  bottom: 82px;
-  transform: translateX(-50%);
-  width: min(360px, calc(100vw - 28px));
-  max-height: min(70vh, 640px);
-  overflow-y: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: rgba(24, 24, 24, 0.96);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.45);
-  padding: 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.record-fab-mode.MuiIconButton-root:disabled {
+  opacity: 0.5;
 }
 
-.record-popover-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.55rem 0.5rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
+.record-fab-mode--video.MuiIconButton-root {
+  color: #93c5fd;
 }
 
-.record-popover-start {
-  margin-top: 0.15rem;
-  align-self: stretch;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: rgba(232, 93, 52, 0.18);
-  color: var(--text);
-  font-size: 0.74rem;
-  font-weight: 600;
-  padding: 0.45rem 0.6rem;
-  cursor: pointer;
+.record-fab-mode--images.MuiIconButton-root {
+  color: #fca5a5;
 }
 
-.record-popover-start:hover:not(:disabled) {
-  background: rgba(232, 93, 52, 0.28);
-}
-
-.record-popover-start:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* Number TextField vs Select: same control height (legacy input rules otherwise inflate number). */
-.record-popover .flatten-color-field input[type='color'] {
-  width: 2rem;
-  height: 2rem;
-}
-
-.record-popover .field-control .MuiOutlinedInput-root {
-  height: 2rem;
-  min-height: 2rem;
-  box-sizing: border-box;
-}
-
-.record-popover .field-control .MuiOutlinedInput-root .MuiOutlinedInput-input {
-  height: 100%;
-  box-sizing: border-box;
-  padding-top: 0;
-  padding-bottom: 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: 0.74rem;
-}
-
-.record-popover .field-control .MuiSelect-select.MuiOutlinedInput-input {
-  display: flex;
-  align-items: center;
-}
-
-/* Sec / rev: don't clip MUI hover outline (Size ellipsis still uses Select overflow). */
-.record-popover .field-control:has(input[type='number']) {
-  overflow: visible;
-}
-
-/* Keep outline flush with the compact 2rem box so hover border isn't top-thin / bottom-heavy. */
-.record-popover .field-control:has(input[type='number']) .MuiOutlinedInput-notchedOutline {
-  top: 0;
-}
-
-.record-popover .field-control:has(input[type='number']) .MuiOutlinedInput-notchedOutline legend {
-  display: none;
-}
-
-.record-popover-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.record-popover-summary {
-  color: var(--text-muted);
-  font-size: 0.68rem;
+.record-fab-mode .iconify {
+  width: 20px;
+  height: 20px;
 }
 
 .record-atlas-preview {
@@ -2138,22 +2148,11 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   background: color-mix(in oklab, var(--color-base-content, currentColor) 6%, transparent);
 }
 
-.recording-mode-toggle {
-  width: 100%;
-}
-
-.recording-mode-toggle .MuiButton-root {
-  flex: 1;
-  font-size: 0.7rem;
-  padding-inline: 0.35rem;
-  text-transform: none;
-}
-
 /* —— Preferences (Obsidian-style shell) —— */
 
 .prefs-modal {
   --prefs-shell: var(--color-base-100, var(--bg-app));
-  --prefs-card: color-mix(in oklab, var(--color-base-content, currentColor) 10%, var(--prefs-shell));
+  --prefs-card: color-mix(in oklab, var(--color-base-content, currentColor) 8%, var(--prefs-shell));
   --prefs-hairline: color-mix(in oklab, var(--color-base-content, currentColor) 10%, transparent);
   height: min(640px, 90vh);
   max-height: min(640px, 90vh);
@@ -2164,11 +2163,12 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 16px);
   border: 1px solid var(--prefs-hairline);
   background: var(--prefs-shell) !important;
   background-image: none !important;
   color: var(--color-base-content, var(--text));
+  box-shadow: var(--shadow-dialog);
 }
 
 .app-toast-stack {
@@ -2258,15 +2258,15 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  padding: 0.85rem 1rem;
+  padding: 1rem 1.15rem;
   border-bottom: none;
   background: transparent;
 }
 
 .prefs-header h2 {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
 }
 
 .prefs-body {
@@ -2306,13 +2306,13 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 
 .prefs-search {
   width: 100%;
-  height: 2rem;
-  padding: 0 0.55rem 0 1.85rem;
-  border-radius: 6px;
+  height: 2.5rem;
+  padding: 0 0.65rem 0 2rem;
+  border-radius: var(--radius-sm, 8px);
   border: 1px solid var(--prefs-hairline);
   background: color-mix(in oklab, var(--color-base-content, currentColor) 5%, var(--prefs-shell));
   color: inherit;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .prefs-search::placeholder {
@@ -2349,11 +2349,11 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   color: var(--color-base-content, var(--text));
   text-align: left;
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: 0.875rem;
+  font-weight: 500;
   line-height: 1.25;
-  padding: 0.4rem 0.55rem;
-  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm, 8px);
   cursor: pointer;
   opacity: 0.78;
 }
@@ -2364,13 +2364,13 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 }
 
 .prefs-nav-item.is-active {
-  background: color-mix(in oklab, var(--color-base-content, currentColor) 14%, transparent);
-  font-weight: 500;
+  background: color-mix(in oklab, var(--color-primary, var(--accent)) 16%, transparent);
+  font-weight: 700;
   opacity: 1;
 }
 
 .prefs-nav-item.is-active:hover {
-  background: color-mix(in oklab, var(--color-base-content, currentColor) 16%, transparent);
+  background: color-mix(in oklab, var(--color-primary, var(--accent)) 20%, transparent);
 }
 
 .prefs-nav-item:focus,
@@ -2400,9 +2400,9 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 
 .prefs-content-title {
   margin: 0 0 0.85rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  opacity: 0.75;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  opacity: 0.9;
 }
 
 .prefs-empty {
@@ -2414,7 +2414,7 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 
 .prefs-group {
   margin-bottom: 0.9rem;
-  border-radius: 10px;
+  border-radius: var(--radius, 12px);
   background: var(--prefs-card);
   border: 1px solid var(--prefs-hairline);
   overflow: hidden;
@@ -2422,9 +2422,9 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
 
 .prefs-group-title {
   margin: 0;
-  padding: 0.65rem 0.9rem 0.15rem;
-  font-size: 0.78rem;
-  font-weight: 650;
+  padding: 0.75rem 1rem 0.2rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
@@ -2561,14 +2561,115 @@ button.record-fab-settings:not(.MuiButtonBase-root) {
   }
 }
 
+/* —— Update available dialog —— */
+
+.update-dialog-shell {
+  --update-shell: var(--color-base-200, var(--bg-panel));
+  --update-hairline: color-mix(in oklab, var(--color-base-content, currentColor) 10%, transparent);
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: var(--radius-lg, 16px) !important;
+  border: 1px solid var(--update-hairline);
+  background: var(--update-shell) !important;
+  background-image: none !important;
+  color: var(--color-base-content, var(--text));
+  box-shadow: var(--shadow-dialog);
+}
+
+.update-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem 0.9rem;
+  border-bottom: 1px solid var(--update-hairline);
+}
+
+.update-dialog-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.update-dialog-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-base-content, var(--text));
+}
+
+.update-dialog-subtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted, var(--color-base-content, currentColor));
+  opacity: 0.72;
+}
+
+.update-dialog-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius, 12px);
+  background: color-mix(in oklab, var(--color-primary, #ec7700) 12%, var(--update-shell));
+  color: var(--color-primary, var(--accent));
+}
+
+.update-dialog-icon .iconify {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.update-dialog-body {
+  padding: 1rem 1.15rem !important;
+}
+
+.update-dialog-body .MuiTypography-subtitle2 {
+  margin-bottom: 0.6rem;
+  color: var(--text-muted, var(--color-base-content, currentColor));
+  opacity: 0.85;
+}
+
+.update-dialog-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-muted, var(--color-base-content, currentColor));
+  opacity: 0.85;
+}
+
+.update-dialog-message.is-error {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklab, var(--color-error, #c0392b) 35%, transparent);
+  border-left: 3px solid var(--color-error, #c0392b);
+  background: color-mix(in oklab, var(--color-error, #c0392b) 8%, var(--update-shell));
+  opacity: 1;
+  color: var(--color-base-content, var(--text));
+}
+
+.update-dialog-progress {
+  height: 7px !important;
+  border-radius: 4px;
+  margin-bottom: 0.65rem !important;
+}
+
+.update-dialog-footer {
+  padding: 0.75rem 1rem !important;
+  border-top: 1px solid var(--update-hairline);
+  gap: 0.5rem;
+}
+
 .update-release-notes {
   margin: 0;
   max-height: min(42vh, 22rem);
   overflow: auto;
   padding: 0.75rem 0.85rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--text, #e8eaef) 14%, transparent);
-  background: color-mix(in srgb, var(--bg, #0f1115) 65%, #000);
+  border: 1px solid var(--update-hairline);
+  background: color-mix(in oklab, var(--color-base-content, currentColor) 5%, var(--update-shell, var(--bg-input)));
   color: inherit;
   font-size: 0.85rem;
   line-height: 1.55;
