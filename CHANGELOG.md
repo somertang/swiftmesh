@@ -5,6 +5,23 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.14] - 2026-08-13
+
+### Changed
+
+- **UI chrome:** Restyle the titlebar, tabs, toolbars, and inspect panels with Minimal-inspired tokens — Public Sans, shared translucent float chrome, and MUI theme overrides — while keeping SwiftMesh orange as the primary accent.
+- **Theming:** Apply the new chrome language across swiftmesh / dark / business / night so viewport overlays and panels share the same surface treatment.
+- **Recording:** Replace the bottom recording popover with circular FABs (video vs stills) plus a mode-toggle control; recording parameters stay in Preferences, where recording mode is a dropdown.
+- **Inspect panels:** Compact hierarchy / textures / materials / geometries search fields, and align the Geometries Meshes column header with cell content.
+
+### Fixed
+
+- **Titlebar:** Keep the Open Recent hover submenu open when moving the pointer into the flyout.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.2.13] - 2026-08-12
 
 ### Fixed
