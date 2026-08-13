@@ -1,14 +1,14 @@
-/* Electron custom titlebar */
+/* Electron custom titlebar — Minimal header chrome */
 .app-titlebar {
   position: relative;
   z-index: 100;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  height: var(--titlebar-height, 36px);
+  height: var(--titlebar-height, 44px);
   padding: 0 var(--titlebar-overlay-pad, 0) 0 max(8px, var(--titlebar-inset-left, 0px));
-  background: var(--bg-app, #1c1c1c);
-  border-bottom: 1px solid var(--bg-header, #2a2a2a);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
   user-select: none;
   -webkit-user-select: none;
   -webkit-app-region: drag;
@@ -18,23 +18,24 @@
 .app-titlebar-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   justify-self: start;
 }
 
 .app-titlebar-logo {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   flex-shrink: 0;
   pointer-events: none;
+  border-radius: 6px;
 }
 
 .app-titlebar-menus {
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -44,34 +45,41 @@
 }
 
 .app-titlebar-menu-trigger {
-  height: 26px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 8px);
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
   line-height: 1;
   cursor: default;
 }
 
 .app-titlebar-menu.is-open .app-titlebar-menu-trigger,
 .app-titlebar-menu-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .app-titlebar-dropdown {
   position: absolute;
-  top: calc(100% + 2px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 200;
   min-width: 220px;
+  border-radius: var(--radius, 12px) !important;
+  box-shadow: var(--shadow-dropdown) !important;
+  background: var(--bg-panel) !important;
+  /* Must stay visible so "Open Recent" flyout is not clipped */
+  overflow: visible;
 }
 
 .app-titlebar-dropdown--flyout {
   top: -4px;
-  left: 100%;
+  left: calc(100% - 2px);
+  z-index: 210;
   min-width: 240px;
   max-width: 360px;
 }
@@ -81,17 +89,18 @@
 }
 
 .app-titlebar-submenu::after {
-  /* Keeps the pointer inside the submenu hit-box while crossing into the flush flyout. */
+  /* Hover bridge into the flyout (also covers the small gap). */
   content: '';
   position: absolute;
   top: 0;
-  right: -8px;
-  width: 8px;
+  right: -12px;
+  width: 14px;
   height: 100%;
+  z-index: 1;
 }
 
 .app-titlebar-submenu.is-open > .MuiMenuItem-root {
-  background-color: color-mix(in oklab, var(--color-primary, var(--accent)) 22%, transparent);
+  background-color: color-mix(in oklab, var(--color-primary, var(--accent)) 16%, transparent);
 }
 
 .app-titlebar-submenu-chevron {
@@ -106,8 +115,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 600;
   pointer-events: none;
 }
 
@@ -128,7 +137,7 @@
 .MuiMenu-paper .MuiDivider-root {
   margin: 0.35rem 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   opacity: 1;
 }
 
@@ -137,5 +146,5 @@
 :root[data-theme='business'] .MuiMenu-paper .MuiDivider-root,
 html[data-mui-color-scheme='light'] .app-titlebar-dropdown .MuiDivider-root,
 html[data-mui-color-scheme='light'] .MuiMenu-paper .MuiDivider-root {
-  border-bottom-color: color-mix(in srgb, #000000 16%, transparent);
+  border-bottom-color: color-mix(in srgb, #000000 12%, transparent);
 }

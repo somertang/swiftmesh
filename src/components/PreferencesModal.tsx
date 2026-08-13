@@ -51,6 +51,7 @@ import {
   RECORDING_EXPORT_FORMAT_OPTIONS,
   RECORDING_FPS_OPTIONS,
   RECORDING_IMAGE_FORMAT_OPTIONS,
+  RECORDING_MODE_OPTIONS,
   RECORDING_QUALITY_OPTIONS,
   ATLAS_PACK_MODE_OPTIONS,
   RECORDING_SEQUENCE_PACKAGE_OPTIONS,
@@ -72,7 +73,6 @@ import { AtlasPreviewSummary } from './AtlasPreviewSummary'
 import { FlattenColorField } from './FlattenColorField'
 import { FrameCountControl } from './FrameCountControl'
 import { LoadingButton } from './LoadingButton'
-import { RecordingModeToggle } from './RecordingModeToggle'
 
 export type PreferencesSection =
   | 'general'
@@ -1157,13 +1157,23 @@ export const PreferencesModal: FC<Props> = ({
                     title={t('record.mode' as MessageKey)}
                     description={t('prefs.desc.recordingMode' as MessageKey)}
                   >
-                    <RecordingModeToggle
+                    <TextField
                       id="prefs-recording-mode"
+                      select
+                      size="small"
                       value={prefs.recording.recordingMode}
-                      onChange={(recordingMode: RecordingMode) =>
-                        updateRecording({ recordingMode })
+                      onChange={e =>
+                        updateRecording({
+                          recordingMode: e.target.value as RecordingMode,
+                        })
                       }
-                    />
+                    >
+                      {RECORDING_MODE_OPTIONS.map(opt => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {t(`record.mode.${opt.value}` as MessageKey)}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </PrefRow>
                 </PrefGroup>
               ) : null}

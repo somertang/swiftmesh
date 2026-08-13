@@ -1,5 +1,5 @@
-import ButtonGroup from '@mui/material/ButtonGroup'
 import IconButton from '@mui/material/IconButton'
+import Paper from '@mui/material/Paper'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import type { InspectPanelId } from './inspect/InspectPanelShell'
@@ -25,11 +25,12 @@ type ViewportToolbarProps = {
 export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarProps) {
   const t = useT()
   return (
-    <ButtonGroup
+    <Paper
       className="viewport-toolbar"
-      orientation="vertical"
+      elevation={0}
       role="toolbar"
       aria-label={t('toolbar.aria')}
+      sx={{ bgcolor: 'transparent', backgroundImage: 'none' }}
     >
       {TOOLS.map(tool => {
         const isActive = active === tool.id
@@ -37,6 +38,7 @@ export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarP
         return (
           <IconButton
             key={tool.id}
+            className={isActive ? 'is-active' : undefined}
             color={isActive ? 'primary' : 'default'}
             title={label}
             aria-label={label}
@@ -48,6 +50,6 @@ export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarP
           </IconButton>
         )
       })}
-    </ButtonGroup>
+    </Paper>
   )
 }

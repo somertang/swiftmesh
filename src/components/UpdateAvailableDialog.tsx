@@ -1,17 +1,24 @@
+import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
 import LinearProgress from '@mui/material/LinearProgress'
 import Typography from '@mui/material/Typography'
 import type { FC } from 'react'
 import { useT } from '../i18n'
 import type { UpdatePromptEvent } from '../desktopTypes'
 import { formatReleaseNotesHtml } from '../lib/formatReleaseNotes'
+import { Icon } from '../icons'
 import { LoadingButton } from './LoadingButton'
-import Button from '@mui/material/Button'
 
 export type UpdateDialogPhase = 'available' | 'downloading' | 'ready' | 'error'
+
+const PHASE_ICONS: Record<UpdateDialogPhase, string> = {
+  available: 'material-symbols:system-update-alt',
+  downloading: 'material-symbols:download',
+  ready: 'material-symbols:check-circle-outline',
+  error: 'material-symbols:error-outline',
+}
 
 type Props = {
   open: boolean
@@ -49,6 +56,14 @@ export const UpdateAvailableDialog: FC<Props> = ({
   else if (phase === 'ready') title = t('update.readyTitle')
   else if (phase === 'error') title = t('update.errorTitle')
 
+  const subtitle =
+    phase === 'available'
+      ? t(manualRelease ? 'update.availableDialogIntroMac' : 'update.availableDialogIntro', {
+          version: prompt.version,
+          current: prompt.currentVersion,
+        })
+      : null
+
   return (
     <Dialog
       open={open}
@@ -56,21 +71,32 @@ export const UpdateAvailableDialog: FC<Props> = ({
       maxWidth="sm"
       fullWidth
       className="update-available-dialog"
+      slotProps={{
+        backdrop: {
+          sx: {
+            backgroundColor: 'rgba(0, 0, 0, 0.78)',
+          },
+        },
+        paper: {
+          className: 'update-dialog-shell',
+        },
+      }}
       sx={{ zIndex: theme => theme.zIndex.modal + 4 }}
     >
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent dividers>
+      <header className="update-dialog-header">
+        <div className="update-dialog-icon" aria-hidden>
+          <Icon icon={PHASE_ICONS[phase]} />
+        </div>
+        <div className="update-dialog-header-text">
+          <h2 className="update-dialog-title">{title}</h2>
+          {subtitle ? <p className="update-dialog-subtitle">{subtitle}</p> : null}
+        </div>
+      </header>
+
+      <DialogContent className="update-dialog-body">
         {phase === 'available' ? (
           <>
-            <Typography variant="body2" sx={{ mb: 1.25, color: 'text.secondary' }}>
-              {t(manualRelease ? 'update.availableDialogIntroMac' : 'update.availableDialogIntro', {
-                version: prompt.version,
-                current: prompt.currentVersion,
-              })}
-            </Typography>
-            <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
-              {t('update.releaseNotes')}
-            </Typography>
+            <Typography variant="subtitle2">{t('update.releaseNotes')}</Typography>
             <div
               className="update-release-notes"
               dangerouslySetInnerHTML={{ __html: releaseNotesHtml }}
@@ -80,10 +106,15 @@ export const UpdateAvailableDialog: FC<Props> = ({
 
         {phase === 'downloading' ? (
           <>
-            <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+            <p className="update-dialog-message">
               {t('update.downloadingMessage', { version: prompt.version, percent })}
-            </Typography>
-            <LinearProgress variant="determinate" value={percent} sx={{ mb: 0.75 }} />
+            </p>
+            <LinearProgress
+              variant="determinate"
+              value={percent}
+              color="primary"
+              className="update-dialog-progress"
+            />
             <Typography variant="caption" color="text.secondary">
               {t('prefs.updateStatus.downloading', { percent })}
             </Typography>
@@ -91,18 +122,19 @@ export const UpdateAvailableDialog: FC<Props> = ({
         ) : null}
 
         {phase === 'ready' ? (
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          <p className="update-dialog-message">
             {t('update.readyMessage', { version: prompt.version })}
-          </Typography>
+          </p>
         ) : null}
 
         {phase === 'error' ? (
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          <p className="update-dialog-message is-error">
             {errorMessage || t('update.errorMessage')}
-          </Typography>
+          </p>
         ) : null}
       </DialogContent>
-      <DialogActions>
+
+      <DialogActions className="update-dialog-footer">
         <Button onClick={onLater} disabled={busy && phase === 'available'}>
           {t('update.later')}
         </Button>

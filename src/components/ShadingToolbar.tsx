@@ -1,5 +1,5 @@
-import ButtonGroup from '@mui/material/ButtonGroup'
 import IconButton from '@mui/material/IconButton'
+import Paper from '@mui/material/Paper'
 import { Icon } from '../icons'
 import { useT } from '../i18n'
 import type { ShadingMode } from '../lib/shadingMode'
@@ -30,6 +30,7 @@ export function ShadingToolbar({ mode, onChange, disabled, embedded }: ShadingTo
     return (
       <IconButton
         key={item.id}
+        className={active ? 'is-active' : undefined}
         color={active ? 'primary' : 'default'}
         title={label}
         aria-label={label}
@@ -47,8 +48,14 @@ export function ShadingToolbar({ mode, onChange, disabled, embedded }: ShadingTo
   }
 
   return (
-    <ButtonGroup className="shading-toolbar" role="toolbar" aria-label={t('shading.aria')}>
+    <Paper
+      className="shading-toolbar"
+      elevation={0}
+      role="toolbar"
+      aria-label={t('shading.aria')}
+      sx={{ bgcolor: 'transparent', backgroundImage: 'none' }}
+    >
       {buttons}
-    </ButtonGroup>
+    </Paper>
   )
 }

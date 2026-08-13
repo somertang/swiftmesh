@@ -49,6 +49,9 @@ export const ExportProgressModal: FC<Props> = ({ phase, canStop = false, stopLab
         paper: {
           sx: {
             backgroundImage: 'none',
+            borderRadius: 2,
+            boxShadow: 'var(--shadow-dialog)',
+            px: 0.5,
           },
         },
       }}
@@ -72,8 +75,8 @@ export const ExportProgressModal: FC<Props> = ({ phase, canStop = false, stopLab
           value={percent}
           color="primary"
           sx={{
-            height: 8,
-            borderRadius: 1,
+            height: 6,
+            borderRadius: 999,
             mx: 0.5,
           }}
         />

@@ -58,7 +58,7 @@ function themedSnackAlertSx(accent: 'primary' | 'error') {
     border: `1px solid ${theme.palette.divider}`,
     borderLeft: `3px solid ${theme.palette[accent].main}`,
     borderRadius: 1.5,
-    boxShadow: theme.shadows[8],
+    boxShadow: 'var(--shadow-card)',
     backgroundImage: 'none',
     '& .MuiAlert-icon': {
       color: theme.palette[accent].main,

@@ -105,7 +105,7 @@ export function AppTitleBar({
     recentCloseTimerRef.current = window.setTimeout(() => {
       setRecentOpen(false)
       recentCloseTimerRef.current = null
-    }, 150)
+    }, 280)
   }, [clearRecentCloseTimer])
 
   const closeMenus = useCallback(() => {
@@ -127,6 +127,9 @@ export function AppTitleBar({
       setShowDevTools(!chrome.isPackaged)
       setInsetLeft(chrome.controlsInsetLeft)
       setUseInAppMenus(chrome.platform !== 'darwin')
+      if (chrome.overlayHeight) {
+        document.documentElement.style.setProperty('--titlebar-height', `${chrome.overlayHeight}px`)
+      }
 
       if (!chrome.titleBarOverlay) {
         setOverlayPad(0)
@@ -215,7 +218,7 @@ export function AppTitleBar({
                   {t('menu.file')}
                 </button>
                 {openMenu === 'file' ? (
-                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                  <Paper className="app-titlebar-dropdown" elevation={0}>
                     <MenuList dense>
                       <TitleBarMenuItem
                         label={t('menu.open')}
@@ -248,7 +251,7 @@ export function AppTitleBar({
                         {recentOpen ? (
                           <Paper
                             className="app-titlebar-dropdown app-titlebar-dropdown--flyout"
-                            elevation={8}
+                            elevation={0}
                           >
                             <MenuList
                               id="titlebar-open-recent-menu"
@@ -304,7 +307,7 @@ export function AppTitleBar({
                   {t('menu.view')}
                 </button>
                 {openMenu === 'view' ? (
-                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                  <Paper className="app-titlebar-dropdown" elevation={0}>
                     <MenuList dense>
                       <TitleBarMenuItem
                         label={t('menu.toggleStatusBar')}
@@ -347,7 +350,7 @@ export function AppTitleBar({
                   {t('menu.help')}
                 </button>
                 {openMenu === 'help' ? (
-                  <Paper className="app-titlebar-dropdown" elevation={8}>
+                  <Paper className="app-titlebar-dropdown" elevation={0}>
                     <MenuList dense>
                       <TitleBarMenuItem
                         label={t('menu.userGuide')}

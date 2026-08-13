@@ -1,9 +1,9 @@
 import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
 import { useMemo, useState } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
 import type { MaterialInspectItem } from '../../lib/inspectScene'
+import { PanelSearchField } from '../PanelSearchField'
 import { InspectPanelShell } from './InspectPanelShell'
 
 type MaterialsPanelProps = {
@@ -36,18 +36,12 @@ export function MaterialsPanel({ open, items, onClose, onSelectMesh }: Materials
       open={open}
       onClose={onClose}
     >
-      <div className="inspect-search">
-        <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <TextField
-          type="search"
-          size="small"
-          fullWidth
-          placeholder={t('materials.searchPlaceholder')}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label={t('materials.search')}
-        />
-      </div>
+      <PanelSearchField
+        placeholder={t('materials.searchPlaceholder')}
+        value={query}
+        aria-label={t('materials.search')}
+        onChange={setQuery}
+      />
 
       {filtered.length === 0 ? (
         <div className="inspect-empty">

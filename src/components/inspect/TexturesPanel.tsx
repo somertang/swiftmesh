@@ -1,9 +1,9 @@
 import IconButton from '@mui/material/IconButton'
-import TextField from '@mui/material/TextField'
 import { useMemo, useState } from 'react'
 import { Icon } from '../../icons'
 import { useT } from '../../i18n'
 import { downloadTexturePng, type TextureInspectItem } from '../../lib/inspectScene'
+import { PanelSearchField } from '../PanelSearchField'
 import { InspectPanelShell } from './InspectPanelShell'
 
 type TexturesPanelProps = {
@@ -34,18 +34,12 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
       open={open}
       onClose={onClose}
     >
-      <div className="inspect-search">
-        <Icon icon="material-symbols:search" className="inspect-search-icon" aria-hidden />
-        <TextField
-          type="search"
-          size="small"
-          fullWidth
-          placeholder={t('textures.searchPlaceholder')}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label={t('textures.search')}
-        />
-      </div>
+      <PanelSearchField
+        placeholder={t('textures.searchPlaceholder')}
+        value={query}
+        aria-label={t('textures.search')}
+        onChange={setQuery}
+      />
 
       {filtered.length === 0 ? (
         <div className="inspect-empty">
