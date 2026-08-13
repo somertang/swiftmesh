@@ -1,5 +1,9 @@
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
@@ -31,13 +35,12 @@ import { Icon } from '../icons'
 import { useLocale, useT, type MessageKey } from '../i18n'
 import type { Locale } from '../i18n/messages'
 import {
-  DEFAULT_RECENT_FILES_MAX,
   MAX_TEXTURE_SIZE_OPTIONS,
   RECENT_FILES_MAX_MAX,
   RECENT_FILES_MAX_MIN,
-  patchPreferences,
   readPreferences,
   resetPreferences,
+  writePreferences,
   type AppPreferences,
   type GeneralPreferences,
   type MaxTextureSizeOption,
@@ -62,6 +65,7 @@ import { pitchAnglesToText, parsePitchAnglesText } from '../lib/multiAxisManifes
 import { usePreviewTheme } from '../previewTheme'
 import type { PreviewTheme } from '../lib/previewTheme'
 import { DEFAULT_SECONDS_PER_REV } from '../lib/modelTab'
+import { RECORD_PROJECTION_OPTIONS, type RecordProjection } from '../config/cameraDefaults'
 import {
   APP_AUTHOR,
   APP_LICENSE_SPDX,
@@ -119,6 +123,7 @@ type SettingId =
   | 'telemetry'
   | 'recordingEnabled'
   | 'recordingMode'
+  | 'recordProjection'
   | 'secPerRev'
   | 'export'
   | 'frameCount'
@@ -249,6 +254,11 @@ const SETTING_META: Record<
     section: 'recording',
     titleKey: 'record.mode' as MessageKey,
     descKey: 'prefs.desc.recordingMode' as MessageKey,
+  },
+  recordProjection: {
+    section: 'recording',
+    titleKey: 'record.projection' as MessageKey,
+    descKey: 'prefs.desc.recordProjection' as MessageKey,
   },
   secPerRev: {
     section: 'recording',
@@ -506,6 +516,14 @@ function formatUpdateStatus(
   }
 }
 
+function clonePrefs(prefs: AppPreferences): AppPreferences {
+  return structuredClone(prefs)
+}
+
+function prefsEqual(a: AppPreferences, b: AppPreferences): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 export const PreferencesModal: FC<Props> = ({
   open,
   onClose,
@@ -519,6 +537,10 @@ export const PreferencesModal: FC<Props> = ({
   const { uiTheme, setUiTheme } = useUiTheme()
   const [section, setSection] = useState<PreferencesSection>(initialSection)
   const [prefs, setPrefs] = useState<AppPreferences>(() => readPreferences())
+  const [committed, setCommitted] = useState<AppPreferences>(() => readPreferences())
+  const [committedLocale, setCommittedLocale] = useState<Locale>(locale)
+  const [committedPreview, setCommittedPreview] = useState<PreviewTheme>(previewTheme)
+  const [confirmMode, setConfirmMode] = useState<null | 'close' | 'reset'>(null)
   const [search, setSearch] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: 'idle' })
@@ -530,14 +552,27 @@ export const PreferencesModal: FC<Props> = ({
   onUpdateCheckTipRef.current = onUpdateCheckTip
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setConfirmMode(null)
+      return
+    }
     setSection(initialSection)
-    setPrefs(readPreferences())
+  }, [open, initialSection])
+
+  useEffect(() => {
+    if (!open) return
+    const next = readPreferences()
+    setPrefs(clonePrefs(next))
+    setCommitted(clonePrefs(next))
+    setCommittedLocale(locale)
+    setCommittedPreview(previewTheme)
+    setConfirmMode(null)
     setSearch('')
     manualUpdateCheckRef.current = false
     setInstallingUpdate(false)
     setOpeningRepo(false)
-  }, [open, initialSection])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot locale/theme on open only
+  }, [open])
 
   useEffect(() => {
     if (!open || !window.desktop?.getWindowChrome) return
@@ -595,48 +630,14 @@ export const PreferencesModal: FC<Props> = ({
   }, [open, t])
 
   const desktopAvailable = Boolean(window.desktop)
+  const dirty =
+    !prefsEqual(prefs, committed) ||
+    locale !== committedLocale ||
+    previewTheme !== committedPreview
 
-  const updateRecording = (patch: Partial<RecordingPreferences>) => {
-    const next = patchPreferences({ recording: patch })
-    setPrefs(next)
-    onPreferencesChange?.(next)
-  }
-
-  const updateLighting = (patch: Partial<LightingSettings>) => {
-    const next = patchPreferences({ lighting: patch })
-    setPrefs(next)
-    onPreferencesChange?.(next)
-  }
-
-  const updateGeneral = (patch: Partial<GeneralPreferences>) => {
-    const next = patchPreferences({ general: patch })
-    setPrefs(next)
-    onPreferencesChange?.(next)
-    if (patch.recentFilesMax !== undefined && window.desktop?.setRecentMax) {
-      void window.desktop.setRecentMax(patch.recentFilesMax)
-    }
-    if (patch.autoUpdate !== undefined && window.desktop?.setAutoUpdateEnabled && !macManualUpdate) {
-      void window.desktop.setAutoUpdateEnabled(patch.autoUpdate)
-    }
-  }
-
-  const updatePerformance = (patch: Partial<PerformancePreferences>) => {
-    const next = patchPreferences({ performance: patch })
-    setPrefs(next)
-    onPreferencesChange?.(next)
-    if (patch.cacheDir !== undefined && window.desktop?.setCacheDir) {
-      void window.desktop.setCacheDir(patch.cacheDir)
-    }
-  }
-
-  const handleResetPreferences = () => {
-    if (!window.confirm(t('prefs.reset.confirm'))) return
-    const next = resetPreferences()
-    setPrefs(next)
-    setUiTheme(next.uiTheme)
-    onPreferencesChange?.(next)
+  const applyDesktopSideEffects = (next: AppPreferences) => {
     if (window.desktop?.setRecentMax) {
-      void window.desktop.setRecentMax(DEFAULT_RECENT_FILES_MAX)
+      void window.desktop.setRecentMax(next.general.recentFilesMax)
     }
     if (window.desktop?.setCacheDir) {
       void window.desktop.setCacheDir(next.performance.cacheDir)
@@ -644,6 +645,84 @@ export const PreferencesModal: FC<Props> = ({
     if (window.desktop?.setAutoUpdateEnabled && !macManualUpdate) {
       void window.desktop.setAutoUpdateEnabled(next.general.autoUpdate)
     }
+  }
+
+  const commitPrefs = (next: AppPreferences) => {
+    const written = writePreferences(next)
+    setPrefs(clonePrefs(written))
+    setCommitted(clonePrefs(written))
+    setCommittedLocale(locale)
+    setCommittedPreview(previewTheme)
+    onPreferencesChange?.(written)
+    applyDesktopSideEffects(written)
+    return written
+  }
+
+  const revertDraft = () => {
+    setLocale(committedLocale)
+    setUiTheme(committed.uiTheme)
+    setPreviewTheme(committedPreview)
+    setPrefs(clonePrefs(committed))
+  }
+
+  const updateRecording = (patch: Partial<RecordingPreferences>) => {
+    setPrefs(prev => ({
+      ...prev,
+      recording: { ...prev.recording, ...patch },
+    }))
+  }
+
+  const updateLighting = (patch: Partial<LightingSettings>) => {
+    setPrefs(prev => ({
+      ...prev,
+      lighting: { ...prev.lighting, ...patch },
+    }))
+  }
+
+  const updateGeneral = (patch: Partial<GeneralPreferences>) => {
+    setPrefs(prev => ({
+      ...prev,
+      general: { ...prev.general, ...patch },
+    }))
+  }
+
+  const updatePerformance = (patch: Partial<PerformancePreferences>) => {
+    setPrefs(prev => ({
+      ...prev,
+      performance: { ...prev.performance, ...patch },
+    }))
+  }
+
+  const requestClose = () => {
+    if (dirty) {
+      setConfirmMode('close')
+      return
+    }
+    onClose()
+  }
+
+  const handleSave = () => {
+    commitPrefs(prefs)
+  }
+
+  const handleDiscard = () => {
+    revertDraft()
+  }
+
+  const handleResetPreferences = () => {
+    setConfirmMode('reset')
+  }
+
+  const confirmResetPreferences = () => {
+    const next = resetPreferences()
+    setUiTheme(next.uiTheme)
+    setPrefs(clonePrefs(next))
+    setCommitted(clonePrefs(next))
+    setCommittedLocale(locale)
+    setCommittedPreview(previewTheme)
+    onPreferencesChange?.(next)
+    applyDesktopSideEffects(next)
+    setConfirmMode(null)
   }
 
   const chooseOutputDir = async (): Promise<string | null> => {
@@ -737,9 +816,10 @@ export const PreferencesModal: FC<Props> = ({
   const hasAnyVisible = visibleNav.length > 0
 
   return (
+    <>
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       maxWidth={false}
       className="z-10000"
       slotProps={{
@@ -749,7 +829,7 @@ export const PreferencesModal: FC<Props> = ({
     >
       <header className="prefs-header">
         <h2>{t('prefs.title')}</h2>
-        <IconButton onClick={onClose} aria-label={t('common.close')} size="small">
+        <IconButton onClick={requestClose} aria-label={t('common.close')} size="small">
           <Icon icon="material-symbols:close" aria-hidden />
         </IconButton>
       </header>
@@ -934,7 +1014,11 @@ export const PreferencesModal: FC<Props> = ({
                       id="prefs-ui-theme"
                       select
                       value={uiTheme}
-                      onChange={e => setUiTheme(e.target.value as UiTheme)}
+                      onChange={e => {
+                        const next = e.target.value as UiTheme
+                        setUiTheme(next)
+                        setPrefs(prev => ({ ...prev, uiTheme: next }))
+                      }}
                       size="small"
                     >
                       {UI_THEMES.map(theme => (
@@ -1150,31 +1234,58 @@ export const PreferencesModal: FC<Props> = ({
                   </PrefRow>
                 </PrefGroup>
               ) : null}
-              {show('recordingMode') ? (
+              {show('recordingMode') || show('recordProjection') ? (
                 <PrefGroup title={t('prefs.group.defaults')}>
-                  <PrefRow
-                    id="prefs-recording-mode"
-                    title={t('record.mode' as MessageKey)}
-                    description={t('prefs.desc.recordingMode' as MessageKey)}
-                  >
-                    <TextField
+                  {show('recordingMode') ? (
+                    <PrefRow
                       id="prefs-recording-mode"
-                      select
-                      size="small"
-                      value={prefs.recording.recordingMode}
-                      onChange={e =>
-                        updateRecording({
-                          recordingMode: e.target.value as RecordingMode,
-                        })
-                      }
+                      title={t('record.mode' as MessageKey)}
+                      description={t('prefs.desc.recordingMode' as MessageKey)}
                     >
-                      {RECORDING_MODE_OPTIONS.map(opt => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {t(`record.mode.${opt.value}` as MessageKey)}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </PrefRow>
+                      <TextField
+                        id="prefs-recording-mode"
+                        select
+                        size="small"
+                        value={prefs.recording.recordingMode}
+                        onChange={e =>
+                          updateRecording({
+                            recordingMode: e.target.value as RecordingMode,
+                          })
+                        }
+                      >
+                        {RECORDING_MODE_OPTIONS.map(opt => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {t(`record.mode.${opt.value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
+                  {show('recordProjection') ? (
+                    <PrefRow
+                      id="prefs-record-projection"
+                      title={t('record.projection' as MessageKey)}
+                      description={t('prefs.desc.recordProjection' as MessageKey)}
+                    >
+                      <TextField
+                        id="prefs-record-projection"
+                        select
+                        size="small"
+                        value={prefs.recording.recordProjection}
+                        onChange={e =>
+                          updateRecording({
+                            recordProjection: e.target.value as RecordProjection,
+                          })
+                        }
+                      >
+                        {RECORD_PROJECTION_OPTIONS.map(value => (
+                          <MenuItem key={value} value={value}>
+                            {t(`record.projection.${value}` as MessageKey)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </PrefRow>
+                  ) : null}
                 </PrefGroup>
               ) : null}
               {show('export') ||
@@ -2119,6 +2230,68 @@ export const PreferencesModal: FC<Props> = ({
           ) : null}
         </div>
       </div>
+      {dirty ? (
+        <footer className="prefs-footer">
+          <p className="prefs-footer-msg">{t('prefs.unsaved.bar')}</p>
+          <div className="prefs-footer-actions">
+            <Button onClick={handleDiscard}>{t('prefs.discard')}</Button>
+            <Button variant="contained" onClick={handleSave}>
+              {t('prefs.save')}
+            </Button>
+          </div>
+        </footer>
+      ) : null}
     </Dialog>
+    <Dialog
+      open={confirmMode === 'close'}
+      onClose={() => setConfirmMode(null)}
+      className="z-[11000]"
+      aria-labelledby="prefs-unsaved-title"
+    >
+      <DialogTitle id="prefs-unsaved-title">{t('prefs.unsaved.title')}</DialogTitle>
+      <DialogContent>
+        <DialogContentText>{t('prefs.unsaved.body')}</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setConfirmMode(null)}>{t('common.cancel')}</Button>
+        <Button
+          onClick={() => {
+            revertDraft()
+            setConfirmMode(null)
+            onClose()
+          }}
+        >
+          {t('prefs.dontSave')}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            commitPrefs(prefs)
+            setConfirmMode(null)
+            onClose()
+          }}
+        >
+          {t('prefs.save')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    <Dialog
+      open={confirmMode === 'reset'}
+      onClose={() => setConfirmMode(null)}
+      className="z-[11000]"
+      aria-labelledby="prefs-reset-title"
+    >
+      <DialogTitle id="prefs-reset-title">{t('prefs.reset')}</DialogTitle>
+      <DialogContent>
+        <DialogContentText>{t('prefs.reset.confirm')}</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setConfirmMode(null)}>{t('common.cancel')}</Button>
+        <Button color="error" variant="contained" onClick={confirmResetPreferences}>
+          {t('prefs.reset.action')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   )
 }

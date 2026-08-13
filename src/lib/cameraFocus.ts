@@ -1,21 +1,119 @@
-import { Box3, MathUtils, Spherical, Vector3, type PerspectiveCamera, type Object3D } from 'three'
-import type { CameraSettings } from '../config/cameraDefaults'
+import {
+  Box3,
+  MathUtils,
+  OrthographicCamera,
+  PerspectiveCamera,
+  Spherical,
+  Vector3,
+  type Camera,
+  type Object3D,
+} from 'three'
+import {
+  DEFAULT_CAMERA,
+  type CameraProjection,
+  type CameraSettings,
+  type RecordProjection,
+} from '../config/cameraDefaults'
+
+export type ViewCamera = PerspectiveCamera | OrthographicCamera
 
 type ControlsLike = {
   target: Vector3
   update: () => void
 }
 
+export function isViewCamera(camera: Camera): camera is ViewCamera {
+  return camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera
+}
+
 const CAMERA_SETTINGS_EPS = 1e-4
 /** Keep away from poles to avoid orbit gimbal lock (matches NavGizmo). */
 const PHI_EPS = 0.05
 
+export function getVirtualFov(camera: ViewCamera, fallback = DEFAULT_CAMERA.fov): number {
+  if (camera instanceof PerspectiveCamera) return camera.fov
+  const stored = camera.userData?.virtualFov
+  return typeof stored === 'number' && Number.isFinite(stored) ? stored : fallback
+}
+
+function setVirtualFov(camera: ViewCamera, fov: number) {
+  camera.userData.virtualFov = fov
+}
+
+export function getCameraAspect(camera: ViewCamera): number {
+  if (camera instanceof PerspectiveCamera) return camera.aspect || 1
+  if (camera instanceof OrthographicCamera) {
+    const h = camera.top - camera.bottom
+    if (Math.abs(h) < 1e-12) return 1
+    return Math.abs((camera.right - camera.left) / h)
+  }
+  return 1
+}
+
+/** Match ortho frustum to a perspective view at zoom=1 (OrbitControls zoom stacks). */
+export function syncOrthoFrustum(
+  camera: OrthographicCamera,
+  fovDeg: number,
+  distance: number,
+  aspect: number
+) {
+  const halfHeight = Math.tan(MathUtils.degToRad(fovDeg) / 2) * Math.max(distance, 0.001)
+  const halfWidth = halfHeight * Math.max(aspect, 0.0001)
+  camera.top = halfHeight
+  camera.bottom = -halfHeight
+  camera.left = -halfWidth
+  camera.right = halfWidth
+}
+
+/**
+ * Switch projection while keeping framing. Ortho zoom is baked into distance
+ * when returning to perspective so the model does not jump in size.
+ */
+export function withCameraProjection(
+  settings: CameraSettings,
+  projection: CameraProjection
+): CameraSettings {
+  if (settings.projection === projection) return settings
+  if (projection === 'orthographic') {
+    return { ...settings, projection, zoom: 1 }
+  }
+
+  const target = new Vector3(settings.targetX, settings.targetY, settings.targetZ)
+  const pos = new Vector3(settings.posX, settings.posY, settings.posZ)
+  const zoom = Math.max(settings.zoom, 0.001)
+  const offset = pos.clone().sub(target)
+  if (offset.lengthSq() < 1e-12) {
+    return { ...settings, projection: 'perspective', zoom: 1 }
+  }
+  offset.setLength(offset.length() / zoom)
+  const next = target.clone().add(offset)
+  return {
+    ...settings,
+    projection: 'perspective',
+    zoom: 1,
+    posX: next.x,
+    posY: next.y,
+    posZ: next.z,
+  }
+}
+
+/** Resolve the camera pose used for a recording from the live view + record preference. */
+export function cameraForRecording(
+  live: CameraSettings,
+  mode: RecordProjection | undefined
+): CameraSettings {
+  if (!mode || mode === 'viewport') return live
+  return withCameraProjection(live, mode)
+}
+
 /** Snapshot live camera + orbit target into panel settings shape. */
 export function readCameraSettings(
-  camera: PerspectiveCamera,
-  controls: ControlsLike | null | undefined
+  camera: ViewCamera,
+  controls: ControlsLike | null | undefined,
+  previous?: CameraSettings
 ): CameraSettings {
   const target = controls?.target
+  const isOrtho = camera instanceof OrthographicCamera
   return {
     posX: camera.position.x,
     posY: camera.position.y,
@@ -23,7 +121,9 @@ export function readCameraSettings(
     targetX: target?.x ?? 0,
     targetY: target?.y ?? 0,
     targetZ: target?.z ?? 0,
-    fov: camera.fov,
+    fov: camera instanceof PerspectiveCamera ? camera.fov : (previous?.fov ?? getVirtualFov(camera)),
+    projection: isOrtho ? 'orthographic' : 'perspective',
+    zoom: isOrtho ? camera.zoom : 1,
   }
 }
 
@@ -34,20 +134,51 @@ function nearlyEqual(a: number, b: number, eps = CAMERA_SETTINGS_EPS) {
 /** True when two camera settings match within a small float tolerance. */
 export function cameraSettingsEqual(a: CameraSettings, b: CameraSettings, eps = CAMERA_SETTINGS_EPS) {
   return (
+    a.projection === b.projection &&
     nearlyEqual(a.posX, b.posX, eps) &&
     nearlyEqual(a.posY, b.posY, eps) &&
     nearlyEqual(a.posZ, b.posZ, eps) &&
     nearlyEqual(a.targetX, b.targetX, eps) &&
     nearlyEqual(a.targetY, b.targetY, eps) &&
     nearlyEqual(a.targetZ, b.targetZ, eps) &&
-    nearlyEqual(a.fov, b.fov, eps)
+    nearlyEqual(a.fov, b.fov, eps) &&
+    nearlyEqual(a.zoom, b.zoom, eps)
   )
+}
+
+export function applyCameraSettings(
+  camera: ViewCamera,
+  controls: ControlsLike | null | undefined,
+  cameraSettings: CameraSettings,
+  aspect?: number
+) {
+  camera.position.set(cameraSettings.posX, cameraSettings.posY, cameraSettings.posZ)
+  camera.near = 0.1
+  camera.far = 100
+  setVirtualFov(camera, cameraSettings.fov)
+
+  const asp = aspect ?? getCameraAspect(camera)
+  if (camera instanceof PerspectiveCamera) {
+    camera.fov = cameraSettings.fov
+    camera.zoom = 1
+    if (aspect) camera.aspect = aspect
+  } else if (camera instanceof OrthographicCamera) {
+    camera.zoom = Math.max(cameraSettings.zoom, 0.001)
+    const target = new Vector3(cameraSettings.targetX, cameraSettings.targetY, cameraSettings.targetZ)
+    const distance = Math.max(camera.position.distanceTo(target), 0.001)
+    syncOrthoFrustum(camera, cameraSettings.fov, distance, asp)
+  }
+  camera.updateProjectionMatrix()
+
+  if (!controls) return
+  controls.target.set(cameraSettings.targetX, cameraSettings.targetY, cameraSettings.targetZ)
+  controls.update()
 }
 
 /** Fit camera to an object bbox — mirrors glb-viewer-core `focus_camera_on_object`. */
 export function focusCameraOnObject(
   object: Object3D,
-  camera: PerspectiveCamera,
+  camera: ViewCamera,
   controls: ControlsLike | null | undefined
 ) {
   const box = new Box3().setFromObject(object)
@@ -61,8 +192,9 @@ export function focusCameraOnObject(
   }
 
   const boundingSphereRadius = size.length() / 2
-  const fov = MathUtils.degToRad(camera.fov)
-  const aspect = camera.aspect || 1
+  const fovDeg = getVirtualFov(camera)
+  const fov = MathUtils.degToRad(fovDeg)
+  const aspect = getCameraAspect(camera)
 
   const distanceForHeight = Math.max(maxRadius, boundingSphereRadius) / Math.sin(fov / 2)
   const distanceForWidth =
@@ -74,6 +206,10 @@ export function focusCameraOnObject(
   direction.negate()
   camera.position.copy(center.clone().add(direction.multiplyScalar(fitDistance)))
   camera.far = Math.max(camera.far, fitDistance + size.length())
+  camera.zoom = 1
+  if (camera instanceof OrthographicCamera) {
+    syncOrthoFrustum(camera, fovDeg, fitDistance, aspect)
+  }
   camera.updateProjectionMatrix()
 
   if (controls) {
@@ -124,13 +260,18 @@ export function applyOrbitElevationDegrees(
 
 /** Apply elevation to a live camera + OrbitControls pair. */
 export function setOrbitElevationDegrees(
-  camera: PerspectiveCamera,
+  camera: ViewCamera,
   controls: ControlsLike | null | undefined,
   elevationDeg: number
 ) {
   const settings = readCameraSettings(camera, controls)
   const next = applyOrbitElevationDegrees(settings, elevationDeg)
   camera.position.set(next.posX, next.posY, next.posZ)
+  if (camera instanceof OrthographicCamera) {
+    const target = new Vector3(next.targetX, next.targetY, next.targetZ)
+    const distance = Math.max(camera.position.distanceTo(target), 0.001)
+    syncOrthoFrustum(camera, getVirtualFov(camera, settings.fov), distance, getCameraAspect(camera))
+  }
   camera.updateProjectionMatrix()
   if (controls) {
     controls.target.set(next.targetX, next.targetY, next.targetZ)
@@ -150,10 +291,15 @@ export function resolveHierarchyObject(object: Object3D): Object3D | null {
 export function worldSizeFromScreenSize(
   desiredScreenPx: number,
   targetPos: Vector3,
-  camera: PerspectiveCamera,
+  camera: ViewCamera,
   viewportHeightPx: number
 ) {
-  const vFov = (camera.fov * Math.PI) / 180
-  const heightAtDistance = 2 * Math.tan(vFov / 2) * camera.position.distanceTo(targetPos)
+  let heightAtDistance: number
+  if (camera instanceof OrthographicCamera) {
+    heightAtDistance = (camera.top - camera.bottom) / Math.max(camera.zoom, 0.001)
+  } else {
+    const vFov = (getVirtualFov(camera) * Math.PI) / 180
+    heightAtDistance = 2 * Math.tan(vFov / 2) * camera.position.distanceTo(targetPos)
+  }
   return (desiredScreenPx / Math.max(viewportHeightPx, 1)) * heightAtDistance
 }

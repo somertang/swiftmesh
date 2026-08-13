@@ -96,8 +96,8 @@ export function GeometriesPanel({ open, items, onClose, onSelectMesh }: Geometri
                         <Icon
                           icon={
                             expanded
-                              ? 'material-symbols:expand-more'
-                              : 'material-symbols:chevron-right'
+                              ? 'material-symbols:arrow-drop-down'
+                              : 'material-symbols:arrow-right'
                           }
                           className="inspect-table-caret"
                           aria-hidden

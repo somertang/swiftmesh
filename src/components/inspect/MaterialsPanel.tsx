@@ -72,7 +72,7 @@ export function MaterialsPanel({ open, items, onClose, onSelectMesh }: Materials
                   </span>
                   <Icon
                     icon={
-                      expanded ? 'material-symbols:expand-more' : 'material-symbols:chevron-right'
+                      expanded ? 'material-symbols:arrow-drop-down' : 'material-symbols:arrow-right'
                     }
                     aria-hidden
                   />

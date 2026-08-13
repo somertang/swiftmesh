@@ -1058,6 +1058,15 @@ ipcMain.handle(
   }
 )
 
+ipcMain.handle(
+  'desktop:pick-images-output-base',
+  async (_event, payload: { defaultName?: string; outputDir?: string }) => {
+    const defaultName = typeof payload?.defaultName === 'string' ? payload.defaultName : 'export'
+    const outputDir = typeof payload?.outputDir === 'string' ? payload.outputDir : ''
+    return resolveImagesOutputBase({ defaultName, outputDir })
+  }
+)
+
 ipcMain.handle('desktop:choose-recording-output-dir', async () => {
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {

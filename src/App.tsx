@@ -29,7 +29,7 @@ import {
   type UpdateDialogPhase,
 } from './components/UpdateAvailableDialog'
 import { SceneSettingsPanels } from './components/SceneSettingsPanels'
-import { DEFAULT_CAMERA } from './config/cameraDefaults'
+import { DEFAULT_CAMERA, type CameraProjection } from './config/cameraDefaults'
 import { ATLAS_MAX_EDGE_DEFAULT, clampAtlasMaxEdge, previewAtlasPack } from './lib/atlasLayout'
 import {
   buildMultiAxisManifest,
@@ -48,7 +48,12 @@ import {
   resolveRecordingOutputSize,
   needsExportMask,
 } from './lib/recordingPresets'
-import { patchPreferences, readPreferences } from './lib/preferences'
+import {
+  cloneRecordingPreferences,
+  patchPreferences,
+  readPreferences,
+  type RecordingPreferences,
+} from './lib/preferences'
 import {
   captureSessionFromTabs,
   readSession,
@@ -65,6 +70,7 @@ import {
   createEmptyTab,
   createInitialTabState,
   DEFAULT_SECONDS_PER_REV,
+  recordingForTab,
   focusGroup,
   getActiveTab,
   getGroup,
@@ -86,6 +92,7 @@ import {
   type ModelTab,
   type TabState,
 } from './lib/modelTab'
+import { cameraForRecording, withCameraProjection } from './lib/cameraFocus'
 import logoUrl from './assets/logo.png'
 import { Icon } from './icons'
 import { useT } from './i18n'
@@ -110,6 +117,11 @@ export default function App() {
   const [recordingEnabled, setRecordingEnabled] = useState(
     () => readPreferences().recording.enabled
   )
+  const [recordingPrefs, setRecordingPrefs] = useState<RecordingPreferences>(
+    () => cloneRecordingPreferences(readPreferences().recording)
+  )
+  const recordingPrefsRef = useRef(recordingPrefs)
+  recordingPrefsRef.current = recordingPrefs
   const [performancePrefs, setPerformancePrefs] = useState(
     () => readPreferences().performance
   )
@@ -729,7 +741,9 @@ export default function App() {
       return
     }
 
-    if (recordingMode === 'images' && !tab.exportSequence && !tab.exportAtlas) {
+    const rec = cloneRecordingPreferences(recordingPrefsRef.current)
+
+    if (recordingMode === 'images' && !rec.exportSequence && !rec.exportAtlas) {
       patchRecordingTab({ error: t('record.imagesNeedOutput') })
       return
     }
@@ -739,14 +753,14 @@ export default function App() {
     const exportMask =
       isImages &&
       needsExportMask({
-        imageFormat: tab.imageFormat,
-        exportBackground: tab.exportBackground,
-        jpegNoBgMode: tab.jpegNoBgMode,
+        imageFormat: rec.imageFormat,
+        exportBackground: rec.exportBackground,
+        jpegNoBgMode: rec.jpegNoBgMode,
       })
-    const multiAxis = isImages && tab.multiAxisEnabled
+    const multiAxis = isImages && rec.multiAxisEnabled
     const pitchAngles = multiAxis
-      ? tab.pitchAngles.length > 0
-        ? tab.pitchAngles
+      ? rec.pitchAngles.length > 0
+        ? rec.pitchAngles
         : [-15, 0, 25, 50, 75]
       : [0]
     if (multiAxis && pitchAngles.length === 0) {
@@ -755,22 +769,22 @@ export default function App() {
     }
 
     const quality = normalizeRecordingQuality(
-      isImages ? tab.imageCaptureQuality : tab.videoQuality
+      isImages ? rec.imageCaptureQuality : rec.videoQuality
     )
-    const sizeId = isImages ? tab.imageSizeId : tab.videoSizeId
+    const sizeId = isImages ? rec.imageSizeId : rec.videoSizeId
     const { totalFrames, encodeFps } = resolveRecordingCapturePlan({
       mode: recordingMode,
-      frameCount: tab.frameCount,
-      secondsPerRevolution: tab.secondsPerRevolution,
-      recordingFps: tab.recordingFps,
+      frameCount: rec.frameCount,
+      secondsPerRevolution: rec.secondsPerRevolution,
+      recordingFps: rec.recordingFps,
     })
     const fps = encodeFps
     const sizePreset = getRecordingSizePreset(sizeId)
     const customSize = isImages
-      ? { width: tab.imageCustomWidth, height: tab.imageCustomHeight }
-      : { width: tab.videoCustomWidth, height: tab.videoCustomHeight }
+      ? { width: rec.imageCustomWidth, height: rec.imageCustomHeight }
+      : { width: rec.videoCustomWidth, height: rec.videoCustomHeight }
     const outputSize = resolveRecordingOutputSize(canvas, sizePreset, customSize)
-    const atlasMaxEdge = clampAtlasMaxEdge(tab.atlasMaxEdge, ATLAS_MAX_EDGE_DEFAULT)
+    const atlasMaxEdge = clampAtlasMaxEdge(rec.atlasMaxEdge, ATLAS_MAX_EDGE_DEFAULT)
     const requestedScale =
       sizePreset.width != null && sizePreset.width >= 3840 && quality !== 'standard'
         ? 1
@@ -843,12 +857,22 @@ export default function App() {
       })
 
     const baseName = `${stem}-turntable_${sizeId}_${quality}`
-    const recordingPrefs = readPreferences().recording
-    const outputDir = isImages ? recordingPrefs.imageOutputDir : recordingPrefs.videoOutputDir
+    let outputDir = isImages ? rec.imageOutputDir : rec.videoOutputDir
+    let batchStem = baseName
     const savedCamera = { ...tab.camera }
+    const captureCamera = cameraForRecording(savedCamera, rec.recordProjection)
+    const overrideProjection = captureCamera.projection !== savedCamera.projection
     const pitchLevels: PitchLevelSheet[] = []
     let lastSavedPath = ''
     let allocatedBaseStem = baseName
+
+    if (multiAxis && isImages && !outputDir.trim()) {
+      const picked = await window.desktop.pickImagesOutputBase({ defaultName: baseName })
+      if (!picked) return
+      outputDir = picked.dir
+      batchStem = picked.stem
+      allocatedBaseStem = picked.stem
+    }
 
     const abort = { aborted: false }
     abortRef.current = abort
@@ -856,8 +880,15 @@ export default function App() {
     const pitchesToRun = multiAxis ? pitchAngles : [null as number | null]
     const totalCaptureFrames = totalFrames * pitchesToRun.length
 
+    if (overrideProjection) {
+      // Swap while recording is still false so CameraRig applies the pose.
+      patchRecordingTab({ camera: captureCamera })
+      await waitForCameraApply()
+    }
+
     patchRecordingTab({
       recording: true,
+      recordingJob: rec,
       progressRad: 0,
       exportPhase: { kind: 'capturing', done: 0, total: totalCaptureFrames },
     })
@@ -882,32 +913,32 @@ export default function App() {
         const pitch = pitchesToRun[pitchIndex]
         if (multiAxis && pitch != null) {
           // Bypass panel sync freeze during recording — write elevation to live camera.
-          liveCaptureHandle.setOrbitElevationDegrees(pitch, savedCamera)
+          liveCaptureHandle.setOrbitElevationDegrees(pitch, captureCamera)
           await waitForCameraApply()
           liveCaptureHandle = captureHandleRefs.current[groupId]?.current ?? liveCaptureHandle
         }
 
         const defaultName =
           multiAxis && pitch != null
-            ? `${baseName}_pitch${formatPitchForFilename(pitch)}`
+            ? `${batchStem}_pitch${formatPitchForFilename(pitch)}`
             : baseName
 
         const sessionRes = await window.desktop.startRecordingSession({
           defaultName,
-          format: isImages ? 'images' : tab.videoExportFormat,
+          format: isImages ? 'images' : rec.videoExportFormat,
           quality,
           fps,
           images: isImages
             ? {
-                exportSequence: tab.exportSequence,
-                exportAtlas: tab.exportAtlas,
-                exportBackground: tab.exportBackground,
-                jpegNoBgMode: tab.jpegNoBgMode,
-                imageFlattenColor: tab.imageFlattenColor,
-                imageFormat: tab.imageFormat,
-                imageQuality: tab.imageQuality,
-                sequencePackage: tab.sequencePackage,
-                atlasPackMode: tab.atlasPackMode,
+                exportSequence: rec.exportSequence,
+                exportAtlas: rec.exportAtlas,
+                exportBackground: rec.exportBackground,
+                jpegNoBgMode: rec.jpegNoBgMode,
+                imageFlattenColor: rec.imageFlattenColor,
+                imageFormat: rec.imageFormat,
+                imageQuality: rec.imageQuality,
+                sequencePackage: rec.sequencePackage,
+                atlasPackMode: rec.atlasPackMode,
                 atlasMaxEdge,
               }
             : undefined,
@@ -969,7 +1000,7 @@ export default function App() {
         }
 
         lastSavedPath = result.path
-        if (multiAxis && pitch != null && tab.exportAtlas) {
+        if (multiAxis && pitch != null && rec.exportAtlas) {
           const atlasPath =
             result.paths.find(p => /_atlas_\d+\.(png|jpe?g|webp)$/i.test(p)) ?? result.path
           const allocatedStem = stemFromAtlasPath(atlasPath) ?? defaultName
@@ -981,14 +1012,14 @@ export default function App() {
             tileW: plannedCapture.outputSize.width,
             tileH: plannedCapture.outputSize.height,
             frameCount: totalFrames,
-            packMode: tab.atlasPackMode,
+            packMode: rec.atlasPackMode,
             maxEdge: atlasMaxEdge,
           })
           pitchLevels.push(
             buildPitchLevelFromPreview(
               pitch,
               allocatedStem,
-              tab.imageFormat,
+              rec.imageFormat,
               packPreview,
               totalFrames
             )
@@ -1008,7 +1039,7 @@ export default function App() {
         }
       }
 
-      if (multiAxis && tab.exportAtlas && pitchLevels.length > 0) {
+      if (multiAxis && rec.exportAtlas && pitchLevels.length > 0) {
         const manifest = buildMultiAxisManifest({
           baseStem: allocatedBaseStem,
           pitchAngles,
@@ -1016,7 +1047,7 @@ export default function App() {
           yawColumns: totalFrames,
           sourceWidth: plannedCapture.outputSize.width,
           sourceHeight: plannedCapture.outputSize.height,
-          imageFormat: tab.imageFormat,
+          imageFormat: rec.imageFormat,
           atlasMaxEdge,
         })
         const manifestDir =
@@ -1042,15 +1073,16 @@ export default function App() {
     } catch (err) {
       patchRecordingTab({ error: err instanceof Error ? err.message : t('error.recordingFailed') })
     } finally {
-      if (multiAxis) {
+      if (multiAxis && !overrideProjection) {
         liveCaptureHandle.applyCameraPose(savedCamera)
-        patchRecordingTab({ camera: savedCamera })
       }
       patchRecordingTab({
         recording: false,
         exporting: false,
+        recordingJob: null,
         exportPhase: { kind: 'idle' },
         progressRad: 0,
+        camera: savedCamera,
       })
     }
   }
@@ -1160,6 +1192,7 @@ export default function App() {
         >
           {tabState.groups.map((group, index) => {
             const groupTab = getActiveTab(tabState, group.id)
+            const rec = recordingForTab(groupTab, recordingPrefs)
             const groupLocked = sessionLocked
             return (
               <div
@@ -1218,22 +1251,22 @@ export default function App() {
                         shadingMode={groupTab.shadingMode}
                           recordingMode={groupTab.recordingMode}
                         recording={groupTab.recording || groupTab.exporting}
-                          exportBackground={groupTab.exportBackground}
-                          imageFormat={groupTab.imageFormat}
+                          exportBackground={rec.exportBackground}
+                          imageFormat={rec.imageFormat}
                           exportMask={
                             groupTab.recordingMode === 'images' &&
                             needsExportMask({
-                              imageFormat: groupTab.imageFormat,
-                              exportBackground: groupTab.exportBackground,
-                              jpegNoBgMode: groupTab.jpegNoBgMode,
+                              imageFormat: rec.imageFormat,
+                              exportBackground: rec.exportBackground,
+                              jpegNoBgMode: rec.jpegNoBgMode,
                             })
                           }
                           exportFlattenColor={
                             groupTab.recordingMode === 'video'
-                              ? groupTab.videoFlattenColor
-                              : groupTab.imageFlattenColor
+                              ? rec.videoFlattenColor
+                              : rec.imageFlattenColor
                           }
-                        secondsPerRevolution={groupTab.secondsPerRevolution}
+                        secondsPerRevolution={rec.secondsPerRevolution}
                         msaa={performancePrefs.msaa}
                         maxTextureSize={performancePrefs.maxTextureSize}
                         autoNormalizeUnits={performancePrefs.autoNormalizeUnits !== false}
@@ -1273,11 +1306,15 @@ export default function App() {
                           )
                         }
                         onCameraChange={(key, value) =>
-                          setTabState(prev =>
-                            patchTab(prev, groupTab.id, {
-                              camera: { ...groupTab.camera, [key]: value },
-                            })
-                          )
+                          setTabState(prev => {
+                            const tab = prev.tabs.find(item => item.id === groupTab.id)
+                            if (!tab) return prev
+                            const camera =
+                              key === 'projection'
+                                ? withCameraProjection(tab.camera, value as CameraProjection)
+                                : { ...tab.camera, [key]: value }
+                            return patchTab(prev, groupTab.id, { camera })
+                          })
                         }
                         onCameraReset={() =>
                           setTabState(prev => patchTab(prev, groupTab.id, { camera: { ...DEFAULT_CAMERA } }))
@@ -1360,7 +1397,7 @@ export default function App() {
                     </>
                   ) : (
                     <div className="empty flex flex-col items-center justify-center gap-3">
-                      <div className="empty-brand flex flex-col items-center gap-2">
+                      <div className="empty-brand flex flex-col items-center">
                         <img src={logoUrl} alt="" className="empty-brand-logo" />
                         <h1 className="empty-title text-2xl font-semibold">SwiftMesh</h1>
                       </div>
@@ -1495,6 +1532,7 @@ export default function App() {
         }
         onPreferencesChange={prefs => {
           setRecordingEnabled(prefs.recording.enabled)
+          setRecordingPrefs(cloneRecordingPreferences(prefs.recording))
           setStatusBarVisible(prefs.general.statusBarVisible)
           confirmCloseTabsRef.current = prefs.general.confirmCloseTabs
           setPerformancePrefs(prefs.performance)

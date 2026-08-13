@@ -103,7 +103,7 @@ function TreeRow({
         >
           {hasChildren ? (
             <Icon
-              icon={isOpen ? 'material-symbols:expand-more' : 'material-symbols:chevron-right'}
+              icon={isOpen ? 'material-symbols:caret-down' : 'material-symbols:caret-right'}
               aria-hidden
             />
           ) : null}

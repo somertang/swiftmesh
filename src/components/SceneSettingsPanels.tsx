@@ -13,6 +13,7 @@ import {
 import { Icon } from '../icons'
 import { useT, type MessageKey } from '../i18n'
 import type { ShadingMode } from '../lib/shadingMode'
+import { CameraProjectionIcon } from './CameraProjectionIcon'
 import { ShadingToolbar } from './ShadingToolbar'
 
 type PanelId = 'lighting' | 'camera' | null
@@ -109,7 +110,12 @@ export const SceneSettingsPanels: FC<Props> = ({
 
   return (
     <div className="scene-settings">
-      <div className="scene-settings-toolbar" role="toolbar" aria-label={t('sceneSettings.aria')}>
+      <div
+        className="scene-settings-toolbar"
+        role="toolbar"
+        aria-orientation="vertical"
+        aria-label={t('sceneSettings.aria')}
+      >
         <ShadingToolbar
           mode={shadingMode}
           onChange={onShadingModeChange}
@@ -138,6 +144,29 @@ export const SceneSettingsPanels: FC<Props> = ({
           onClick={() => toggle('camera')}
         >
           <Icon icon="material-symbols:view-in-ar" aria-hidden />
+        </IconButton>
+        <IconButton
+          className="scene-settings-btn"
+          disabled={disabled}
+          title={
+            camera.projection === 'orthographic'
+              ? t('camera.projection.perspective')
+              : t('camera.projection.orthographic')
+          }
+          aria-label={
+            camera.projection === 'orthographic'
+              ? t('camera.projection.perspective')
+              : t('camera.projection.orthographic')
+          }
+          aria-pressed={camera.projection === 'orthographic'}
+          onClick={() =>
+            onCameraChange(
+              'projection',
+              camera.projection === 'orthographic' ? 'perspective' : 'orthographic'
+            )
+          }
+        >
+          <CameraProjectionIcon projection={camera.projection} />
         </IconButton>
       </div>
 
@@ -253,7 +282,7 @@ export const SceneSettingsPanels: FC<Props> = ({
             id="scene-fov"
             label={t('camera.fov')}
             value={camera.fov}
-            disabled={disabled}
+            disabled={disabled || camera.projection === 'orthographic'}
             step={1}
             min={10}
             max={120}

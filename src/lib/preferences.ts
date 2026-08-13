@@ -1,4 +1,5 @@
 import { DEFAULT_LIGHTING, type LightingSettings } from '../config/lightingDefaults'
+import { isRecordProjection, type RecordProjection } from '../config/cameraDefaults'
 import type {
   AtlasPackMode,
   JpegNoBgMode,
@@ -83,6 +84,8 @@ export type RecordingPreferences = {
   multiAxisEnabled: boolean
   /** Pitch angles in degrees (horizon = 0). */
   pitchAngles: number[]
+  /** Camera projection used when recording. `viewport` follows the live view. */
+  recordProjection: RecordProjection
 }
 
 export type StartupBehavior = 'blank' | 'restoreSession' | 'openRecent'
@@ -160,6 +163,11 @@ export const DEFAULT_RECORDING_PREFERENCES: RecordingPreferences = {
   imageOutputDir: '',
   multiAxisEnabled: false,
   pitchAngles: [...DEFAULT_PITCH_ANGLES],
+  recordProjection: 'viewport',
+}
+
+export function cloneRecordingPreferences(prefs: RecordingPreferences): RecordingPreferences {
+  return { ...prefs, pitchAngles: [...prefs.pitchAngles] }
 }
 
 export const RECENT_FILES_MAX_MIN = 5
@@ -427,6 +435,9 @@ export function normalizePreferences(raw: unknown): AppPreferences {
         typeof recordingRaw.imageOutputDir === 'string' ? recordingRaw.imageOutputDir.trim() : '',
       multiAxisEnabled: recordingRaw.multiAxisEnabled === true,
       pitchAngles: normalizePitchAngles(recordingRaw.pitchAngles),
+      recordProjection: isRecordProjection(recordingRaw.recordProjection)
+        ? recordingRaw.recordProjection
+        : DEFAULT_RECORDING_PREFERENCES.recordProjection,
     },
     lighting: {
       mode: isLightingMode(lightingRaw.mode) ? lightingRaw.mode : DEFAULT_LIGHTING.mode,

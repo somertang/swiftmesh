@@ -1,3 +1,16 @@
+export type CameraProjection = 'perspective' | 'orthographic'
+export type RecordProjection = 'viewport' | CameraProjection
+
+export const RECORD_PROJECTION_OPTIONS: RecordProjection[] = [
+  'viewport',
+  'perspective',
+  'orthographic',
+]
+
+export function isRecordProjection(value: unknown): value is RecordProjection {
+  return value === 'viewport' || value === 'perspective' || value === 'orthographic'
+}
+
 export type CameraSettings = {
   posX: number
   posY: number
@@ -6,6 +19,8 @@ export type CameraSettings = {
   targetY: number
   targetZ: number
   fov: number
+  projection: CameraProjection
+  zoom: number
 }
 
 /** Matches the previous hard-coded ViewerScene camera / OrbitControls. */
@@ -17,4 +32,6 @@ export const DEFAULT_CAMERA: CameraSettings = {
   targetY: 0.55,
   targetZ: 0,
   fov: 35,
+  projection: 'perspective',
+  zoom: 1,
 }
