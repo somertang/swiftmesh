@@ -5,6 +5,27 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.15] - 2026-08-13
+
+### Added
+
+- **Viewport camera:** Add a perspective / orthographic toggle, with Fit, zoom, and the NavGizmo working in both projections.
+- **Inspect tools:** Add surface annotate and two-point measure on the left toolbar. Hits work on the model, ground plane, or view plane, and overlay lines are not occluded by the mesh.
+- **Recording projection:** Add a capture projection option (follow viewport, perspective, or orthographic) used as the default for new recordings.
+
+### Changed
+
+- **Recording prefs:** Recording settings in Preferences apply to all tabs except the per-tab video / images mode; jobs already in progress keep the snapshot from when they started.
+- **Image export:** Multi-axis stills ask for one output folder and filename prefix before capture instead of prompting once per axis.
+- **Preferences:** Edits stay in a draft until Save; Discard reverts. Language and UI / model themes preview live and restore if the dialog is closed without saving. Reset to defaults uses an in-app confirm, then writes immediately (language is kept).
+- **Hierarchy:** Enlarge the filled caret expand controls so they match nearby tree icons.
+- **Viewport grid:** Thin the red / green world axes so they sit closer to the grey grid.
+- **Empty state:** Enlarge the New tab logo so it balances the SwiftMesh title; the titlebar logo is unchanged.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.2.14] - 2026-08-13
 
 ### Changed
