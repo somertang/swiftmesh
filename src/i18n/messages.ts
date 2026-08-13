@@ -178,7 +178,7 @@ export const en = {
   'prefs.uiTheme.night': 'Night',
   'prefs.recording.enabled': 'Enable recording',
   'prefs.recording.hint':
-    'These are global defaults for new tabs. The viewport record settings gear applies temporary overrides for the current tab only.',
+    'These settings apply to every open tab. The viewport button can still switch video vs images per tab. A recording or export already in progress keeps the settings it started with.',
   'prefs.lighting.hint':
     'These are global defaults for new tabs. The viewport lighting tool applies temporary overrides and is not saved.',
   'prefs.startupBehavior': 'On startup',
@@ -194,6 +194,13 @@ export const en = {
   'prefs.reset.action': 'Reset to defaults',
   'prefs.reset.confirm':
     'Reset all preferences to defaults? Language will be kept.',
+  'prefs.save': 'Save',
+  'prefs.discard': 'Discard',
+  'prefs.dontSave': "Don't save",
+  'prefs.unsaved.bar': 'You have unsaved changes',
+  'prefs.unsaved.title': 'Save changes?',
+  'prefs.unsaved.body':
+    'Your preference changes have not been saved. Save them, discard them, or keep editing.',
   'prefs.msaa': 'Anti-aliasing (MSAA)',
   'prefs.msaa.on': 'On',
   'prefs.msaa.off': 'Off',
@@ -236,6 +243,8 @@ export const en = {
   'prefs.desc.recordingEnabled': 'Show the turntable record button on model viewports.',
   'prefs.desc.recordingMode':
     'Default for new tabs and the quick-record button (video or frame images).',
+  'prefs.desc.recordProjection':
+    'Camera projection for recordings. Follow viewport uses the live view; Perspective and Orthographic override it for the capture, then restore.',
   'prefs.desc.secPerRev': 'Default seconds for one full turntable revolution (video mode).',
   'prefs.desc.export': 'Default video container format for new recordings.',
   'prefs.desc.size': 'Default output resolution preset for new recordings.',
@@ -294,6 +303,12 @@ export const en = {
   'camera.targetY': 'Target Y',
   'camera.targetZ': 'Target Z',
   'camera.fov': 'FOV',
+  'camera.projection.orthographic': 'Switch to orthographic',
+  'camera.projection.perspective': 'Switch to perspective',
+  'record.projection': 'Camera projection',
+  'record.projection.viewport': 'Follow viewport',
+  'record.projection.perspective': 'Perspective',
+  'record.projection.orthographic': 'Orthographic',
 
   'error.openFailed': 'Failed to open model.',
   'error.openFileFailed': 'Failed to open file.',
@@ -316,12 +331,19 @@ export const en = {
   'record.openingFile': 'Opening…',
   'record.openFailed': 'Could not open: {reason}',
 
-  'toolbar.aria': 'Scene inspect tools',
+  'toolbar.aria': 'Viewport tools',
   'tool.hierarchy': 'Hierarchy',
   'tool.textures': 'Textures',
   'tool.materials': 'Materials',
   'tool.geometries': 'Geometries',
   'tool.info': 'Info',
+  'tool.annotate': 'Annotate',
+  'tool.measure': 'Measure',
+  'tool.annotate.hint': 'Draw in the viewport',
+  'tool.measure.hint': 'Click two points',
+  'tool.annotate.clear': 'Clear annotations',
+  'tool.measure.clear': 'Clear measurements',
+  'tool.annotate.color': 'Stroke color',
 
   'shading.aria': 'Viewport shading',
   'shading.wireframe': 'Wireframe',
@@ -347,6 +369,7 @@ export const en = {
   'common.yes': 'Yes',
   'common.no': 'No',
   'common.ok': 'OK',
+  'common.cancel': 'Cancel',
   'common.name': 'Name',
 
   'hierarchy.search': 'Search hierarchy',
@@ -655,7 +678,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.uiTheme.night': 'Night',
   'prefs.recording.enabled': '启用录制',
   'prefs.recording.hint':
-    '以上为新标签的全局默认值。视口录制按钮旁的设置齿轮仅临时覆盖当前标签，不会写入偏好设置。',
+    '这些设置对所有已打开的标签生效。视口按钮仍可按标签切换视频/图片。已经开始的录制或导出会沿用开始时的参数。',
   'prefs.lighting.hint':
     '以上为新标签的全局默认值。视口光照工具为临时覆盖，不会写入偏好设置。',
   'prefs.startupBehavior': '启动时',
@@ -669,6 +692,12 @@ export const zh: Record<MessageKey, string> = {
   'prefs.reset': '恢复默认偏好',
   'prefs.reset.action': '恢复默认',
   'prefs.reset.confirm': '将全部偏好恢复为默认值？语言设置会保留。',
+  'prefs.save': '保存',
+  'prefs.discard': '放弃',
+  'prefs.dontSave': '不保存',
+  'prefs.unsaved.bar': '有未保存的更改',
+  'prefs.unsaved.title': '保存更改？',
+  'prefs.unsaved.body': '偏好设置尚未保存。可以选择保存、放弃，或继续编辑。',
   'prefs.msaa': '抗锯齿（MSAA）',
   'prefs.msaa.on': '开',
   'prefs.msaa.off': '关',
@@ -703,6 +732,8 @@ export const zh: Record<MessageKey, string> = {
   'prefs.desc.telemetry': '允许匿名使用数据。目前尚未采集任何数据，仅保存你的偏好。',
   'prefs.desc.recordingEnabled': '在模型视口上显示转台录制按钮。',
   'prefs.desc.recordingMode': '新标签与快捷录制按钮的默认模式（视频或逐帧图片）。',
+  'prefs.desc.recordProjection':
+    '录制使用的相机投影。跟随视口用当前视图；透视/正交会在录制时覆盖，结束后恢复。',
   'prefs.desc.secPerRev': '视频模式下，新标签默认一圈转台动画所需秒数。',
   'prefs.desc.export': '新录制默认使用的视频容器格式。',
   'prefs.desc.size': '新录制默认输出分辨率预设。',
@@ -761,6 +792,12 @@ export const zh: Record<MessageKey, string> = {
   'camera.targetY': '目标 Y',
   'camera.targetZ': '目标 Z',
   'camera.fov': '视场角',
+  'camera.projection.orthographic': '切换为正交视图',
+  'camera.projection.perspective': '切换为透视视图',
+  'record.projection': '相机投影',
+  'record.projection.viewport': '跟随视口',
+  'record.projection.perspective': '透视',
+  'record.projection.orthographic': '正交',
 
   'error.openFailed': '打开模型失败。',
   'error.openFileFailed': '打开文件失败。',
@@ -783,12 +820,19 @@ export const zh: Record<MessageKey, string> = {
   'record.openingFile': '正在打开…',
   'record.openFailed': '无法打开：{reason}',
 
-  'toolbar.aria': '场景检查工具',
+  'toolbar.aria': '视口工具',
   'tool.hierarchy': '层级',
   'tool.textures': '贴图',
   'tool.materials': '材质',
   'tool.geometries': '几何体',
   'tool.info': '信息',
+  'tool.annotate': '标注',
+  'tool.measure': '测量',
+  'tool.annotate.hint': '在视口中绘制',
+  'tool.measure.hint': '点两个点',
+  'tool.annotate.clear': '清除标注',
+  'tool.measure.clear': '清除测量',
+  'tool.annotate.color': '笔画颜色',
 
   'shading.aria': '视口着色',
   'shading.wireframe': '线框',
@@ -814,6 +858,7 @@ export const zh: Record<MessageKey, string> = {
   'common.yes': '是',
   'common.no': '否',
   'common.ok': '确定',
+  'common.cancel': '取消',
   'common.name': '名称',
 
   'hierarchy.search': '搜索层级',

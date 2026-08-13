@@ -9,7 +9,6 @@ import {
 import {
   MathUtils,
   Object3D,
-  PerspectiveCamera,
   Quaternion,
   Spherical,
   Vector3,
@@ -59,9 +58,9 @@ const AXIS_META: {
   { id: 'x', color: '#EA334C', label: 'X' },
   { id: 'y', color: '#80CA1E', label: 'Y' },
   { id: 'z', color: '#2D83E8', label: 'Z' },
-  { id: '-x', color: '#8a8a8a' },
-  { id: '-y', color: '#8a8a8a' },
-  { id: '-z', color: '#8a8a8a' },
+  { id: '-x', color: '#EA334C' },
+  { id: '-y', color: '#80CA1E' },
+  { id: '-z', color: '#2D83E8' },
 ]
 
 const TURN_RATE = 2.2 * Math.PI
@@ -103,7 +102,7 @@ export function NavGizmoBridge({
   const focusAxis = useCallback(
     (axis: NavAxisId) => {
       const orbit = controlsRef.current
-      if (!(camera instanceof PerspectiveCamera) || !orbit) return
+      if (!orbit) return
 
       animRef.current = null
       const focus = orbit.target.clone()
@@ -125,7 +124,7 @@ export function NavGizmoBridge({
   const orbitByDelta = useCallback(
     (deltaX: number, deltaY: number) => {
       const orbit = controlsRef.current
-      if (!(camera instanceof PerspectiveCamera) || !orbit) return
+      if (!orbit) return
 
       animRef.current = null
       _offset.copy(camera.position).sub(orbit.target)
@@ -156,7 +155,7 @@ export function NavGizmoBridge({
   }, [apiRef, focusAxis, orbitByDelta, notifyCameraSettled])
 
   useFrame((_, delta) => {
-    if (!(camera instanceof PerspectiveCamera)) return
+    if (!camera) return
 
     _qCam.copy(camera.quaternion).invert()
     orientationRef.current = {
@@ -403,7 +402,12 @@ export function NavGizmoCard({ apiRef, orientationRef }: NavGizmoCardProps) {
                 }}
               >
                 <circle className="nav-gizmo-tip-hit" r={positive ? 12 : 8} fill="transparent" />
-                <circle className="nav-gizmo-tip-dot" r={positive ? 8.5 : 3.6} fill={meta.color} />
+                <circle
+                  className="nav-gizmo-tip-dot"
+                  r={positive ? 8.5 : 3.6}
+                  fill={meta.color}
+                  fillOpacity={positive ? 1 : 0.45}
+                />
                 {meta.label ? (
                   <text
                     className="nav-gizmo-tip-label"

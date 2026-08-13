@@ -165,6 +165,14 @@ export type DesktopApi = {
   ) => Promise<SaveRecordingResult>
   /** Pick a folder for default recording output (null if canceled). */
   chooseRecordingOutputDir: () => Promise<string | null>
+  /**
+   * One Save As for images export: returns folder + filename stem, or null if canceled.
+   * When `outputDir` is a writable folder, writes there silently.
+   */
+  pickImagesOutputBase: (payload: {
+    defaultName: string
+    outputDir?: string
+  }) => Promise<{ dir: string; stem: string } | null>
   /** Write a JSON manifest next to recording outputs (narrow write API). */
   writeRecordingManifest: (payload: {
     outputDir: string

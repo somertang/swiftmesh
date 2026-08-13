@@ -20,13 +20,13 @@ import {
   CanvasTexture,
   Color,
   Fog,
-  GridHelper,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   MOUSE,
   NeutralToneMapping,
   Object3D,
+  OrthographicCamera,
   PerspectiveCamera,
   PMREMGenerator,
   Quaternion,
@@ -34,6 +34,7 @@ import {
   SRGBColorSpace,
   Vector2,
   Vector3,
+  type Camera,
   WebGLRenderTarget,
   RGBAFormat,
   UnsignedByteType,
@@ -46,17 +47,21 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { type CameraSettings } from '../config/cameraDefaults'
+import { DEFAULT_CAMERA, type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
 import type { RecordingImageFormat, RecordingMode } from '../desktopTypes'
 import { DEFAULT_FLATTEN_COLOR, normalizeFlattenColor } from '../lib/recordingPresets'
 import {
+  applyCameraSettings,
   cameraSettingsEqual,
   focusCameraOnObject,
+  isViewCamera,
   readCameraSettings,
   resolveHierarchyObject,
   setOrbitElevationDegrees as applyLiveOrbitElevation,
+  syncOrthoFrustum,
   worldSizeFromScreenSize,
+  type ViewCamera,
 } from '../lib/cameraFocus'
 import { configureGltfLoader, getKtx2Loader } from '../lib/configureGltfLoader'
 import {
@@ -73,12 +78,16 @@ import {
   type HierarchyNode,
 } from '../lib/sceneHierarchy'
 import { createStudioLightScene } from '../lib/studioLightScene'
+import { InfiniteGroundGrid } from './InfiniteGroundGrid'
 import { HierarchyPanel } from './HierarchyPanel'
 import { GeometriesPanel } from './inspect/GeometriesPanel'
 import { InfoPanel } from './inspect/InfoPanel'
-import type { InspectPanelId } from './inspect/InspectPanelShell'
 import { MaterialsPanel } from './inspect/MaterialsPanel'
 import { TexturesPanel } from './inspect/TexturesPanel'
+import { SurfaceAnnotate, type AnnotateStroke } from './SurfaceAnnotate'
+import { SurfaceMeasure, type Measurement } from './SurfaceMeasure'
+import { ViewportToolOptions } from './ViewportToolOptions'
+import { isSurfaceToolId, type ViewportToolId } from '../lib/viewportTools'
 import { limitObjectTextures } from '../lib/limitObjectTextures'
 import {
   computeSceneHelperExtents,
@@ -105,6 +114,7 @@ import { usePreviewTheme } from '../previewTheme'
 type OrbitControlsLike = {
   target: Vector3
   update: () => void
+  object?: Camera
 }
 
 /** @deprecated Prefer sceneBgCssForTheme — kept for callers expecting the simple theme. */
@@ -453,7 +463,7 @@ function SelectionOverlay({ object }: { object: Object3D | null }) {
   }, [object, wireMaterial])
 
   useFrame(() => {
-    if (!object || !(camera instanceof PerspectiveCamera)) return
+    if (!object || !isViewCamera(camera)) return
     const wire = wireRef.current
     const axes = axesRef.current
 
@@ -497,7 +507,7 @@ function SelectionFocuser({
 
   useEffect(() => {
     if (!enabled || !object || focusToken <= 0) return
-    if (!(camera instanceof PerspectiveCamera)) return
+    if (!isViewCamera(camera)) return
     focusCameraOnObject(object, camera, controls)
     onCameraSettled?.()
   }, [object, focusToken, enabled, camera, controls, onCameraSettled])
@@ -518,7 +528,7 @@ function InitialModelFitter({
 
   useLayoutEffect(() => {
     if (!modelRoot || !controls) return
-    if (!(camera instanceof PerspectiveCamera)) return
+    if (!isViewCamera(camera)) return
     focusCameraOnObject(modelRoot, camera, controls)
     onCameraSettled?.()
   }, [modelRoot, camera, controls, onCameraSettled])
@@ -700,70 +710,8 @@ function Ground({ size }: { size: number }) {
   )
 }
 
-/** World-origin XYZ shafts; hide while recording so they never appear in exports. */
-function OriginAxes({ visible = true, length }: { visible?: boolean; length: number }) {
-  const axes = useMemo(() => {
-    const root = new Object3D()
-    // headLength = 0 matches glb-viewer-core (line shafts only, no cones)
-    root.add(new ArrowHelper(new Vector3(1, 0, 0), new Vector3(0, 0, 0), length, '#EA334C', 0))
-    root.add(new ArrowHelper(new Vector3(0, 1, 0), new Vector3(0, 0, 0), length, '#80CA1E', 0))
-    root.add(new ArrowHelper(new Vector3(0, 0, 1), new Vector3(0, 0, 0), length, '#2D83E8', 0))
-    return root
-  }, [length])
-
-  useEffect(() => {
-    return () => {
-      for (const child of axes.children) {
-        if (child instanceof ArrowHelper) child.dispose()
-      }
-    }
-  }, [axes])
-
-  if (!visible) return null
-  return <primitive object={axes} />
-}
-
-function ProfessionalFloor({
-  showAxes,
-  gridSize,
-  gridDivisions,
-  axesLength,
-}: {
-  showAxes: boolean
-  gridSize: number
-  gridDivisions: number
-  axesLength: number
-}) {
-  const grid = useMemo(() => {
-    const helper = new GridHelper(gridSize, gridDivisions, '#4B4B4B', '#4B4B4B')
-    const material = helper.material
-    if (Array.isArray(material)) {
-      for (const mat of material) mat.depthWrite = false
-    } else {
-      material.depthWrite = false
-    }
-    helper.renderOrder = -999999
-    return helper
-  }, [gridSize, gridDivisions])
-
-  useEffect(() => {
-    return () => {
-      grid.geometry.dispose()
-      const material = grid.material
-      if (Array.isArray(material)) {
-        for (const mat of material) mat.dispose()
-      } else {
-        material.dispose()
-      }
-    }
-  }, [grid])
-
-  return (
-    <>
-      <primitive object={grid} />
-      <OriginAxes visible={showAxes} length={axesLength} />
-    </>
-  )
+function ProfessionalFloor({ fadeDistance }: { fadeDistance: number }) {
+  return <InfiniteGroundGrid fadeDistance={fadeDistance} />
 }
 
 function SoftContactShadow({ size }: { size: number }) {
@@ -1244,7 +1192,7 @@ function CaptureBridge({
        * each pitch starts from the same freeze-frame pose).
        */
       setOrbitElevationDegrees: (elevationDeg: number, baseSettings?: CameraSettings) => {
-        if (!(camera instanceof PerspectiveCamera)) return
+        if (!isViewCamera(camera)) return
         if (baseSettings) {
           applyCameraSettings(camera, controls, baseSettings)
         }
@@ -1252,7 +1200,7 @@ function CaptureBridge({
       },
       /** Restore a full CameraSettings pose (e.g. after multi-axis batch). */
       applyCameraPose: (settings: CameraSettings) => {
-        if (!(camera instanceof PerspectiveCamera)) return
+        if (!isViewCamera(camera)) return
         applyCameraSettings(camera, controls, settings)
       },
       planCapture: (
@@ -1440,22 +1388,6 @@ function CaptureBridge({
   return null
 }
 
-function applyCameraSettings(
-  camera: PerspectiveCamera,
-  controls: OrbitControlsLike | null | undefined,
-  cameraSettings: CameraSettings
-) {
-  camera.position.set(cameraSettings.posX, cameraSettings.posY, cameraSettings.posZ)
-  camera.fov = cameraSettings.fov
-  camera.near = 0.1
-  camera.far = 100
-  camera.updateProjectionMatrix()
-
-  if (!controls) return
-  controls.target.set(cameraSettings.targetX, cameraSettings.targetY, cameraSettings.targetZ)
-  controls.update()
-}
-
 /**
  * Reads live camera into panel settings (viewport → panel), with dedupe.
  * Must run inside the R3F Canvas tree.
@@ -1469,17 +1401,25 @@ function useViewportCameraPublisher(
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
 
   return useCallback(() => {
-    if (!(camera instanceof PerspectiveCamera)) return
-    const next = readCameraSettings(camera, controls)
+    if (!isViewCamera(camera)) return
+    const next = readCameraSettings(camera, controls, cameraSettingsRef.current)
     if (cameraSettingsEqual(next, cameraSettingsRef.current)) return
     syncSourceRef.current = 'viewport'
     onCameraSettingsChangeRef.current?.(next)
   }, [camera, controls, syncSourceRef, cameraSettingsRef, onCameraSettingsChangeRef])
 }
 
+function syncActiveFrustum(camera: ViewCamera, controls: OrbitControlsLike | null, fov: number, aspect: number) {
+  if (camera instanceof OrthographicCamera) {
+    const distance = controls ? Math.max(camera.position.distanceTo(controls.target), 0.001) : 1
+    syncOrthoFrustum(camera, fov, distance, aspect)
+  }
+  camera.updateProjectionMatrix()
+}
+
 /**
- * Applies panel camera settings when they change from the panel.
- * Skips viewport writebacks and does not re-apply merely because recording ended.
+ * Owns perspective + orthographic cameras, swaps R3F default on projection
+ * change, and applies panel camera settings. Skips pose writebacks from the viewport.
  */
 function CameraRig({
   cameraSettings,
@@ -1490,35 +1430,62 @@ function CameraRig({
   recording: boolean
   syncSourceRef: MutableRefObject<'panel' | 'viewport'>
 }) {
-  const camera = useThree(s => s.camera)
-  const controls = useThree(s => s.controls) as OrbitControlsLike | null
+  const set = useThree(s => s.set)
+  const get = useThree(s => s.get)
+  const size = useThree(s => s.size)
+  const persp = useMemo(() => new PerspectiveCamera(DEFAULT_CAMERA.fov, 1, 0.1, 100), [])
+  const ortho = useMemo(() => new OrthographicCamera(-1, 1, 1, -1, 0.1, 100), [])
   const appliedRef = useRef<CameraSettings | null>(null)
 
   useLayoutEffect(() => {
-    if (recording) return
-    if (!(camera instanceof PerspectiveCamera)) return
+    const aspect = size.width / Math.max(size.height, 1)
+    persp.aspect = aspect
+
+    const nextCam = cameraSettings.projection === 'orthographic' ? ortho : persp
+    const state = get()
+    if (state.camera !== nextCam) {
+      nextCam.position.copy(state.camera.position)
+      nextCam.quaternion.copy(state.camera.quaternion)
+      nextCam.up.copy(state.camera.up)
+      nextCam.near = state.camera.near
+      nextCam.far = state.camera.far
+      set({ camera: nextCam })
+      const swapped = state.controls as OrbitControlsLike | null
+      if (swapped && 'object' in swapped) swapped.object = nextCam
+    }
+
+    const camera = nextCam
+    const controls = get().controls as OrbitControlsLike | null
+
+    if (recording) {
+      syncActiveFrustum(camera, controls, cameraSettings.fov, aspect)
+      return
+    }
 
     if (syncSourceRef.current === 'viewport') {
       syncSourceRef.current = 'panel'
       appliedRef.current = cameraSettings
+      syncActiveFrustum(camera, controls, cameraSettings.fov, aspect)
       return
     }
 
-    if (appliedRef.current && cameraSettingsEqual(appliedRef.current, cameraSettings)) {
-      return
-    }
-
-    const live = readCameraSettings(camera, controls)
-    if (cameraSettingsEqual(live, cameraSettings)) {
+    if (!appliedRef.current || !cameraSettingsEqual(appliedRef.current, cameraSettings)) {
+      const live = readCameraSettings(camera, controls, cameraSettings)
+      if (!cameraSettingsEqual(live, cameraSettings)) {
+        applyCameraSettings(camera, controls, cameraSettings, aspect)
+      }
       appliedRef.current = cameraSettings
-      return
     }
 
-    applyCameraSettings(camera, controls, cameraSettings)
-    appliedRef.current = cameraSettings
-  }, [camera, controls, cameraSettings, recording, syncSourceRef])
+    syncActiveFrustum(camera, controls, cameraSettings.fov, aspect)
+  }, [cameraSettings, recording, syncSourceRef, size.width, size.height, get, set, persp, ortho])
 
-  return null
+  return (
+    <>
+      <primitive object={persp} />
+      <primitive object={ortho} />
+    </>
+  )
 }
 
 /** Wires Orbit / fit / pick / gizmo camera writeback inside the Canvas. */
@@ -1529,6 +1496,7 @@ function ViewportCameraControls({
   recording,
   cameraSettings,
   interactive,
+  orbitRotate,
   mouseButtons,
   isProfessional,
   navGizmoApiRef,
@@ -1544,6 +1512,7 @@ function ViewportCameraControls({
   recording: boolean
   cameraSettings: CameraSettings
   interactive: boolean
+  orbitRotate: boolean
   mouseButtons: { LEFT: number; MIDDLE: number; RIGHT: number }
   isProfessional: boolean
   navGizmoApiRef: MutableRefObject<NavGizmoApi | null>
@@ -1561,12 +1530,17 @@ function ViewportCameraControls({
 
   return (
     <>
+      <CameraRig
+        cameraSettings={cameraSettings}
+        recording={recording}
+        syncSourceRef={syncSourceRef}
+      />
       <OrbitControls
         makeDefault
         enableDamping
         dampingFactor={0.08}
         enablePan={interactive}
-        enableRotate={interactive}
+        enableRotate={interactive && orbitRotate}
         enableZoom={interactive}
         screenSpacePanning
         mouseButtons={mouseButtons}
@@ -1579,13 +1553,8 @@ function ViewportCameraControls({
           onCameraSettled={publishCamera}
         />
       ) : null}
-      <CameraRig
-        cameraSettings={cameraSettings}
-        recording={recording}
-        syncSourceRef={syncSourceRef}
-      />
       <InitialModelFitter modelRoot={modelRoot} onCameraSettled={publishCamera} />
-      <ClickPicker enabled={interactive} modelRoot={modelRoot} onPick={onPick} />
+      <ClickPicker enabled={interactive && orbitRotate} modelRoot={modelRoot} onPick={onPick} />
       <SelectionOverlay object={selectedObject} />
       <SelectionFocuser
         object={selectedObject}
@@ -1717,7 +1686,10 @@ export function ViewerScene({
   onCameraSettingsChangeRef.current = onCameraSettingsChange
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusToken, setFocusToken] = useState(0)
-  const [activeTool, setActiveTool] = useState<InspectPanelId | null>(null)
+  const [activeTool, setActiveTool] = useState<ViewportToolId | null>(null)
+  const [annotateColor, setAnnotateColor] = useState('#EA334C')
+  const [strokes, setStrokes] = useState<AnnotateStroke[]>([])
+  const [measurements, setMeasurements] = useState<Measurement[]>([])
   const objectsRef = useRef<Map<string, Object3D>>(new Map())
   const onLoadingRef = useRef(onLoading)
   const onErrorRef = useRef(onError)
@@ -1745,6 +1717,8 @@ export function ViewerScene({
     setHierarchyRoot(null)
     setModelRoot(null)
     setInspectRoot(null)
+    setStrokes([])
+    setMeasurements([])
     objectsRef.current = new Map()
   }, [modelKey])
 
@@ -1823,7 +1797,7 @@ export function ViewerScene({
     }
   }, [modelRoot, shadingMode, lightingSettings.envIntensity, lightingSettings.mode])
 
-  const handleToolToggle = useCallback((id: InspectPanelId) => {
+  const handleToolToggle = useCallback((id: ViewportToolId) => {
     setActiveTool(prev => (prev === id ? null : id))
   }, [])
 
@@ -1841,7 +1815,20 @@ export function ViewerScene({
 
   return (
     <div className="scene-root">
-      <ViewportToolbar active={activeTool} onToggle={handleToolToggle} disabled={!modelRoot} />
+      {!recording ? (
+        <ViewportToolbar active={activeTool} onToggle={handleToolToggle} disabled={!modelRoot} />
+      ) : null}
+      {!recording ? (
+        <ViewportToolOptions
+          active={activeTool}
+          annotateColor={annotateColor}
+          onAnnotateColorChange={setAnnotateColor}
+          canClearAnnotate={strokes.length > 0}
+          canClearMeasure={measurements.length > 0}
+          onClearAnnotate={() => setStrokes([])}
+          onClearMeasure={() => setMeasurements([])}
+        />
+      ) : null}
       {isProfessional && !recording ? (
         <NavGizmoCard apiRef={navGizmoApiRef} orientationRef={navGizmoOrientationRef} />
       ) : null}
@@ -1874,12 +1861,6 @@ export function ViewerScene({
         key={`aa-${msaa ? 'on' : 'off'}`}
         className="scene-canvas"
         style={{ display: 'block', width: '100%', height: '100%', background: sceneBgCss }}
-        camera={{
-          position: [cameraSettings.posX, cameraSettings.posY, cameraSettings.posZ],
-          fov: cameraSettings.fov,
-          near: 0.1,
-          far: 100,
-        }}
         gl={{
           antialias: msaa,
           // Always RGBA so PNG/WebP "no background" can capture true transparency
@@ -1921,12 +1902,9 @@ export function ViewerScene({
         />
         <group ref={exportHelpersRef} visible={!noExportBackground}>
           {isProfessional ? (
-            <ProfessionalFloor
-              showAxes={!recording}
-              gridSize={helperExtents.gridSize}
-              gridDivisions={helperExtents.gridDivisions}
-              axesLength={helperExtents.axesLength}
-            />
+            recording ? null : (
+              <ProfessionalFloor fadeDistance={Math.max(50, helperExtents.fogFar)} />
+            )
           ) : (
             <>
               <Ground size={helperExtents.groundSize} />
@@ -1946,12 +1924,28 @@ export function ViewerScene({
           navGizmoOrientationRef={navGizmoOrientationRef}
           isProfessional={isProfessional}
           interactive={interactive}
+          orbitRotate={!isSurfaceToolId(activeTool)}
           mouseButtons={mouseButtons}
           cameraSettings={cameraSettings}
           modelRoot={modelRoot}
           selectedObject={selectedObject}
           focusToken={focusToken}
           onPick={handlePick}
+        />
+        <SurfaceAnnotate
+          enabled={interactive && activeTool === 'annotate'}
+          visible={!recording}
+          modelRoot={modelRoot}
+          color={annotateColor}
+          strokes={strokes}
+          onStrokesChange={setStrokes}
+        />
+        <SurfaceMeasure
+          enabled={interactive && activeTool === 'measure'}
+          visible={!recording}
+          modelRoot={modelRoot}
+          measurements={measurements}
+          onMeasurementsChange={setMeasurements}
         />
         <Suspense fallback={null}>
           <ModelLoadErrorBoundary resetKey={modelKey} onError={handleLoadError}>

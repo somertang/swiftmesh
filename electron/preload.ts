@@ -42,6 +42,12 @@ const desktop: DesktopApi = {
   chooseRecordingOutputDir: (): Promise<string | null> =>
     ipcRenderer.invoke('desktop:choose-recording-output-dir'),
 
+  pickImagesOutputBase: (payload: {
+    defaultName: string
+    outputDir?: string
+  }): Promise<{ dir: string; stem: string } | null> =>
+    ipcRenderer.invoke('desktop:pick-images-output-base', payload),
+
   writeRecordingManifest: (payload: {
     outputDir: string
     fileName: string

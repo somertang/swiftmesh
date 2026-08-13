@@ -1,24 +1,24 @@
 import { DEFAULT_CAMERA, type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
 import type { ExportPhase } from '../components/ExportProgressModal'
-import type {
-  AtlasPackMode,
-  JpegNoBgMode,
-  RecordingExportFormat,
-  RecordingImageFormat,
-  RecordingMode,
-  RecordingQuality,
-  RecordingSequencePackage,
-} from '../desktopTypes'
+import type { RecordingMode } from '../desktopTypes'
 import { basenameOf, revokeModelSource, type ModelSource } from './modelSource'
 import {
   DEFAULT_RECORDING_PREFERENCES,
   readPreferences,
   type AppPreferences,
+  type RecordingPreferences,
 } from './preferences'
 import { DEFAULT_SHADING_MODE, type ShadingMode } from './shadingMode'
 
 export const DEFAULT_SECONDS_PER_REV = DEFAULT_RECORDING_PREFERENCES.secondsPerRevolution
+
+export function recordingForTab(
+  tab: Pick<ModelTab, 'recordingJob'>,
+  live: RecordingPreferences
+): RecordingPreferences {
+  return tab.recordingJob ?? live
+}
 
 export type ModelTab = {
   id: string
@@ -27,31 +27,8 @@ export type ModelTab = {
   lighting: LightingSettings
   shadingMode: ShadingMode
   recordingMode: RecordingMode
-  videoExportFormat: RecordingExportFormat
-  videoSizeId: string
-  videoQuality: RecordingQuality
-  secondsPerRevolution: number
-  recordingFps: number
-  exportSequence: boolean
-  exportAtlas: boolean
-  exportBackground: boolean
-  jpegNoBgMode: JpegNoBgMode
-  imageFlattenColor: string
-  videoFlattenColor: string
-  atlasPackMode: AtlasPackMode
-  atlasMaxEdge: number
-  imageFormat: RecordingImageFormat
-  imageQuality: number
-  sequencePackage: RecordingSequencePackage
-  imageSizeId: string
-  imageCustomWidth: number
-  imageCustomHeight: number
-  videoCustomWidth: number
-  videoCustomHeight: number
-  imageCaptureQuality: RecordingQuality
-  frameCount: number
-  multiAxisEnabled: boolean
-  pitchAngles: number[]
+  /** Frozen recording prefs for an in-progress capture/export; otherwise live preferences apply. */
+  recordingJob: RecordingPreferences | null
   loading: boolean
   recording: boolean
   exporting: boolean
@@ -122,31 +99,7 @@ export function createEmptyTab(prefs?: AppPreferences): ModelTab {
       : { mode: 'studio', exposure: 1, envIntensity: 1 },
     shadingMode: DEFAULT_SHADING_MODE,
     recordingMode: recording.recordingMode,
-    videoExportFormat: recording.videoExportFormat,
-    videoSizeId: recording.videoSizeId,
-    videoQuality: recording.videoQuality,
-    secondsPerRevolution: recording.secondsPerRevolution,
-    recordingFps: recording.recordingFps,
-    exportSequence: recording.exportSequence,
-    exportAtlas: recording.exportAtlas,
-    exportBackground: recording.exportBackground,
-    jpegNoBgMode: recording.jpegNoBgMode,
-    imageFlattenColor: recording.imageFlattenColor,
-    videoFlattenColor: recording.videoFlattenColor,
-    atlasPackMode: recording.atlasPackMode,
-    atlasMaxEdge: recording.atlasMaxEdge,
-    imageFormat: recording.imageFormat,
-    imageQuality: recording.imageQuality,
-    sequencePackage: recording.sequencePackage,
-    imageSizeId: recording.imageSizeId,
-    imageCustomWidth: recording.imageCustomWidth,
-    imageCustomHeight: recording.imageCustomHeight,
-    videoCustomWidth: recording.videoCustomWidth,
-    videoCustomHeight: recording.videoCustomHeight,
-    imageCaptureQuality: recording.imageCaptureQuality,
-    frameCount: recording.frameCount,
-    multiAxisEnabled: recording.multiAxisEnabled,
-    pitchAngles: [...recording.pitchAngles],
+    recordingJob: null,
     loading: false,
     recording: false,
     exporting: false,
