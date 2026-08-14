@@ -31,7 +31,10 @@ import {
   collectMtlTextureUris,
   collectObjMtllibs,
   detectModelFormat,
+  isFbxTextureFileName,
+  MODEL_FORMAT_LIST,
   normalizeAssetPath,
+  stemFromName,
 } from '../src/lib/modelSource'
 import {
   isLocale,
@@ -364,6 +367,40 @@ async function collectSidecars(filePath: string, format: NonNullable<ReturnType<
     return companions
   }
 
+  if (format === 'fbx') {
+    const stem = stemFromName(filePath)
+    try {
+      const entries = await fs.readdir(baseDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile() || !isFbxTextureFileName(entry.name)) continue
+        try {
+          await add(entry.name)
+        } catch {
+          /* optional textures */
+        }
+      }
+    } catch {
+      /* ignore unreadable directory */
+    }
+    const fbmDir = path.join(baseDir, `${stem}.fbm`)
+    try {
+      const fbmEntries = await fs.readdir(fbmDir, { withFileTypes: true })
+      for (const entry of fbmEntries) {
+        if (!entry.isFile() || !isFbxTextureFileName(entry.name)) continue
+        try {
+          await add(`${stem}.fbm/${entry.name}`)
+        } catch {
+          /* optional textures */
+        }
+      }
+    } catch {
+      /* no .fbm folder */
+    }
+    return companions
+  }
+
+  if (format !== 'obj') return companions
+
   const objText = new TextDecoder('utf-8').decode(mainData)
   for (const mtl of collectObjMtllibs(objText)) {
     try {
@@ -391,7 +428,7 @@ async function collectSidecars(filePath: string, format: NonNullable<ReturnType<
 
 async function readModelFile(filePath: string): Promise<OpenedModel> {
   const format = detectModelFormat(filePath)
-  if (!format) throw new Error('Not a supported model file (.glb / .gltf / .obj)')
+  if (!format) throw new Error(`Not a supported model file (${MODEL_FORMAT_LIST})`)
   const buffer = await fs.readFile(filePath)
   const data = toArrayBuffer(buffer)
   const companions = await collectSidecars(filePath, format, data)
@@ -711,10 +748,11 @@ async function openModelDialog() {
     title: t('menu.openDialogTitle'),
     properties: ['openFile'],
     filters: [
-      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj'] },
+      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj', 'fbx'] },
       { name: t('menu.filterGlb'), extensions: ['glb'] },
       { name: t('menu.filterGltf'), extensions: ['gltf'] },
       { name: t('menu.filterObj'), extensions: ['obj'] },
+      { name: t('menu.filterFbx'), extensions: ['fbx'] },
     ],
   })
   if (result.canceled || result.filePaths.length === 0) return null

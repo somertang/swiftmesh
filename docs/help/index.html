@@ -286,7 +286,7 @@
           <p>
             SwiftMesh is a desktop app for Windows and macOS for viewing local 3D models,
             inspecting scene data, and capturing a one-revolution turntable as video or stills.
-            Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, and <strong>.obj</strong>.
+            Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, <strong>.obj</strong>, and <strong>.fbx</strong>.
           </p>
         </header>
 
@@ -320,11 +320,12 @@
             <li>On an empty tab, use <strong>Open local file</strong>.</li>
             <li>Drag and drop a model onto the viewport (disabled while recording or exporting).</li>
             <li><strong>File → Open Recent</strong> lists recent absolute paths; use <strong>Clear Recent</strong> to empty the list.</li>
-            <li>On Windows, file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> with SwiftMesh (“Open with”). On macOS, use Open With or set SwiftMesh as the default app for those types.</li>
+            <li>On Windows, file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> / <code>.fbx</code> with SwiftMesh (“Open with”). On macOS, use Open With or set SwiftMesh as the default app for those types.</li>
           </ul>
           <p>
             For <code>.gltf</code> and <code>.obj</code> with external buffers, materials, or textures,
             keep companion files next to the model so SwiftMesh can resolve them from the same folder.
+            For <code>.fbx</code>, sibling textures and a <code>{name}.fbm</code> folder are optional (missing maps do not block opening).
           </p>
           <figure class="shot">
             <img src="../assets/shots/open.png" width="1280" height="720" alt="SwiftMesh with multiple model tabs open" />
@@ -435,6 +436,11 @@
               </tr>
             </tbody>
           </table>
+          <p>
+            When a <code>.glb</code>, <code>.gltf</code>, or <code>.fbx</code> file includes animation clips,
+            a playback bar appears at the bottom of the viewport (play / pause, clip list, scrub, loop).
+            Playback does not start automatically.
+          </p>
           <figure class="shot">
             <img src="../assets/shots/inspect.png" width="1280" height="720" alt="Inspect panel open beside the 3D viewport" />
             <figcaption>Inspect panels dock beside the 3D view.</figcaption>
@@ -449,7 +455,7 @@
             <strong>Preferences → Recording</strong>.
           </p>
           <ul>
-            <li><strong>Start video recording</strong> captures one turntable revolution as MP4 and/or WebM.</li>
+            <li><strong>Start video recording</strong> captures one turntable revolution as MP4 and/or WebM. If a clip is playing, skeletal animation is sampled into the same frames; if paused, the current pose is held.</li>
             <li><strong>Start image export</strong> captures stills (frame sequence and/or spritesheet atlas).</li>
             <li>Use <strong>Switch to frame images</strong> / <strong>Switch to video recording</strong> to change mode on the current tab only.</li>
             <li>A progress dialog can <strong>Stop recording</strong> (confirm <strong>Stop recording now?</strong>).</li>
@@ -633,7 +639,7 @@
           <h2>10. Limitations</h2>
           <ul>
             <li>Local files only — no remote URL or cloud loading.</li>
-            <li>Formats limited to <code>.glb</code>, <code>.gltf</code>, and <code>.obj</code>.</li>
+            <li>Formats: <code>.glb</code>, <code>.gltf</code>, <code>.obj</code>, and <code>.fbx</code>. The FBX loader covers ASCII and common binary meshes, skins, Lambert/Phong and some PBR, and clips — not Maya NURBS, every newer binary variant, or complex shaders. Coordinates are converted to Y-up by the loader.</li>
             <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>
             <li>In-app auto-update targets packaged Windows NSIS installs only. macOS checks Releases and you install the DMG manually. Portable and dev sessions cannot auto-update.</li>
             <li>One turntable revolution per video pass; image mode can also export a sequence, atlas, or multi-axis batch.</li>

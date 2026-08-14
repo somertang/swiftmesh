@@ -1,4 +1,5 @@
 import { toEvenDimension } from './recordingPresets'
+import type { CaptureFrameOptions } from './modelAnimation'
 import type { CaptureHandle } from '../components/ViewerScene'
 
 export type RecordingOutputSize = {
@@ -21,6 +22,8 @@ export type CaptureFrameSequenceOptions = {
   renderScale?: number
   /** Capture companion grayscale mask PNGs after each color frame. */
   exportMask?: boolean
+  /** Encode fps — used to seek skeletal animation during offline capture. */
+  fps?: number
 }
 
 /**
@@ -37,6 +40,7 @@ export async function captureFrameSequence({
   signal,
   renderScale = 1,
   exportMask = false,
+  fps,
 }: CaptureFrameSequenceOptions): Promise<number> {
   const tw = toEvenDimension(outputSize.width)
   const th = toEvenDimension(outputSize.height)
@@ -45,7 +49,14 @@ export async function captureFrameSequence({
     if (signal?.aborted) break
 
     const rotationY = (Math.PI * 2 * i) / totalFrames
-    const pngData = await captureHandle.captureFrame(rotationY, { width: tw, height: th }, renderScale)
+    const capture: CaptureFrameOptions | undefined =
+      fps != null ? { frameIndex: i, fps } : undefined
+    const pngData = await captureHandle.captureFrame(
+      rotationY,
+      { width: tw, height: th },
+      renderScale,
+      capture
+    )
     if (i === 0 && !isLikelyPng(pngData)) {
       throw new Error('Captured frame is invalid (PNG signature check failed).')
     }
@@ -54,7 +65,12 @@ export async function captureFrameSequence({
       if (!captureHandle.captureMaskFrame) {
         throw new Error('Mask export requested but capture handle has no mask pass.')
       }
-      maskData = await captureHandle.captureMaskFrame(rotationY, { width: tw, height: th }, renderScale)
+      maskData = await captureHandle.captureMaskFrame(
+        rotationY,
+        { width: tw, height: th },
+        renderScale,
+        capture
+      )
       if (!isLikelyPng(maskData)) {
         throw new Error('Captured mask frame is invalid (PNG signature check failed).')
       }

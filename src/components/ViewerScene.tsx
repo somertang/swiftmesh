@@ -14,12 +14,16 @@ import {
 } from 'react'
 import {
   AlwaysDepth,
+  AnimationAction,
+  AnimationClip,
+  AnimationMixer,
   ArrowHelper,
   Box3,
   BufferGeometry,
   CanvasTexture,
   Color,
   Fog,
+  Group,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -38,11 +42,11 @@ import {
   WebGLRenderTarget,
   RGBAFormat,
   UnsignedByteType,
-  type Group,
   type Material,
   type Texture,
   type ColorSpace,
 } from 'three'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
@@ -65,6 +69,17 @@ import {
   type ViewCamera,
 } from '../lib/cameraFocus'
 import { configureGltfLoader, getKtx2Loader } from '../lib/configureGltfLoader'
+import { configureFbxLoader } from '../lib/configureFbxLoader'
+import {
+  applyClipLoop,
+  bindClipAction,
+  captureSeekTime,
+  createAnimationMixer,
+  seekAction,
+  type AnimationCaptureApi,
+  type AnimationPlaybackSnapshot,
+  type CaptureFrameOptions,
+} from '../lib/modelAnimation'
 import {
   extractGeometries,
   extractMaterials,
@@ -73,6 +88,7 @@ import {
   withResolvedMeshIds,
 } from '../lib/inspectScene'
 import { attachResourceUrlModifier, basenameOf, type ModelSource } from '../lib/modelSource'
+import { isMeshObject } from '../lib/isMeshObject'
 import {
   buildSceneHierarchy,
   syncHierarchyVisibility,
@@ -98,6 +114,7 @@ import {
 } from '../lib/modelDisplayScale'
 import { ViewportToolbar } from './ViewportToolbar'
 import { ViewportInfoHud } from './ViewportInfoHud'
+import { AnimationPlaybackBar } from './AnimationPlaybackBar'
 import {
   createNavGizmoOrientationRef,
   NavGizmoBridge,
@@ -125,6 +142,7 @@ const GROUND_COLOR = 0xcbcbcb
 const CLICK_MAX_MS = 200
 const CLICK_MAX_MOVE_PX = 4
 const WIRE_COLOR = '#ec7700'
+const EMPTY_CLIPS: AnimationClip[] = []
 
 export type RecordDrive = {
   active: boolean
@@ -137,7 +155,7 @@ export type RecordDrive = {
 function deepCloneScene(source: Object3D) {
   const cloned = skeletonClone(source)
   cloned.traverse(child => {
-    if (!(child instanceof Mesh)) return
+    if (!isMeshObject(child)) return
     if (Array.isArray(child.material)) {
       child.material = child.material.map(mat => mat.clone())
     } else if (child.material) {
@@ -159,7 +177,7 @@ function placeModelOnGround(root: Object3D) {
 function applyEnvMapIntensity(root: Object3D | null, intensity: number) {
   if (!root) return
   root.traverse(child => {
-    if (!(child instanceof Mesh)) return
+    if (!isMeshObject(child)) return
     const materials = Array.isArray(child.material) ? child.material : [child.material]
     for (const mat of materials) {
       if (mat && 'envMapIntensity' in mat) {
@@ -172,7 +190,7 @@ function applyEnvMapIntensity(root: Object3D | null, intensity: number) {
 
 function prepareModelMeshes(root: Object3D) {
   root.traverse(child => {
-    if (child instanceof Mesh) {
+    if (isMeshObject(child)) {
       child.castShadow = false
       child.receiveShadow = false
     }
@@ -189,55 +207,69 @@ function isWorldVisible(object: Object3D) {
 }
 
 type ModelRoots = {
-  /** Scaled display clone used for rendering, hierarchy, and geometries. */
+  /** Wrapper with unit scale + ground offset. Rendered / camera / helpers. */
   displayRoot: Object3D
+  /** Skeleton clone that the AnimationMixer binds to. */
+  innerRoot: Object3D
   /** Original loaded scene — materials/textures inspection only (never mutated). */
   inspectRoot: Object3D
+  animations: AnimationClip[]
 }
 
-/** Clone for display; optional unit normalize; feet on ground. Turntable pivot is separate. */
+/** Clone for mixer; wrap with unit normalize + feet on ground. Turntable pivot is separate. */
 function prepareDisplayRoot(
   source: Object3D,
   maxTextureSize: number,
   autoNormalizeUnits: boolean
-): Object3D {
-  const cloned = deepCloneScene(source)
-  prepareModelMeshes(cloned)
+): { displayRoot: Object3D; innerRoot: Object3D } {
+  const innerRoot = deepCloneScene(source)
+  prepareModelMeshes(innerRoot)
+  limitObjectTextures(innerRoot, maxTextureSize)
+
+  const displayRoot = new Group()
+  displayRoot.name = 'DisplayRoot'
+  displayRoot.add(innerRoot)
+
   if (autoNormalizeUnits) {
-    const { maxDim } = measureObjectSize(cloned)
+    const { maxDim } = measureObjectSize(innerRoot)
     const factor = computeUnitScaleFactor(maxDim)
     if (factor !== 1) {
-      cloned.scale.setScalar(factor)
-      cloned.updateMatrixWorld(true)
+      displayRoot.scale.setScalar(factor)
+      displayRoot.updateMatrixWorld(true)
     }
   }
-  limitObjectTextures(cloned, maxTextureSize)
-  placeModelOnGround(cloned)
-  return cloned
+  placeModelOnGround(displayRoot)
+  return { displayRoot, innerRoot }
 }
 
 function usePublishModelRoots(
   source: Object3D,
+  animations: AnimationClip[],
   onReady: () => void,
   onRootChange: (roots: ModelRoots | null) => void,
   maxTextureSize: number,
   autoNormalizeUnits: boolean
 ) {
-  const displayRoot = useMemo(
+  const prepared = useMemo(
     () => prepareDisplayRoot(source, maxTextureSize, autoNormalizeUnits),
     [source, maxTextureSize, autoNormalizeUnits]
   )
 
   useEffect(() => {
-    onRootChange({ displayRoot, inspectRoot: source })
+    onRootChange({
+      displayRoot: prepared.displayRoot,
+      innerRoot: prepared.innerRoot,
+      inspectRoot: source,
+      animations,
+    })
     const id = window.setTimeout(() => onReady(), 0)
     return () => {
       window.clearTimeout(id)
       onRootChange(null)
     }
-  }, [displayRoot, source, onReady, onRootChange])
+  }, [prepared, source, animations, onReady, onRootChange])
 
-  return displayRoot
+  return prepared.displayRoot
 }
 
 function findMtlBlobUrl(resourceUrls: Record<string, string>): string | null {
@@ -269,6 +301,7 @@ function LoadedGltfModel({
   })
   const displayRoot = usePublishModelRoots(
     gltf.scene,
+    gltf.animations ?? EMPTY_CLIPS,
     onReady,
     onRootChange,
     maxTextureSize,
@@ -306,6 +339,7 @@ function LoadedObjWithMtl({
   })
   const displayRoot = usePublishModelRoots(
     object,
+    EMPTY_CLIPS,
     onReady,
     onRootChange,
     maxTextureSize,
@@ -334,6 +368,36 @@ function LoadedObjBare({
   })
   const displayRoot = usePublishModelRoots(
     object,
+    EMPTY_CLIPS,
+    onReady,
+    onRootChange,
+    maxTextureSize,
+    autoNormalizeUnits
+  )
+  return <primitive object={displayRoot} />
+}
+
+function LoadedFbxModel({
+  mainUrl,
+  resourceUrls,
+  maxTextureSize,
+  autoNormalizeUnits,
+  onReady,
+  onRootChange,
+}: {
+  mainUrl: string
+  resourceUrls: Record<string, string>
+  maxTextureSize: number
+  autoNormalizeUnits: boolean
+  onReady: () => void
+  onRootChange: (roots: ModelRoots | null) => void
+}) {
+  const object = useLoader(FBXLoader, mainUrl, loader => {
+    configureFbxLoader(loader, resourceUrls)
+  })
+  const displayRoot = usePublishModelRoots(
+    object,
+    object.animations ?? EMPTY_CLIPS,
     onReady,
     onRootChange,
     maxTextureSize,
@@ -382,16 +446,33 @@ function LoadedModel({
     )
   }
 
-  return (
-    <LoadedGltfModel
-      mainUrl={model.mainUrl}
-      resourceUrls={model.resourceUrls}
-      maxTextureSize={maxTextureSize}
-      autoNormalizeUnits={autoNormalizeUnits}
-      onReady={onReady}
-      onRootChange={onRootChange}
-    />
-  )
+  if (model.format === 'fbx') {
+    return (
+      <LoadedFbxModel
+        mainUrl={model.mainUrl}
+        resourceUrls={model.resourceUrls}
+        maxTextureSize={maxTextureSize}
+        autoNormalizeUnits={autoNormalizeUnits}
+        onReady={onReady}
+        onRootChange={onRootChange}
+      />
+    )
+  }
+
+  if (model.format === 'glb' || model.format === 'gltf') {
+    return (
+      <LoadedGltfModel
+        mainUrl={model.mainUrl}
+        resourceUrls={model.resourceUrls}
+        maxTextureSize={maxTextureSize}
+        autoNormalizeUnits={autoNormalizeUnits}
+        onReady={onReady}
+        onRootChange={onRootChange}
+      />
+    )
+  }
+
+  return null
 }
 
 /** Wireframe overlay + RGB origin axes — mirrors glb-viewer-core selection visuals. */
@@ -432,7 +513,7 @@ function SelectionOverlay({ object }: { object: Object3D | null }) {
 
     if (!object) return
 
-    if (object instanceof Mesh && object.geometry) {
+    if (isMeshObject(object) && object.geometry) {
       const wire = new Mesh(object.geometry as BufferGeometry, wireMaterial)
       wire.renderOrder = 500
       wire.userData.__hierarchyIgnore = true
@@ -446,7 +527,7 @@ function SelectionOverlay({ object }: { object: Object3D | null }) {
     const makeArrow = (dir: Vector3, color: string) => {
       const arrow = new ArrowHelper(dir, new Vector3(0, 0, 0), 1, color)
       arrow.traverse(child => {
-        if (child instanceof Mesh || (child as { material?: Material }).material) {
+        if (isMeshObject(child) || (child as { material?: Material }).material) {
           const mat = (child as Mesh).material as MeshBasicMaterial | undefined
           if (mat) {
             mat.depthTest = false
@@ -684,7 +765,7 @@ const maskMaterialCache = new WeakMap<Mesh, MaskMaterialEntry>()
 function applyMaskMaterials(root: Object3D | null) {
   if (!root) return
   root.traverse(obj => {
-    if (!(obj instanceof Mesh) || !obj.geometry) return
+    if (!isMeshObject(obj) || !obj.geometry) return
     let entry = maskMaterialCache.get(obj)
     if (!entry) {
       entry = { original: obj.material, mask: new MeshBasicMaterial({ color: 0xffffff }) }
@@ -697,7 +778,7 @@ function applyMaskMaterials(root: Object3D | null) {
 function restoreMaskMaterials(root: Object3D | null) {
   if (!root) return
   root.traverse(obj => {
-    if (!(obj instanceof Mesh)) return
+    if (!isMeshObject(obj)) return
     const entry = maskMaterialCache.get(obj)
     if (entry) obj.material = entry.original
   })
@@ -1002,6 +1083,8 @@ function CaptureBridge({
   maskShadowMeshRef,
   exportHelpersRef,
   exportMask,
+  recording,
+  animationApiRef,
 }: {
   turntableGroupRef: MutableRefObject<Group | null>
   captureRef: MutableRefObject<CaptureHandle | null>
@@ -1011,9 +1094,28 @@ function CaptureBridge({
   maskShadowMeshRef: MutableRefObject<Mesh | null>
   exportHelpersRef: MutableRefObject<Group | null>
   exportMask: boolean
+  recording: boolean
+  animationApiRef: MutableRefObject<AnimationCaptureApi | null>
 }) {
   const { gl, scene, camera } = useThree()
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
+  const captureAnimSnapRef = useRef<AnimationPlaybackSnapshot | null>(null)
+
+  useLayoutEffect(() => {
+    const api = animationApiRef.current
+    if (!recording) {
+      api?.setLiveEnabled(true)
+      return
+    }
+    captureAnimSnapRef.current = api?.snapshot() ?? null
+    api?.setLiveEnabled(false)
+    return () => {
+      const snap = captureAnimSnapRef.current
+      if (snap) animationApiRef.current?.restore(snap)
+      animationApiRef.current?.setLiveEnabled(true)
+      captureAnimSnapRef.current = null
+    }
+  }, [recording, animationApiRef])
 
   // useLayoutEffect: capture API must match alpha mode before paint / before App resumes after recording:true.
   useLayoutEffect(() => {
@@ -1031,6 +1133,7 @@ function CaptureBridge({
         preFill?: string
         prepareScene?: () => void
         restoreScene?: () => void
+        capture?: CaptureFrameOptions
       }
     ): Promise<ArrayBuffer> => {
       return new Promise((resolve, reject) => {
@@ -1040,6 +1143,12 @@ function CaptureBridge({
         const prevRenderTarget = gl.getRenderTarget()
         let alphaTarget: WebGLRenderTarget | null = null
         try {
+          const cap = options.capture
+          const snap = captureAnimSnapRef.current
+          if (cap && cap.frameIndex != null && cap.fps != null && snap?.playing) {
+            animationApiRef.current?.seekCapture(snap, cap.frameIndex, cap.fps)
+          }
+
           const root = turntableGroupRef.current
           if (root) root.rotation.y = rotationY
 
@@ -1295,7 +1404,8 @@ function CaptureBridge({
       captureFrame: (
         rotationY: number,
         outputSize: { width: number; height: number },
-        renderScale = 1
+        renderScale = 1,
+        capture?: CaptureFrameOptions
       ): Promise<ArrayBuffer> => {
         if (captureNeedsAlpha) {
           const prevClear = new Color()
@@ -1308,6 +1418,7 @@ function CaptureBridge({
           return captureFrameInternal(rotationY, outputSize, renderScale, {
             stageAlphaEnabled: true,
             useAlphaRenderTarget: true,
+            capture,
             prepareScene: () => {
               scene.background = null
               scene.fog = null
@@ -1325,13 +1436,15 @@ function CaptureBridge({
         return captureFrameInternal(rotationY, outputSize, renderScale, {
           stageAlphaEnabled: false,
           preFill: captureFlatten ? exportFlattenColor : '#000',
+          capture,
         })
       },
       captureMaskFrame: exportMask
         ? (
             rotationY: number,
             outputSize: { width: number; height: number },
-            renderScale = 1
+            renderScale = 1,
+            capture?: CaptureFrameOptions
           ): Promise<ArrayBuffer> => {
             const prevClear = new Color()
             gl.getClearColor(prevClear)
@@ -1344,6 +1457,7 @@ function CaptureBridge({
             return captureFrameInternal(rotationY, outputSize, renderScale, {
               stageAlphaEnabled: false,
               preFill: '#000000',
+              capture,
               prepareScene: () => {
                 applyMaskMaterials(turntableGroupRef.current)
                 const maskMesh = maskShadowMeshRef.current
@@ -1385,6 +1499,7 @@ function CaptureBridge({
     maskShadowMeshRef,
     exportHelpersRef,
     exportMask,
+    animationApiRef,
   ])
 
   return null
@@ -1568,6 +1683,35 @@ function ViewportCameraControls({
   )
 }
 
+function AnimationClock({
+  mixerRef,
+  actionRef,
+  playingRef,
+  liveEnabledRef,
+  onTime,
+}: {
+  mixerRef: MutableRefObject<AnimationMixer | null>
+  actionRef: MutableRefObject<AnimationAction | null>
+  playingRef: MutableRefObject<boolean>
+  liveEnabledRef: MutableRefObject<boolean>
+  onTime: (time: number) => void
+}) {
+  const accRef = useRef(0)
+  useFrame((_, delta) => {
+    if (!liveEnabledRef.current) return
+    const mixer = mixerRef.current
+    const action = actionRef.current
+    if (!mixer || !action || !playingRef.current) return
+    mixer.update(delta)
+    accRef.current += delta
+    if (accRef.current >= 1 / 15) {
+      accRef.current = 0
+      onTime(action.time)
+    }
+  })
+  return null
+}
+
 /** API for fixed-step offline frame capture. Exposed via ref. */
 export type CaptureHandle = {
   /**
@@ -1581,7 +1725,8 @@ export type CaptureHandle = {
   captureFrame: (
     rotationY: number,
     outputSize: { width: number; height: number },
-    renderScale?: number
+    renderScale?: number,
+    capture?: CaptureFrameOptions
   ) => Promise<ArrayBuffer>
   /**
    * Computes a stable capture configuration for the current GPU/device.
@@ -1610,7 +1755,8 @@ export type CaptureHandle = {
   captureMaskFrame?: (
     rotationY: number,
     outputSize: { width: number; height: number },
-    renderScale?: number
+    renderScale?: number,
+    capture?: CaptureFrameOptions
   ) => Promise<ArrayBuffer>
 }
 
@@ -1679,6 +1825,20 @@ export function ViewerScene({
   const [hierarchyRoot, setHierarchyRoot] = useState<HierarchyNode | null>(null)
   const [modelRoot, setModelRoot] = useState<Object3D | null>(null)
   const [inspectRoot, setInspectRoot] = useState<Object3D | null>(null)
+  const [innerRoot, setInnerRoot] = useState<Object3D | null>(null)
+  const [animations, setAnimations] = useState<AnimationClip[]>([])
+  const [clipIndex, setClipIndex] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [loop, setLoop] = useState(true)
+  const [animTime, setAnimTime] = useState(0)
+  const mixerRef = useRef<AnimationMixer | null>(null)
+  const actionRef = useRef<AnimationAction | null>(null)
+  const playingRef = useRef(false)
+  const loopRef = useRef(true)
+  const clipIndexRef = useRef(0)
+  const liveEnabledRef = useRef(true)
+  const animationsRef = useRef<AnimationClip[]>([])
+  const animationApiRef = useRef<AnimationCaptureApi | null>(null)
   const modelRootRef = useRef<Object3D | null>(null)
   const turntableGroupRef = useRef<Group | null>(null)
   const maskShadowMeshRef = useRef<Mesh | null>(null)
@@ -1723,6 +1883,13 @@ export function ViewerScene({
     setHierarchyRoot(null)
     setModelRoot(null)
     setInspectRoot(null)
+    setInnerRoot(null)
+    setAnimations([])
+    setClipIndex(0)
+    setPlaying(false)
+    setAnimTime(0)
+    playingRef.current = false
+    clipIndexRef.current = 0
     setStrokes([])
     setMeasurements([])
     objectsRef.current = new Map()
@@ -1741,15 +1908,181 @@ export function ViewerScene({
     modelRootRef.current = displayRoot
     setModelRoot(displayRoot)
     setInspectRoot(roots?.inspectRoot ?? null)
+    setInnerRoot(roots?.innerRoot ?? null)
+    setAnimations(roots?.animations ?? [])
     if (!displayRoot) {
       objectsRef.current = new Map()
       setHierarchyRoot(null)
       setSelectedId(null)
       return
     }
-    const built = buildSceneHierarchy(displayRoot)
+    const hierarchySource = roots?.innerRoot ?? displayRoot
+    const built = buildSceneHierarchy(hierarchySource)
     objectsRef.current = built.objects
     setHierarchyRoot(built.root)
+  }, [])
+
+  animationsRef.current = animations
+  playingRef.current = playing
+  loopRef.current = loop
+  clipIndexRef.current = clipIndex
+
+  useEffect(() => {
+    if (!innerRoot) {
+      mixerRef.current = null
+      actionRef.current = null
+      return
+    }
+    const mixer = createAnimationMixer(innerRoot)
+    mixerRef.current = mixer
+    const onFinished = () => {
+      if (loopRef.current) return
+      playingRef.current = false
+      setPlaying(false)
+      const action = actionRef.current
+      if (action) setAnimTime(action.time)
+    }
+    mixer.addEventListener('finished', onFinished)
+    return () => {
+      mixer.removeEventListener('finished', onFinished)
+      mixer.stopAllAction()
+      mixer.uncacheRoot(innerRoot)
+      if (mixerRef.current === mixer) mixerRef.current = null
+    }
+  }, [innerRoot])
+
+  useEffect(() => {
+    const mixer = mixerRef.current
+    const clips = animations
+    setPlaying(false)
+    playingRef.current = false
+    setClipIndex(0)
+    clipIndexRef.current = 0
+    setAnimTime(0)
+    if (!mixer || clips.length === 0) {
+      actionRef.current = null
+      return
+    }
+    actionRef.current = bindClipAction(mixer, clips[0]!, loopRef.current)
+  }, [innerRoot, animations])
+
+  const handleClipChange = useCallback((index: number) => {
+    const mixer = mixerRef.current
+    const clips = animationsRef.current
+    const clip = clips[index]
+    if (!mixer || !clip) return
+    actionRef.current = bindClipAction(mixer, clip, loopRef.current)
+    clipIndexRef.current = index
+    setClipIndex(index)
+    playingRef.current = false
+    setPlaying(false)
+    setAnimTime(0)
+  }, [])
+
+  const handleTogglePlay = useCallback(() => {
+    const mixer = mixerRef.current
+    const action = actionRef.current
+    const clip = animationsRef.current[clipIndexRef.current]
+    if (!mixer || !action || !clip) return
+    if (playingRef.current) {
+      action.paused = true
+      mixer.update(0)
+      playingRef.current = false
+      setPlaying(false)
+      setAnimTime(action.time)
+      return
+    }
+    if (!loopRef.current && action.time >= Math.max(clip.duration, 0) - 1e-4) {
+      action.time = 0
+    }
+    action.paused = false
+    action.enabled = true
+    action.play()
+    playingRef.current = true
+    setPlaying(true)
+  }, [])
+
+  const handleSeek = useCallback((time: number) => {
+    const mixer = mixerRef.current
+    const action = actionRef.current
+    if (!mixer || !action) return
+    const wasPlaying = playingRef.current
+    seekAction(mixer, action, time)
+    setAnimTime(time)
+    if (wasPlaying) {
+      action.paused = false
+      action.play()
+    }
+  }, [])
+
+  const handleToggleLoop = useCallback(() => {
+    const next = !loopRef.current
+    loopRef.current = next
+    setLoop(next)
+    const action = actionRef.current
+    if (action) applyClipLoop(action, next)
+  }, [])
+
+  const handleAnimTime = useCallback((time: number) => {
+    setAnimTime(time)
+  }, [])
+
+  useEffect(() => {
+    animationApiRef.current = {
+      snapshot: () => {
+        const clips = animationsRef.current
+        if (clips.length === 0) return null
+        const clip = clips[clipIndexRef.current] ?? clips[0]!
+        return {
+          playing: playingRef.current,
+          clipIndex: clipIndexRef.current,
+          time: actionRef.current?.time ?? 0,
+          duration: clip.duration,
+          loop: loopRef.current,
+        }
+      },
+      seekCapture: (snapshot, frameIndex, fps) => {
+        const mixer = mixerRef.current
+        const clips = animationsRef.current
+        const clip = clips[snapshot.clipIndex]
+        if (!mixer || !clip) return
+        let action = actionRef.current
+        if (!action || clipIndexRef.current !== snapshot.clipIndex) {
+          action = bindClipAction(mixer, clip, snapshot.loop)
+          actionRef.current = action
+          clipIndexRef.current = snapshot.clipIndex
+        }
+        applyClipLoop(action, snapshot.loop)
+        const t = captureSeekTime(snapshot, frameIndex, fps)
+        seekAction(mixer, action, t)
+      },
+      restore: snapshot => {
+        const mixer = mixerRef.current
+        const clips = animationsRef.current
+        const clip = clips[snapshot.clipIndex]
+        if (!mixer || !clip) return
+        const action = bindClipAction(mixer, clip, snapshot.loop)
+        actionRef.current = action
+        clipIndexRef.current = snapshot.clipIndex
+        loopRef.current = snapshot.loop
+        setLoop(snapshot.loop)
+        setClipIndex(snapshot.clipIndex)
+        seekAction(mixer, action, snapshot.time)
+        if (snapshot.playing) {
+          action.paused = false
+          action.play()
+        }
+        playingRef.current = snapshot.playing
+        setPlaying(snapshot.playing)
+        setAnimTime(snapshot.time)
+      },
+      setLiveEnabled: enabled => {
+        liveEnabledRef.current = enabled
+      },
+    }
+    return () => {
+      animationApiRef.current = null
+    }
   }, [])
 
   const selectedObject = selectedId ? (objectsRef.current.get(selectedId) ?? null) : null
@@ -1767,9 +2100,9 @@ export function ViewerScene({
   const sceneInfo = useMemo(
     () =>
       modelRoot
-        ? extractSceneInfo(modelRoot, model.label, inspectRoot)
+        ? extractSceneInfo(modelRoot, model.label, inspectRoot, animations.length)
         : null,
-    [modelRoot, inspectRoot, model.label]
+    [modelRoot, inspectRoot, model.label, animations.length]
   )
 
   const handleToggleVisible = useCallback((id: string) => {
@@ -1850,6 +2183,19 @@ export function ViewerScene({
           shiftDown={isSurfaceToolId(activeTool)}
         />
       ) : null}
+      {!recording && animations.length > 0 ? (
+        <AnimationPlaybackBar
+          clips={animations}
+          clipIndex={clipIndex}
+          playing={playing}
+          loop={loop}
+          time={animTime}
+          onClipChange={handleClipChange}
+          onTogglePlay={handleTogglePlay}
+          onSeek={handleSeek}
+          onToggleLoop={handleToggleLoop}
+        />
+      ) : null}
       {!recording ? (
         <ViewportToolOptions
           active={activeTool}
@@ -1920,8 +2266,17 @@ export function ViewerScene({
             maskShadowMeshRef={maskShadowMeshRef}
             exportHelpersRef={exportHelpersRef}
             exportMask={exportMask}
+            recording={recording}
+            animationApiRef={animationApiRef}
           />
         )}
+        <AnimationClock
+          mixerRef={mixerRef}
+          actionRef={actionRef}
+          playingRef={playingRef}
+          liveEnabledRef={liveEnabledRef}
+          onTime={handleAnimTime}
+        />
         <SceneLighting
           settings={lightingSettings}
           modelRoot={modelRoot}

@@ -1,9 +1,9 @@
 import {
-  Mesh,
   type Material,
   type Object3D,
   type Texture,
 } from 'three'
+import { isMeshObject } from './isMeshObject'
 
 function isTexture(value: unknown): value is Texture {
   return Boolean(value && typeof value === 'object' && (value as Texture).isTexture)
@@ -55,7 +55,7 @@ export function limitObjectTextures(root: Object3D, maxSize: number) {
 
   const seen = new Set<Texture>()
   root.traverse(child => {
-    if (!(child instanceof Mesh)) return
+    if (!isMeshObject(child)) return
     const materials = Array.isArray(child.material) ? child.material : [child.material]
     for (const material of materials) {
       if (!material) continue

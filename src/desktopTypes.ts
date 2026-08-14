@@ -1,4 +1,4 @@
-export type ModelFormat = 'glb' | 'gltf' | 'obj'
+export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'fbx'
 
 export type OpenedModelCompanion = {
   relativePath: string

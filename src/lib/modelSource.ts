@@ -1,4 +1,4 @@
-export type ModelFormat = 'glb' | 'gltf' | 'obj'
+export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'fbx'
 
 export type ModelSource = {
   format: ModelFormat
@@ -9,13 +9,20 @@ export type ModelSource = {
   resourceUrls: Record<string, string>
 }
 
-export const MODEL_FILE_ACCEPT = '.glb,.gltf,.obj,model/gltf-binary,model/gltf+json'
+export const MODEL_FILE_ACCEPT = '.glb,.gltf,.obj,.fbx,model/gltf-binary,model/gltf+json'
+
+export const MODEL_FORMAT_LIST = '.glb / .gltf / .obj / .fbx'
 
 export function detectModelFormat(fileName: string): ModelFormat | null {
   if (/\.glb$/i.test(fileName)) return 'glb'
   if (/\.gltf$/i.test(fileName)) return 'gltf'
   if (/\.obj$/i.test(fileName)) return 'obj'
+  if (/\.fbx$/i.test(fileName)) return 'fbx'
   return null
+}
+
+export function isFbxTextureFileName(fileName: string): boolean {
+  return /\.(png|jpe?g|webp|gif|tga|bmp|tiff?)$/i.test(fileName)
 }
 
 export function isModelFileName(fileName: string): boolean {
@@ -113,6 +120,8 @@ export function mimeForFormat(format: ModelFormat): string {
       return 'model/gltf+json'
     case 'obj':
       return 'text/plain'
+    case 'fbx':
+      return 'application/octet-stream'
   }
 }
 

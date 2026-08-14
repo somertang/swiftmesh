@@ -2077,6 +2077,69 @@ button.inspect-table-mesh-btn:hover:not(:disabled),
   top: 52px;
 }
 
+.animation-playback-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 108px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(36rem, calc(100% - 24px));
+  width: 36rem;
+  padding: 6px 10px;
+  border: 1px solid var(--chrome-float-border);
+  border-radius: var(--chrome-float-radius);
+  background: var(--chrome-float-bg);
+  color: var(--text);
+  box-shadow: var(--chrome-float-shadow);
+  backdrop-filter: blur(var(--chrome-float-blur));
+}
+
+.animation-playback-bar .MuiIconButton-root {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.animation-playback-bar .MuiIconButton-root.is-active {
+  color: var(--accent, #ec7700);
+}
+
+.animation-playback-clip {
+  flex: 0 1 9rem;
+  min-width: 6rem;
+}
+
+.animation-playback-clip select {
+  width: 100%;
+  max-width: 9rem;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--chrome-float-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.animation-playback-scrub {
+  flex: 1 1 auto;
+  min-width: 4rem;
+  margin: 0;
+  accent-color: var(--accent, #ec7700);
+}
+
+.animation-playback-time {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
 .viewport-error-banner {
   position: absolute;
   top: 12px;
