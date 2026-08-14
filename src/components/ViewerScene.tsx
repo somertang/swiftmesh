@@ -60,6 +60,7 @@ import {
   resolveHierarchyObject,
   setOrbitElevationDegrees as applyLiveOrbitElevation,
   syncOrthoFrustum,
+  viewZoomFactor,
   worldSizeFromScreenSize,
   type ViewCamera,
 } from '../lib/cameraFocus'
@@ -96,6 +97,7 @@ import {
   type SceneHelperExtents,
 } from '../lib/modelDisplayScale'
 import { ViewportToolbar } from './ViewportToolbar'
+import { ViewportInfoHud } from './ViewportInfoHud'
 import {
   createNavGizmoOrientationRef,
   NavGizmoBridge,
@@ -1637,6 +1639,7 @@ type ViewerSceneProps = {
   onCanvasReady: (canvas: HTMLCanvasElement | null) => void
   onCameraSettingsChange?: (next: CameraSettings) => void
   captureRef?: MutableRefObject<CaptureHandle | null>
+  showInfoHud?: boolean
 }
 
 export function ViewerScene({
@@ -1660,6 +1663,7 @@ export function ViewerScene({
   onCanvasReady,
   onCameraSettingsChange,
   captureRef,
+  showInfoHud = false,
 }: ViewerSceneProps) {
   const { previewTheme } = usePreviewTheme()
   const sceneBg = sceneBgForTheme(previewTheme)
@@ -1687,6 +1691,8 @@ export function ViewerScene({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusToken, setFocusToken] = useState(0)
   const [activeTool, setActiveTool] = useState<ViewportToolId | null>(null)
+  const sceneRootRef = useRef<HTMLDivElement>(null)
+  const [viewportAspect, setViewportAspect] = useState(1)
   const [annotateColor, setAnnotateColor] = useState('#EA334C')
   const [strokes, setStrokes] = useState<AnnotateStroke[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
@@ -1797,6 +1803,24 @@ export function ViewerScene({
     }
   }, [modelRoot, shadingMode, lightingSettings.envIntensity, lightingSettings.mode])
 
+  useLayoutEffect(() => {
+    const el = sceneRootRef.current
+    if (!el) return
+    const update = () => {
+      const h = el.clientHeight
+      if (h > 0) setViewportAspect(el.clientWidth / h)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const viewZoom = useMemo(
+    () => viewZoomFactor(cameraSettings, modelRoot, viewportAspect),
+    [cameraSettings, modelRoot, viewportAspect]
+  )
+
   const handleToolToggle = useCallback((id: ViewportToolId) => {
     setActiveTool(prev => (prev === id ? null : id))
   }, [])
@@ -1814,9 +1838,17 @@ export function ViewerScene({
   )
 
   return (
-    <div className="scene-root">
+    <div className="scene-root" ref={sceneRootRef}>
       {!recording ? (
         <ViewportToolbar active={activeTool} onToggle={handleToolToggle} disabled={!modelRoot} />
+      ) : null}
+      {showInfoHud && !recording ? (
+        <ViewportInfoHud
+          projection={cameraSettings.projection}
+          viewZoom={viewZoom}
+          unitScale={modelRoot ? modelRoot.scale.x : null}
+          shiftDown={isSurfaceToolId(activeTool)}
+        />
       ) : null}
       {!recording ? (
         <ViewportToolOptions
