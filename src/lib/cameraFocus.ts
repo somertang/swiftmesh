@@ -175,31 +175,77 @@ export function applyCameraSettings(
   controls.update()
 }
 
+function objectFitMetrics(object: Object3D) {
+  const box = new Box3().setFromObject(object)
+  const center = box.getCenter(new Vector3())
+  const size = box.getSize(new Vector3())
+  let maxRadius = 0.01
+  if (center.length() < 0.001) {
+    object.getWorldPosition(center)
+    maxRadius = 0.25
+  }
+  return {
+    center,
+    size,
+    radius: Math.max(maxRadius, size.length() / 2),
+  }
+}
+
+function fitDistanceFromRadius(radius: number, fovDeg: number, aspect: number): number {
+  const fov = MathUtils.degToRad(fovDeg)
+  const safeAspect = Math.max(aspect, 0.0001)
+  const distanceForHeight = radius / Math.sin(fov / 2)
+  const distanceForWidth = radius / Math.sin(Math.atan(Math.tan(fov / 2) * safeAspect))
+  return Math.max(distanceForHeight, distanceForWidth) * 1.2
+}
+
+/** Camera distance used by `focusCameraOnObject` for the given FOV and aspect. */
+export function fitDistanceForObject(object: Object3D, fovDeg: number, aspect: number): number {
+  return fitDistanceFromRadius(objectFitMetrics(object).radius, fovDeg, aspect)
+}
+
+/**
+ * Viewport zoom vs a fitted view: 1 = framed to the model (100%).
+ * Orthographic uses `settings.zoom`; perspective uses fitDistance / currentDistance.
+ */
+export function viewZoomFactor(
+  settings: CameraSettings,
+  object: Object3D | null,
+  aspect = 1
+): number | null {
+  if (settings.projection === 'orthographic') {
+    const zoom = settings.zoom
+    if (!Number.isFinite(zoom) || zoom <= 0) return null
+    return zoom
+  }
+  if (!object) return null
+  const current = Math.hypot(
+    settings.posX - settings.targetX,
+    settings.posY - settings.targetY,
+    settings.posZ - settings.targetZ
+  )
+  if (!(current > 1e-6)) return null
+  const fit = fitDistanceForObject(object, settings.fov, aspect)
+  if (!(fit > 0) || !Number.isFinite(fit)) return null
+  return fit / current
+}
+
+export function formatViewZoomPercent(factor: number): string {
+  const pct = Math.round(factor * 100)
+  if (!Number.isFinite(pct)) return '100%'
+  return `${pct}%`
+}
+
 /** Fit camera to an object bbox — mirrors glb-viewer-core `focus_camera_on_object`. */
 export function focusCameraOnObject(
   object: Object3D,
   camera: ViewCamera,
   controls: ControlsLike | null | undefined
 ) {
-  const box = new Box3().setFromObject(object)
-  const center = box.getCenter(new Vector3())
-  const size = box.getSize(new Vector3())
-
-  let maxRadius = 0.01
-  if (center.length() < 0.001) {
-    object.getWorldPosition(center)
-    maxRadius = 0.25
-  }
-
-  const boundingSphereRadius = size.length() / 2
+  const { center, size, radius } = objectFitMetrics(object)
   const fovDeg = getVirtualFov(camera)
-  const fov = MathUtils.degToRad(fovDeg)
   const aspect = getCameraAspect(camera)
-
-  const distanceForHeight = Math.max(maxRadius, boundingSphereRadius) / Math.sin(fov / 2)
-  const distanceForWidth =
-    Math.max(maxRadius, boundingSphereRadius) / Math.sin(Math.atan(Math.tan(fov / 2) * aspect))
-  const fitDistance = Math.max(distanceForHeight, distanceForWidth) * 1.2
+  const fitDistance = fitDistanceFromRadius(radius, fovDeg, aspect)
 
   const direction = new Vector3()
   camera.getWorldDirection(direction)

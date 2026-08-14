@@ -94,7 +94,7 @@ export type GeneralPreferences = {
   startupBehavior: StartupBehavior
   /** Max entries in Open Recent (5–30). */
   recentFilesMax: number
-  /** Whether the status bar is shown for new windows / after restore. */
+  /** Whether the viewport info HUD is shown for new windows / after restore. */
   statusBarVisible: boolean
   /** Confirm before closing tabs that have a loaded model. */
   confirmCloseTabs: boolean

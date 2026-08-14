@@ -12,7 +12,6 @@ import {
 } from 'react'
 import { ViewerScene, type CaptureHandle, type RecordDrive } from './components/ViewerScene'
 import { BlockGridLoader } from './components/BlockGridLoader'
-import { StripeCircularLoader } from './components/StripeCircularLoader'
 import { ExportProgressModal } from './components/ExportProgressModal'
 import { ModelTabBar } from './components/ModelTabBar'
 import { AppTitleBar } from './components/AppTitleBar'
@@ -135,11 +134,9 @@ export default function App() {
   const activeTab = getActiveTab(tabState)
   const {
     model,
-    loading,
     recording,
     exporting,
     exportPhase,
-    progressRad,
   } = activeTab
 
   const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({})
@@ -1127,7 +1124,6 @@ export default function App() {
     await applyBrowserFiles(files, nativePath || null)
   }
 
-  const progressPct = Math.min(100, (progressRad / (Math.PI * 2)) * 100)
   const sessionLocked = tabState.tabs.some(tab => tab.recording || tab.exporting)
   const pickerDisabled = sessionLocked
 
@@ -1284,6 +1280,7 @@ export default function App() {
                           setTabState(prev => patchTab(prev, groupTab.id, { camera: next }))
                         }
                         captureRef={getCaptureRef(group.id)}
+                        showInfoHud={statusBarVisible}
                       />
                       <SceneSettingsPanels
                         lighting={groupTab.lighting}
@@ -1491,33 +1488,6 @@ export default function App() {
             void window.desktop?.installUpdate?.()
           }}
         />
-        {statusBarVisible ? (
-          <div className="viewport-status">
-              <div className="viewport-status-main">
-                <span>
-                  <strong>{t('app.status')}</strong>{' '}
-                  {recording
-                    ? t('app.status.recording')
-                    : exporting
-                      ? t('app.status.exporting')
-                      : loading
-                        ? t('app.status.loading')
-                        : model
-                          ? t('app.status.ready')
-                          : t('app.status.noModel')}
-                </span>
-                <span>
-                  <strong>{t('app.progress')}</strong> {progressPct.toFixed(0)}%
-                </span>
-                {model ? (
-                  <span className="mono">
-                    {t('app.model')}: {model.label}
-                  </span>
-                ) : null}
-                {loading ? <StripeCircularLoader aria-hidden /> : null}
-              </div>
-          </div>
-        ) : null}
       </main>
 
       <PreferencesModal

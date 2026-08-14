@@ -15,6 +15,13 @@ export function computeUnitScaleFactor(maxDim: number): number {
   return 0.001
 }
 
+/** Compact multiplier for HUD readout, e.g. ×1, ×0.01, ×66.7. */
+export function formatUnitScaleFactor(factor: number): string {
+  if (!Number.isFinite(factor) || factor <= 0) return '×1'
+  if (Math.abs(factor - 1) < 1e-6) return '×1'
+  return `×${parseFloat(factor.toPrecision(3))}`
+}
+
 export function measureObjectSize(root: Object3D): { x: number; y: number; z: number; maxDim: number } {
   root.updateMatrixWorld(true)
   const box = new Box3().setFromObject(root)

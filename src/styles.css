@@ -2052,34 +2052,29 @@ button.inspect-table-mesh-btn:hover:not(:disabled),
   gap: 0.25rem;
 }
 
-.viewport-status {
+.viewport-info-hud {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  z-index: 8;
+  left: 56px;
+  top: 14px;
+  z-index: 4;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.78),
+    1px -1px 0 rgba(0, 0, 0, 0.78),
+    -1px 1px 0 rgba(0, 0, 0, 0.78),
+    1px 1px 0 rgba(0, 0, 0, 0.78);
+  user-select: none;
 }
 
-.viewport-status-main {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.35rem 0.55rem;
-  border-radius: 6px;
-  background: rgba(20, 20, 20, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-}
-
-.viewport-status .error {
-  pointer-events: auto;
-  max-width: 100%;
+.viewport-info-hud.is-shifted {
+  top: 52px;
 }
 
 .viewport-error-banner {
