@@ -89,6 +89,7 @@ function tabFormatIcon(format: ModelFormat | null): string {
   if (format === 'glb') return 'material-symbols:deployed-code'
   if (format === 'gltf') return 'material-symbols:view-in-ar'
   if (format === 'obj') return 'material-symbols:hexagon'
+  if (format === 'fbx') return 'material-symbols:deployed-code-outline'
   return 'material-symbols:draft'
 }
 

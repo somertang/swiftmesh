@@ -7,8 +7,10 @@ import {
   collectMtlTextureUris,
   collectObjMtllibs,
   detectModelFormat,
+  isFbxTextureFileName,
   isModelFileName,
   mimeForFormat,
+  MODEL_FORMAT_LIST,
   normalizeAssetPath,
   stemFromName,
 } from './modelSource'
@@ -27,10 +29,10 @@ function arrayBufferToText(data: ArrayBuffer): string {
 function pickPrimaryFile(files: File[]): File {
   const models = files.filter(f => isModelFileName(f.name))
   if (models.length === 0) {
-    throw new ModelResolveError('Please choose a .glb, .gltf, or .obj file.')
+    throw new ModelResolveError(`Please choose a ${MODEL_FORMAT_LIST} file.`)
   }
   if (models.length > 1) {
-    throw new ModelResolveError('Please select only one model file (.glb / .gltf / .obj).')
+    throw new ModelResolveError(`Please select only one model file (${MODEL_FORMAT_LIST}).`)
   }
   return models[0]!
 }
@@ -101,7 +103,23 @@ async function collectBrowserCompanions(
     return companions
   }
 
-  // obj
+  if (format === 'fbx') {
+    for (const file of allFiles) {
+      if (file === primary) continue
+      if (!isFbxTextureFileName(file.name)) continue
+      const relative =
+        (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+      try {
+        await addCompanion(relative)
+      } catch {
+        /* optional textures — skip unreadables */
+      }
+    }
+    return companions
+  }
+
+  if (format !== 'obj') return companions
+
   const objText = arrayBufferToText(await readFileAsArrayBuffer(primary))
   const mtllibs = collectObjMtllibs(objText)
   for (const mtl of mtllibs) {
@@ -125,7 +143,9 @@ function openedToModelSource(opened: OpenedModel): ModelSource {
     const ext = basenameOf(key).split('.').pop()?.toLowerCase()
     let type = 'application/octet-stream'
     if (ext === 'mtl' || ext === 'obj') type = 'text/plain'
-    else if (ext === 'bin') type = 'application/octet-stream'
+    else if (ext === 'bin' || ext === 'fbx' || ext === 'tga' || ext === 'bmp' || ext === 'tif' || ext === 'tiff') {
+      type = 'application/octet-stream'
+    }
     else if (ext === 'png') type = 'image/png'
     else if (ext === 'jpg' || ext === 'jpeg') type = 'image/jpeg'
     else if (ext === 'webp') type = 'image/webp'
@@ -160,7 +180,7 @@ export async function modelSourceFromFiles(
   const primary = pickPrimaryFile(list)
   const format = detectModelFormat(primary.name)
   if (!format) {
-    throw new ModelResolveError('Please choose a .glb, .gltf, or .obj file.')
+    throw new ModelResolveError(`Please choose a ${MODEL_FORMAT_LIST} file.`)
   }
 
   const companions = await collectBrowserCompanions(primary, format, list)

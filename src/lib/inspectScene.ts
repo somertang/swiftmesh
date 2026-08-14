@@ -1,10 +1,11 @@
 import {
-  Mesh,
   Texture,
+  type Mesh,
   type Material,
   type Object3D,
   type BufferGeometry,
 } from 'three'
+import { isMeshObject } from './isMeshObject'
 
 const TEXTURE_SLOTS = [
   'map',
@@ -163,7 +164,7 @@ export function extractTextures(root: Object3D): TextureInspectItem[] {
   >()
 
   root.traverse(child => {
-    if (!(child instanceof Mesh) || !child.material) return
+    if (!isMeshObject(child) || !child.material) return
     const materials = Array.isArray(child.material) ? child.material : [child.material]
     materials.forEach((material, materialIndex) => {
       if (!material) return
@@ -211,7 +212,7 @@ export function extractMaterials(root: Object3D): MaterialInspectItem[] {
   >()
 
   root.traverse(child => {
-    if (!(child instanceof Mesh) || !child.material) return
+    if (!isMeshObject(child) || !child.material) return
     const materials = Array.isArray(child.material) ? child.material : [child.material]
     materials.forEach(material => {
       if (!material) return
@@ -265,7 +266,7 @@ export function extractGeometries(root: Object3D): GeometryInspectItem[] {
   >()
 
   root.traverse(child => {
-    if (!(child instanceof Mesh) || !child.geometry) return
+    if (!isMeshObject(child) || !child.geometry) return
     const geometry = child.geometry as BufferGeometry
     const entry = byUuid.get(geometry.uuid) ?? {
       geometry,
@@ -307,7 +308,7 @@ export function resolveMeshIdsByName(
   const nameSet = new Set(meshNames)
   const ids: string[] = []
   for (const [id, object] of objects) {
-    if (!(object instanceof Mesh)) continue
+    if (!isMeshObject(object)) continue
     if (nameSet.has(meshLabel(object))) ids.push(id)
   }
   return ids
@@ -327,11 +328,13 @@ export function withResolvedMeshIds<T extends { meshNames: string[]; meshIds: st
 /**
  * @param displayRoot – rendered / hierarchy root (Lambert clone)
  * @param inspectRoot – optional original GLTF scene for material/texture counts
+ * @param animationCount – clip count from the loader (glTF / FBX)
  */
 export function extractSceneInfo(
   displayRoot: Object3D,
   modelLabel: string,
-  inspectRoot?: Object3D | null
+  inspectRoot?: Object3D | null,
+  animationCount = 0
 ): SceneInfoStats {
   const materialSource = inspectRoot ?? displayRoot
   const materials = extractMaterials(materialSource)
@@ -344,7 +347,7 @@ export function extractSceneInfo(
   let triangleTotal = 0
 
   displayRoot.traverse(child => {
-    if (!(child instanceof Mesh) || !child.geometry) return
+    if (!isMeshObject(child) || !child.geometry) return
     meshCount += 1
     if ((child as Mesh & { isSkinnedMesh?: boolean }).isSkinnedMesh) skinnedMeshCount += 1
     const geometry = child.geometry as BufferGeometry
@@ -361,7 +364,7 @@ export function extractSceneInfo(
     geometryCount: geometries.length,
     vertexCount,
     triangleCount: triangleTotal,
-    animationCount: 0,
+    animationCount,
     drawCallEstimate: meshCount,
     modelLabel,
   }

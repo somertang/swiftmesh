@@ -28,11 +28,11 @@ export function writeStoredLocale(locale: Locale) {
 
 /** English is the source of truth for keys. */
 export const en = {
-  'app.hint': 'Open local .glb / .gltf / .obj, tune camera, record one turntable revolution.',
+  'app.hint': 'Open local .glb / .gltf / .obj / .fbx, tune camera, record one turntable revolution.',
   'app.openFile': 'Open local file',
   'app.openingFile': 'Opening…',
   'app.emptyHint':
-    'Supports .glb / .gltf / .obj. You can also drag files here. When a model is already open, use + to open another in a new tab.',
+    'Supports .glb / .gltf / .obj / .fbx. You can also drag files here. When a model is already open, use + to open another in a new tab.',
   'app.loadingModel': 'Loading 3D model…',
   'app.status': 'Status',
   'app.progress': 'Progress',
@@ -464,7 +464,7 @@ export const en = {
   'menu.aboutTitle': 'About SwiftMesh',
   'menu.aboutBody': 'Version {version}\n\nAuthor: {author}\n\n{description}',
   'menu.aboutDescription':
-    'Open local .glb / .gltf / .obj, inspect, and record a turntable animation.',
+    'Open local .glb / .gltf / .obj / .fbx, inspect, and record a turntable animation.',
   'menu.checkForUpdates': 'Check for Updates…',
   'update.devTitle': 'Updates unavailable',
   'update.devMessage': 'Update checks run only in the packaged desktop app.',
@@ -530,17 +530,24 @@ export const en = {
   'menu.filterGlb': 'glTF Binary',
   'menu.filterGltf': 'glTF',
   'menu.filterObj': 'OBJ',
+  'menu.filterFbx': 'FBX',
+  'anim.aria': 'Animation playback',
+  'anim.play': 'Play',
+  'anim.pause': 'Pause',
+  'anim.loop': 'Loop',
+  'anim.clip': 'Clip',
+  'anim.unnamed': 'Clip {index}',
   'menu.recentOpenFailedTitle': 'Failed to open recent file',
 } as const
 
 export type MessageKey = keyof typeof en
 
 export const zh: Record<MessageKey, string> = {
-  'app.hint': '打开本地 .glb / .gltf / .obj，调节相机，录制一圈转台动画。',
+  'app.hint': '打开本地 .glb / .gltf / .obj / .fbx，调节相机，录制一圈转台动画。',
   'app.openFile': '选择本地文件',
   'app.openingFile': '正在打开…',
   'app.emptyHint':
-    '支持 .glb / .gltf / .obj，也可拖拽到此区域。已有模型时请用 + 新建标签打开新文件。',
+    '支持 .glb / .gltf / .obj / .fbx，也可拖拽到此区域。已有模型时请用 + 新建标签打开新文件。',
   'app.loadingModel': '正在加载 3D 模型…',
   'app.status': '状态',
   'app.progress': '进度',
@@ -955,7 +962,7 @@ export const zh: Record<MessageKey, string> = {
   'menu.aboutTitle': '关于 SwiftMesh',
   'menu.aboutBody': '版本 {version}\n\n作者：{author}\n\n{description}',
   'menu.aboutDescription':
-    '打开本地 .glb / .gltf / .obj，检查模型，并录制转台动画。',
+    '打开本地 .glb / .gltf / .obj / .fbx，检查模型，并录制转台动画。',
   'menu.checkForUpdates': '检查更新…',
   'update.devTitle': '无法检查更新',
   'update.devMessage': '仅打包后的桌面应用支持检查更新。',
@@ -1019,6 +1026,13 @@ export const zh: Record<MessageKey, string> = {
   'menu.filterGlb': 'glTF 二进制',
   'menu.filterGltf': 'glTF',
   'menu.filterObj': 'OBJ',
+  'menu.filterFbx': 'FBX',
+  'anim.aria': '动画播放',
+  'anim.play': '播放',
+  'anim.pause': '暂停',
+  'anim.loop': '循环',
+  'anim.clip': '剪辑',
+  'anim.unnamed': '剪辑 {index}',
   'menu.recentOpenFailedTitle': '无法打开最近文件',
 }
 

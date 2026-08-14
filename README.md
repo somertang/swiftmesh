@@ -2,7 +2,7 @@
 
 Desktop app for viewing local 3D models, inspecting scene data, and capturing turntable video or stills.
 
-**Formats:** `.glb` / `.gltf` / `.obj`  
+**Formats:** `.glb` / `.gltf` / `.obj` / `.fbx`  
 **Platforms:** Windows x64 · macOS (Apple Silicon + Intel)  
 **Stack:** Electron · React · Three.js · Vite · Material UI  
 **License:** [MIT](./LICENSE)
@@ -49,6 +49,7 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 - Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
 - Multi-tab viewing; perspective / orthographic camera
 - Inspect hierarchy, textures, materials, geometries, and model info
+- Play skeletal animation clips from glTF / FBX from a viewport playback bar (manual start)
 - Viewport **Annotate** and **Measure** tools
 - Capture a turntable as **video** (MP4 / WebM via bundled ffmpeg) or **stills** (frame sequence / spritesheet atlas, optional multi-axis)
 - Recording size, quality (**Near-lossless (compatible)** is the top video preset), and image options live in **Preferences**; the viewport FAB starts capture
@@ -59,7 +60,7 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 ### Quick usage
 
 1. Install and launch SwiftMesh.
-2. Open a `.glb`, `.gltf`, or `.obj` file.
+2. Open a `.glb`, `.gltf`, `.obj`, or `.fbx` file.
 3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info, plus Annotate / Measure.
 4. Adjust lighting, camera, and perspective / orthographic as needed.
 5. Use the viewport record button to capture a turntable video or stills. Set format, size, quality, and image options in Preferences.

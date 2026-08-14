@@ -952,6 +952,7 @@ export default function App() {
           renderScale: plannedCapture.renderScale,
           signal: abort,
           exportMask,
+          fps,
           onFrame: (index, pngData, maskData) =>
             window.desktop!.appendRecordingFrame({
               sessionId: sessionRes.sessionId,

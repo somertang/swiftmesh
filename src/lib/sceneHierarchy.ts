@@ -1,4 +1,5 @@
-import { Mesh, type Object3D } from 'three'
+import { type Object3D } from 'three'
+import { isMeshObject } from './isMeshObject'
 
 export type HierarchyNode = {
   id: string
@@ -16,7 +17,7 @@ export type HierarchyBuildResult = {
 }
 
 function nodeKind(object: Object3D): HierarchyNode['kind'] {
-  if (object instanceof Mesh) return 'mesh'
+  if (isMeshObject(object)) return 'mesh'
   if (object.children.length > 0) return 'group'
   return 'object'
 }

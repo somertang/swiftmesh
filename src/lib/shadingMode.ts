@@ -1,10 +1,11 @@
 import {
-  Material,
-  Mesh,
   MeshBasicMaterial,
+  type Mesh,
+  type Material,
   type Object3D,
   type Texture,
 } from 'three'
+import { isMeshObject } from './isMeshObject'
 
 export type ShadingMode = 'wireframe' | 'solid' | 'material'
 
@@ -100,7 +101,7 @@ export function applyShadingMode(root: Object3D | null, mode: ShadingMode) {
   if (!root) return
 
   root.traverse(child => {
-    if (!(child instanceof Mesh) || child.userData.__hierarchyIgnore) return
+    if (!isMeshObject(child) || child.userData.__hierarchyIgnore) return
 
     const data = getShadingData(child)
     disposeTemps(data)
