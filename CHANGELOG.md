@@ -5,6 +5,21 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-14
+
+### Added
+
+- **FBX:** Open local `.fbx` files with texture handling, plus animation clip selection and a playback bar for FBX clips.
+
+### Changed
+
+- **Viewport HUD:** Replace the bottom status bar with a viewport info HUD that shows camera projection, view zoom, and unit scale.
+- **Documentation:** Align README, the User Guide, and the product page with current inspect and capture tools, and refresh the demo shots.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.2.15] - 2026-08-13
 
 ### Added
