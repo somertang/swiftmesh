@@ -204,7 +204,9 @@ function isRecordingMode(value: unknown): value is RecordingMode {
 }
 
 function isLightingMode(value: unknown): value is LightingSettings['mode'] {
-  return value === 'studio' || value === 'classic' || value === 'neutral'
+  return (
+    value === 'studio' || value === 'classic' || value === 'neutral' || value === 'rendered'
+  )
 }
 
 function isStartupBehavior(value: unknown): value is StartupBehavior {

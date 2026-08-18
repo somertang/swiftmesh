@@ -292,6 +292,7 @@ export const en = {
   'lighting.mode.studio': 'Studio (IBL)',
   'lighting.mode.classic': 'Classic',
   'lighting.mode.neutral': 'Neutral',
+  'lighting.mode.rendered': 'Rendered',
 
   'camera.title': 'Camera',
   'camera.position': 'Position',
@@ -792,6 +793,7 @@ export const zh: Record<MessageKey, string> = {
   'lighting.mode.studio': '工作室 (IBL)',
   'lighting.mode.classic': '经典',
   'lighting.mode.neutral': '中性',
+  'lighting.mode.rendered': '渲染',
 
   'camera.title': '相机',
   'camera.position': '位置',

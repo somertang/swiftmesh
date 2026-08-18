@@ -70,6 +70,7 @@ import {
 } from '../lib/cameraFocus'
 import { configureGltfLoader, getKtx2Loader } from '../lib/configureGltfLoader'
 import { configureFbxLoader } from '../lib/configureFbxLoader'
+import { convertNonPbrMaterialsToPbr } from '../lib/convertToPbrMaterials'
 import {
   applyClipLoop,
   bindClipAction,
@@ -122,6 +123,12 @@ import {
   type NavGizmoApi,
 } from './NavGizmo'
 import { applyShadingMode, type ShadingMode } from '../lib/shadingMode'
+import {
+  hasModelOwnLights,
+  hideModelOwnCameras,
+  initModelOwnLights,
+  setModelOwnLightsEnabled,
+} from '../lib/modelOwnRig'
 import {
   sceneBgCssForTheme,
   sceneBgForTheme,
@@ -223,6 +230,9 @@ function prepareDisplayRoot(
   autoNormalizeUnits: boolean
 ): { displayRoot: Object3D; innerRoot: Object3D } {
   const innerRoot = deepCloneScene(source)
+  convertNonPbrMaterialsToPbr(innerRoot)
+  hideModelOwnCameras(innerRoot)
+  initModelOwnLights(innerRoot)
   prepareModelMeshes(innerRoot)
   limitObjectTextures(innerRoot, maxTextureSize)
 
@@ -957,6 +967,13 @@ function SceneLighting({
 
   if (settings.mode === 'neutral') {
     return <ambientLight intensity={0.9} color="#ffffff" />
+  }
+
+  if (settings.mode === 'rendered') {
+    // Model's own lights drive the scene. When the model has no embedded lights
+    // add a very dim ambient so the scene isn't pitch-black.
+    const haslights = hasModelOwnLights(modelRoot)
+    return haslights ? null : <ambientLight intensity={0.3} color="#ffffff" />
   }
 
   // Studio: IBL only (glb-viewer-core style)
@@ -2134,6 +2151,8 @@ export function ViewerScene({
     if (lightingSettings.mode === 'studio') {
       applyEnvMapIntensity(modelRoot, lightingSettings.envIntensity)
     }
+    const isRendered = lightingSettings.mode === 'rendered'
+    setModelOwnLightsEnabled(modelRoot, isRendered)
   }, [modelRoot, shadingMode, lightingSettings.envIntensity, lightingSettings.mode])
 
   useLayoutEffect(() => {
