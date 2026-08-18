@@ -1,4 +1,4 @@
-export type LightingMode = 'studio' | 'classic' | 'neutral'
+export type LightingMode = 'studio' | 'classic' | 'neutral' | 'rendered'
 
 export type LightingSettings = {
   mode: LightingMode
@@ -12,6 +12,7 @@ export const LIGHTING_MODE_OPTIONS: { value: LightingMode; label: string }[] = [
   { value: 'studio', label: 'Studio (IBL)' },
   { value: 'classic', label: 'Classic' },
   { value: 'neutral', label: 'Neutral' },
+  { value: 'rendered', label: 'Rendered' },
 ]
 
 export const DEFAULT_LIGHTING: LightingSettings = {
