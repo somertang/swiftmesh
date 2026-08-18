@@ -5,6 +5,22 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-18
+
+### Added
+
+- **Lighting mode:** Add a new **Rendered** mode that uses embedded model lights, matching Blender-style rendered previews.
+
+### Changed
+
+- **FBX/OBJ material display:** Convert non-PBR Lambert/Phong display materials to PBR for viewport rendering so studio IBL and exposure behave consistently.
+- **Scene lighting behavior:** Keep model-authored cameras hidden in display clones; initialize embedded lights off and enable them only in Rendered mode.
+- **Lighting UI:** Keep material display modes (wireframe/solid/material) separate from lighting modes, and include Rendered as a first-class lighting option.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.0] - 2026-08-14
 
 ### Added
