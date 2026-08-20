@@ -260,7 +260,7 @@
             <ul>
               <li>Open local models from the File menu, empty-state button, drag-and-drop, or Open Recent.</li>
               <li>Work in one or more tabs; optionally split the workspace.</li>
-              <li>Inspect Hierarchy, Textures, Materials, Geometries, and Info.</li>
+              <li>Inspect Hierarchy, Textures, Materials, Geometries, Info, and Reduce mesh.</li>
               <li>Record a turntable clip as MP4 and/or WebM.</li>
               <li>Configure language, themes, performance, recording defaults, lighting, and updates in Preferences.</li>
             </ul>
@@ -366,6 +366,14 @@
               <tr>
                 <td>Info</td>
                 <td>Summary counts: meshes, geometries, materials, textures, vertices, triangles, estimated draw calls, animations.</td>
+              </tr>
+              <tr>
+                <td>Reduce mesh</td>
+                <td>
+                  Weld and decimate static meshes with a keep-ratio slider. The panel shows target vs actual triangle counts.
+                  Skinned meshes, morph-target meshes, and tiny meshes are skipped. Welding rebuilds normals, so sharp authored edges can look smoother.
+                  The slider ratio is a target, not a guarantee. Closing the panel restores the original mesh. Export writes a new <code>.glb</code> (preview only; does not overwrite the open file).
+                </td>
               </tr>
             </tbody>
           </table>

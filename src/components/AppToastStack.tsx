@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState, type FC } from 'react'
 import { useT } from '../i18n'
 import { LoadingButton } from './LoadingButton'
 
+export type FileSavedTitleKey = 'record.savedTitle' | 'decimate.exportSavedTitle'
+
 export type AppToastItem =
   | {
       id: string
@@ -15,8 +17,9 @@ export type AppToastItem =
     }
   | {
       id: string
-      kind: 'recordingSaved'
+      kind: 'fileSaved'
       path: string
+      titleKey: FileSavedTitleKey
       durationMs: number
     }
 
@@ -30,10 +33,8 @@ type StackItem = {
 const MAX_TOASTS = 3
 const TOAST_ANIM_MS = 280
 
-// Recording output paths we generate ourselves either point at a single file
-// (atlas image, zip package, video) or a folder (unpacked image sequence).
-// A known extension reliably distinguishes the two since we control naming.
-const FILE_PATH_PATTERN = /\.(zip|mp4|webm|mov|png|jpe?g|webp)$/i
+// Output paths either point at a single file or a folder (image sequence).
+const FILE_PATH_PATTERN = /\.(zip|mp4|webm|mov|png|jpe?g|webp|glb|gltf)$/i
 
 function isFilePath(path: string): boolean {
   return FILE_PATH_PATTERN.test(path)
@@ -80,14 +81,14 @@ function ToastCard({
   onRequestExit,
   onExitComplete,
   onEntered,
-  onOpenRecordingFailed,
+  onOpenFileFailed,
 }: {
   toast: AppToastItem
   phase: ToastPhase
   onRequestExit: (id: string) => void
   onExitComplete: (id: string) => void
   onEntered: (id: string) => void
-  onOpenRecordingFailed: (reason: string) => void
+  onOpenFileFailed: (reason: string) => void
 }) {
   const t = useT()
   const [openingPath, setOpeningPath] = useState(false)
@@ -111,7 +112,7 @@ function ToastCard({
   }, [phase, toast.id, onExitComplete])
 
   const alert =
-    toast.kind === 'recordingSaved' ? (
+    toast.kind === 'fileSaved' ? (
       <Alert
         severity="success"
         variant="standard"
@@ -119,15 +120,23 @@ function ToastCard({
         sx={themedSnackAlertSx('primary')}
       >
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
-          {t('record.savedTitle')}
+          {t(toast.titleKey)}
         </Typography>
         <Typography
           variant="caption"
           component="div"
           className="mono"
-          sx={{ mt: 0.75, wordBreak: 'break-all', color: 'text.secondary' }}
+          title={toast.path}
+          sx={{
+            mt: 0.75,
+            color: 'text.secondary',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
         >
-          {t('record.savedPath', { path: toast.path })}
+          {toast.path}
         </Typography>
         <LoadingButton
           color="primary"
@@ -148,7 +157,7 @@ function ToastCard({
               setOpeningPath(true)
               try {
                 const res = await window.desktop?.openPath?.(toast.path)
-                if (res && !res.ok) onOpenRecordingFailed(res.reason)
+                if (res && !res.ok) onOpenFileFailed(res.reason)
               } finally {
                 setOpeningPath(false)
               }
@@ -182,10 +191,10 @@ function ToastCard({
 type Props = {
   toasts: AppToastItem[]
   onDismiss: (id: string) => void
-  onOpenRecordingFailed: (reason: string) => void
+  onOpenFileFailed: (reason: string) => void
 }
 
-export const AppToastStack: FC<Props> = ({ toasts, onDismiss, onOpenRecordingFailed }) => {
+export const AppToastStack: FC<Props> = ({ toasts, onDismiss, onOpenFileFailed }) => {
   const [items, setItems] = useState<StackItem[]>([])
 
   useEffect(() => {
@@ -247,7 +256,7 @@ export const AppToastStack: FC<Props> = ({ toasts, onDismiss, onOpenRecordingFai
           onRequestExit={onRequestExit}
           onExitComplete={onExitComplete}
           onEntered={onEntered}
-          onOpenRecordingFailed={onOpenRecordingFailed}
+          onOpenFileFailed={onOpenFileFailed}
         />
       ))}
     </div>

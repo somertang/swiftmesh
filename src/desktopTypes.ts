@@ -179,6 +179,11 @@ export type DesktopApi = {
     fileName: string
     json: string
   }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
+  /** Save a GLB ArrayBuffer via Save As. */
+  saveModelFile: (payload: {
+    defaultName: string
+    data: ArrayBuffer
+  }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
   /** Pick a folder for cache / temporary files (null if canceled). */
   chooseCacheDir: () => Promise<string | null>
   /** Sync preferred cache root to the main process (empty = OS temp). */

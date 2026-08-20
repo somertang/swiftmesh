@@ -21,6 +21,7 @@ import {
   createToastId,
   pushAppToast,
   type AppToastItem,
+  type FileSavedTitleKey,
 } from './components/AppToastStack'
 import { LoadingButton } from './components/LoadingButton'
 import {
@@ -176,13 +177,14 @@ export default function App() {
     []
   )
 
-  const pushRecordingSavedToast = useCallback((path: string) => {
+  const pushFileSavedToast = useCallback((path: string, titleKey: FileSavedTitleKey, durationMs = 4000) => {
     setAppToasts(prev =>
       pushAppToast(prev, {
         id: createToastId(),
-        kind: 'recordingSaved',
+        kind: 'fileSaved',
         path,
-        durationMs: 12000,
+        titleKey,
+        durationMs,
       })
     )
   }, [])
@@ -1066,7 +1068,7 @@ export default function App() {
       }
 
       if (lastSavedPath) {
-        pushRecordingSavedToast(lastSavedPath)
+        pushFileSavedToast(lastSavedPath, 'record.savedTitle', 12000)
       }
     } catch (err) {
       patchRecordingTab({ error: err instanceof Error ? err.message : t('error.recordingFailed') })
@@ -1280,6 +1282,8 @@ export default function App() {
                         onCameraSettingsChange={next =>
                           setTabState(prev => patchTab(prev, groupTab.id, { camera: next }))
                         }
+                        onToast={pushTextToast}
+                        onFileSavedToast={path => pushFileSavedToast(path, 'decimate.exportSavedTitle')}
                         captureRef={getCaptureRef(group.id)}
                         showInfoHud={statusBarVisible}
                       />
@@ -1443,7 +1447,7 @@ export default function App() {
         <AppToastStack
           toasts={appToasts}
           onDismiss={dismissAppToast}
-          onOpenRecordingFailed={reason =>
+          onOpenFileFailed={reason =>
             pushTextToast({
               severity: 'error',
               message: t('record.openFailed', { reason }),

@@ -102,10 +102,13 @@ import { GeometriesPanel } from './inspect/GeometriesPanel'
 import { InfoPanel } from './inspect/InfoPanel'
 import { MaterialsPanel } from './inspect/MaterialsPanel'
 import { TexturesPanel } from './inspect/TexturesPanel'
+import { DecimatePanel } from './inspect/DecimatePanel'
 import { SurfaceAnnotate, type AnnotateStroke } from './SurfaceAnnotate'
 import { SurfaceMeasure, type Measurement } from './SurfaceMeasure'
 import { ViewportToolOptions } from './ViewportToolOptions'
 import { isSurfaceToolId, type ViewportToolId } from '../lib/viewportTools'
+import { useDecimateSession } from '../lib/decimate/useDecimateSession'
+import { useT } from '../i18n'
 import { limitObjectTextures } from '../lib/limitObjectTextures'
 import {
   computeSceneHelperExtents,
@@ -1803,6 +1806,8 @@ type ViewerSceneProps = {
   onCameraSettingsChange?: (next: CameraSettings) => void
   captureRef?: MutableRefObject<CaptureHandle | null>
   showInfoHud?: boolean
+  onToast?: (tip: { severity: 'info' | 'error' | 'success'; message: string; durationMs?: number }) => void
+  onFileSavedToast?: (path: string) => void
 }
 
 export function ViewerScene({
@@ -1827,7 +1832,10 @@ export function ViewerScene({
   onCameraSettingsChange,
   captureRef,
   showInfoHud = false,
+  onToast,
+  onFileSavedToast,
 }: ViewerSceneProps) {
+  const t = useT()
   const { previewTheme } = usePreviewTheme()
   const sceneBg = sceneBgForTheme(previewTheme)
   const sceneBgCss = sceneBgCssForTheme(previewTheme)
@@ -2179,6 +2187,47 @@ export function ViewerScene({
 
   const closeActiveTool = useCallback(() => setActiveTool(null), [])
 
+  const decimateActive = activeTool === 'decimate' && !recording
+  const decimate = useDecimateSession(innerRoot, decimateActive)
+  const [decimateExporting, setDecimateExporting] = useState(false)
+
+  const handleDecimateExport = useCallback(async () => {
+    setDecimateExporting(true)
+    try {
+      const data = await decimate.exportGlb()
+      const desktop = window.desktop
+      if (!desktop?.saveModelFile) {
+        onToast?.({ severity: 'error', message: t('error.desktopUnavailable'), durationMs: 4000 })
+        return
+      }
+      const result = await desktop.saveModelFile({
+        defaultName: `${model.label}-reduced`,
+        data,
+      })
+      if (!result.ok) {
+        onToast?.({
+          severity: result.reason === 'canceled' ? 'info' : 'error',
+          message:
+            result.reason === 'canceled'
+              ? t('decimate.saveCanceled')
+              : t('decimate.saveFailed', { reason: result.reason }),
+          durationMs: 4000,
+        })
+        return
+      }
+      onFileSavedToast?.(result.path)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      onToast?.({
+        severity: 'error',
+        message: t('decimate.saveFailed', { reason }),
+        durationMs: 4000,
+      })
+    } finally {
+      setDecimateExporting(false)
+    }
+  }, [decimate, model.label, onFileSavedToast, onToast, t])
+
   const interactive = !recording
   const mouseButtons = useMemo(
     () => ({
@@ -2253,6 +2302,19 @@ export function ViewerScene({
           onSelectMesh={id => handleHierarchySelect(id)}
         />
         <InfoPanel open={activeTool === 'info'} stats={sceneInfo} onClose={closeActiveTool} />
+        <DecimatePanel
+          open={decimateActive}
+          stats={decimate.stats}
+          percent={decimate.percent}
+          lockBorder={decimate.lockBorder}
+          exporting={decimateExporting}
+          onPercentChange={decimate.setPercent}
+          onLockBorderChange={decimate.setLockBorder}
+          onExport={() => {
+            void handleDecimateExport()
+          }}
+          onClose={closeActiveTool}
+        />
       </div>
       <Canvas
         key={`aa-${msaa ? 'on' : 'off'}`}

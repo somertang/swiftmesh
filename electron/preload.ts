@@ -55,6 +55,12 @@ const desktop: DesktopApi = {
   }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('desktop:write-recording-manifest', payload),
 
+  saveModelFile: (payload: {
+    defaultName: string
+    data: ArrayBuffer
+  }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('desktop:save-model-file', payload),
+
   chooseCacheDir: (): Promise<string | null> => ipcRenderer.invoke('desktop:choose-cache-dir'),
 
   setCacheDir: (dir: string): Promise<void> => ipcRenderer.invoke('desktop:set-cache-dir', dir),

@@ -1144,6 +1144,44 @@ ipcMain.handle(
   }
 )
 
+ipcMain.handle(
+  'desktop:save-model-file',
+  async (
+    _event,
+    payload: { defaultName?: string; data?: ArrayBuffer }
+  ): Promise<{ ok: true; path: string } | { ok: false; reason: string }> => {
+    if (!mainWindow) return { ok: false as const, reason: 'No window' }
+    const defaultName = typeof payload?.defaultName === 'string' ? payload.defaultName.trim() : ''
+    const raw = payload?.data as ArrayBuffer | Buffer | Uint8Array | undefined
+    let bytes: Buffer | null = null
+    if (raw instanceof ArrayBuffer) bytes = Buffer.from(raw)
+    else if (Buffer.isBuffer(raw)) bytes = raw
+    else if (raw instanceof Uint8Array) bytes = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
+    if (!bytes || bytes.byteLength === 0) {
+      return { ok: false as const, reason: 'Empty file' }
+    }
+    const stem = (defaultName.replace(/\.[^.]+$/, '') || 'model').replace(/[<>:"/\\|?*]/g, '_')
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: t('decimate.saveDialogTitle'),
+      defaultPath: `${stem}.glb`,
+      filters: [{ name: t('decimate.filterGlb'), extensions: ['glb'] }],
+    })
+    if (result.canceled || !result.filePath) {
+      return { ok: false as const, reason: 'canceled' }
+    }
+    const outPath = result.filePath.toLowerCase().endsWith('.glb')
+      ? result.filePath
+      : `${result.filePath}.glb`
+    try {
+      await fs.writeFile(outPath, bytes)
+      return { ok: true as const, path: outPath }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      return { ok: false as const, reason }
+    }
+  }
+)
+
 ipcMain.handle('desktop:choose-cache-dir', async () => {
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {

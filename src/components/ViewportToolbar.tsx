@@ -16,6 +16,7 @@ const INSPECT_TOOLS: {
   { id: 'materials', labelKey: 'tool.materials', icon: 'material-symbols:palette' },
   { id: 'geometries', labelKey: 'tool.geometries', icon: 'material-symbols:deployed-code' },
   { id: 'info', labelKey: 'tool.info', icon: 'material-symbols:info' },
+  { id: 'decimate', labelKey: 'tool.decimate', icon: 'material-symbols:compress' },
 ]
 
 type ViewportToolbarProps = {

@@ -10,6 +10,7 @@ export const PANEL_WIDTH_DEFAULTS: Record<InspectPanelId, number> = {
   materials: 340,
   geometries: 560,
   info: 280,
+  decimate: 340,
 }
 
 const PANEL_WIDTH_MIN = 220
