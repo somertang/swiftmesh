@@ -7,6 +7,7 @@ import {
   collectMtlTextureUris,
   collectObjMtllibs,
   detectModelFormat,
+  isEncryptedModelFileName,
   isFbxTextureFileName,
   isModelFileName,
   mimeForFormat,
@@ -178,6 +179,11 @@ export async function modelSourceFromFiles(
   }
 
   const primary = pickPrimaryFile(list)
+  if (isEncryptedModelFileName(primary.name)) {
+    throw new ModelResolveError(
+      'Encrypted .smsh models must be opened in the desktop app so SwiftMesh can ask for the password.'
+    )
+  }
   const format = detectModelFormat(primary.name)
   if (!format) {
     throw new ModelResolveError(`Please choose a ${MODEL_FORMAT_LIST} file.`)

@@ -442,6 +442,22 @@
                   The slider ratio is a target, not a guarantee. Closing the panel restores the original mesh. Export writes a new <code>.glb</code> (preview only; does not overwrite the open file).
                 </td>
               </tr>
+              <tr>
+                <td>Encrypt Model…</td>
+                <td>
+                  File menu action that packs the current local model (including OBJ/MTL textures or glTF sidecars) into a password-protected <code>.smsh</code> file.
+                  Recipients open it in SwiftMesh and enter the password (shared out of band). You can disable GLB export, turntable video, image/atlas export, and texture/structure inspect; optionally set a validity period (1 / 3 / 7 / 30 days, permanent, or a custom date) and a watermark that appears in the viewport and baked capture frames.
+                  This is encrypted storage to prevent casual opening and accidental sharing — not strong DRM. Anyone who unpacks the app can still bypass permission checks.
+                  While an unlocked <code>.smsh</code> is open, SwiftMesh asks the OS to reduce window capture (<code>setContentProtection</code>) — best-effort only, not hard DRM.
+                </td>
+              </tr>
+              <tr>
+                <td>Encrypt Models…</td>
+                <td>
+                  Batch-encrypt multiple local models with the same password, permissions, and validity. Progress shows the current file; failures are listed without aborting the rest.
+                  Choose save beside each source or a single output folder. Already-<code>.smsh</code> files are skipped. Reduce-mesh export cannot be encrypted in one step — encrypt the original source instead.
+                </td>
+              </tr>
             </tbody>
           </table>
           <p>
@@ -647,7 +663,10 @@
           <h2>10. Limitations</h2>
           <ul>
             <li>Local files only — no remote URL or cloud loading.</li>
-            <li>Formats: <code>.glb</code>, <code>.gltf</code>, <code>.obj</code>, and <code>.fbx</code>. The FBX loader covers ASCII and common binary meshes, skins, Lambert/Phong and some PBR, and clips — not Maya NURBS, every newer binary variant, or complex shaders. Coordinates are converted to Y-up by the loader.</li>
+            <li>Formats: <code>.glb</code>, <code>.gltf</code>, <code>.obj</code>, <code>.fbx</code>, and encrypted <code>.smsh</code>. The FBX loader covers ASCII and common binary meshes, skins, Lambert/Phong and some PBR, and clips — not Maya NURBS, every newer binary variant, or complex shaders. Coordinates are converted to Y-up by the loader.</li>
+            <li><code>.smsh</code> has no online license check or remote revocation — password, local calendar expiry, and honor-system permissions only.</li>
+            <li>Reduce mesh exports a preview <code>.glb</code> only; there is no “encrypt decimated result” path, because that cannot match encrypting the original OBJ/MTL/texture (or other source) bytes on disk.</li>
+            <li>Window content protection for open <code>.smsh</code> tabs only lowers capture odds; it does not block all OS or hardware capture tools.</li>
             <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>
             <li>In-app auto-update targets packaged Windows NSIS installs only. macOS checks Releases and you install the DMG manually. Portable and dev sessions cannot auto-update.</li>
             <li>One turntable revolution per video pass; image mode can also export a sequence, atlas, or multi-axis batch.</li>

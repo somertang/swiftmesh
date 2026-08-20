@@ -11,6 +11,7 @@ type DecimatePanelProps = {
   percent: number
   lockBorder: boolean
   exporting: boolean
+  exportDisabled?: boolean
   onPercentChange: (percent: number) => void
   onLockBorderChange: (next: boolean) => void
   onExport: () => void
@@ -36,6 +37,7 @@ export function DecimatePanel({
   percent,
   lockBorder,
   exporting,
+  exportDisabled = false,
   onPercentChange,
   onLockBorderChange,
   onExport,
@@ -44,7 +46,8 @@ export function DecimatePanel({
   const t = useT()
   const welding = stats.phase === 'welding'
   const busy = welding || stats.phase === 'applying' || exporting
-  const canExport = stats.phase === 'ready' && stats.eligibleCount > 0 && !exporting
+  const canExport =
+    stats.phase === 'ready' && stats.eligibleCount > 0 && !exporting && !exportDisabled
   const targetPercent = percent
   const actualPercent = percentFromRatio(stats.actualRatio)
   const lockBorderId = 'decimate-lock-border'

@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   DesktopApi,
   ExportProgressEvent,
+  ModelPermissions,
   OpenedModel,
+  OpenModelResult,
   AppendRecordingFramePayload,
   FinishRecordingSessionPayload,
   SaveRecordingPayload,
@@ -17,15 +19,62 @@ import type {
 } from '../src/desktopTypes'
 
 const desktop: DesktopApi = {
-  openModel: (): Promise<OpenedModel | null> => ipcRenderer.invoke('desktop:open-model'),
+  openModel: (): Promise<OpenModelResult | null> => ipcRenderer.invoke('desktop:open-model'),
 
-  readModelPath: (filePath: string): Promise<OpenedModel> =>
+  readModelPath: (filePath: string): Promise<OpenModelResult> =>
     ipcRenderer.invoke('desktop:read-model-path', filePath),
 
-  openGlb: (): Promise<OpenedModel | null> => ipcRenderer.invoke('desktop:open-model'),
+  openGlb: (): Promise<OpenModelResult | null> => ipcRenderer.invoke('desktop:open-model'),
 
-  readGlbPath: (filePath: string): Promise<OpenedModel> =>
+  readGlbPath: (filePath: string): Promise<OpenModelResult> =>
     ipcRenderer.invoke('desktop:read-model-path', filePath),
+
+  unlockModel: (payload: {
+    path: string
+    password: string
+  }): Promise<
+    | { ok: true; model: OpenedModel }
+    | { ok: false; reason: 'bad-password' | 'expired' | string }
+  > => ipcRenderer.invoke('desktop:unlock-model', payload),
+
+  encryptModel: (payload: {
+    sourcePath: string
+    password: string
+    permissions: ModelPermissions
+  }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('desktop:encrypt-model', payload),
+
+  pickModelsForBatchEncrypt: (): Promise<string[] | null> =>
+    ipcRenderer.invoke('desktop:pick-models-for-batch-encrypt'),
+
+  encryptModelsBatch: (payload: {
+    sourcePaths: string[]
+    password: string
+    permissions: ModelPermissions
+    outputDir: string | null
+  }) => ipcRenderer.invoke('desktop:encrypt-models-batch', payload),
+
+  cancelEncryptBatch: (): Promise<void> => ipcRenderer.invoke('desktop:cancel-encrypt-batch'),
+
+  chooseEncryptOutputDir: (): Promise<string | null> =>
+    ipcRenderer.invoke('desktop:choose-encrypt-output-dir'),
+
+  onEncryptBatchProgress: (
+    handler: (progress: { index: number; total: number; fileName: string }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      progress: { index: number; total: number; fileName: string }
+    ) => handler(progress)
+    ipcRenderer.on('desktop:encrypt-batch-progress', listener)
+    return () => ipcRenderer.removeListener('desktop:encrypt-batch-progress', listener)
+  },
+
+  setContentProtection: (enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke('desktop:set-content-protection', enabled),
+
+  writeClipboardText: (text: string): Promise<void> =>
+    ipcRenderer.invoke('desktop:write-clipboard-text', text),
 
   saveRecording: (payload: SaveRecordingPayload): Promise<SaveRecordingResult> =>
     ipcRenderer.invoke('desktop:save-recording', payload),
@@ -58,6 +107,7 @@ const desktop: DesktopApi = {
   saveModelFile: (payload: {
     defaultName: string
     data: ArrayBuffer
+    sourcePath?: string
   }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('desktop:save-model-file', payload),
 
@@ -101,6 +151,18 @@ const desktop: DesktopApi = {
     const listener = () => handler()
     ipcRenderer.on('desktop:open-preferences', listener)
     return () => ipcRenderer.removeListener('desktop:open-preferences', listener)
+  },
+
+  onEncryptModelRequest: (handler: () => void) => {
+    const listener = () => handler()
+    ipcRenderer.on('desktop:encrypt-model-request', listener)
+    return () => ipcRenderer.removeListener('desktop:encrypt-model-request', listener)
+  },
+
+  onEncryptModelsBatchRequest: (handler: () => void) => {
+    const listener = () => handler()
+    ipcRenderer.on('desktop:encrypt-models-batch-request', listener)
+    return () => ipcRenderer.removeListener('desktop:encrypt-models-batch-request', listener)
   },
 
   getRecentPaths: (): Promise<string[]> => ipcRenderer.invoke('desktop:get-recent-paths'),
@@ -172,14 +234,14 @@ const desktop: DesktopApi = {
   takePendingOpenPaths: (): Promise<string[]> =>
     ipcRenderer.invoke('desktop:take-pending-open-paths'),
 
-  onModelOpened: (handler: (file: OpenedModel) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, file: OpenedModel) => handler(file)
+  onModelOpened: (handler: (file: OpenModelResult) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, file: OpenModelResult) => handler(file)
     ipcRenderer.on('desktop:model-opened', listener)
     return () => ipcRenderer.removeListener('desktop:model-opened', listener)
   },
 
-  onGlbOpened: (handler: (file: OpenedModel) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, file: OpenedModel) => handler(file)
+  onGlbOpened: (handler: (file: OpenModelResult) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, file: OpenModelResult) => handler(file)
     ipcRenderer.on('desktop:model-opened', listener)
     return () => ipcRenderer.removeListener('desktop:model-opened', listener)
   },

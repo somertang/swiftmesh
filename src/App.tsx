@@ -16,6 +16,8 @@ import { ExportProgressModal } from './components/ExportProgressModal'
 import { ModelTabBar } from './components/ModelTabBar'
 import { AppTitleBar } from './components/AppTitleBar'
 import { PreferencesModal } from './components/PreferencesModal'
+import { UnlockModelDialog } from './components/UnlockModelDialog'
+import { EncryptModelDialog } from './components/EncryptModelDialog'
 import {
   AppToastStack,
   createToastId,
@@ -61,10 +63,12 @@ import {
 } from './lib/sessionRestore'
 import type {
   OpenedModel,
+  OpenModelResult,
+  ModelPermissions,
   RecordingMode,
   UpdatePromptEvent,
 } from './desktopTypes'
-import { MODEL_FILE_ACCEPT } from './lib/modelSource'
+import { isEncryptedModelFileName, MODEL_FILE_ACCEPT } from './lib/modelSource'
 import { ModelResolveError, modelSourceFromFiles, modelSourceFromOpened } from './lib/resolveModelSource'
 import {
   createEmptyTab,
@@ -127,6 +131,20 @@ export default function App() {
   )
   const [appToasts, setAppToasts] = useState<AppToastItem[]>([])
   const [openingModel, setOpeningModel] = useState(false)
+  const [lockedPending, setLockedPending] = useState<{ name: string; path: string } | null>(null)
+  const [unlockPassword, setUnlockPassword] = useState('')
+  const [unlockBusy, setUnlockBusy] = useState(false)
+  const [unlockError, setUnlockError] = useState<string | null>(null)
+  const [encryptOpen, setEncryptOpen] = useState(false)
+  const [encryptBusy, setEncryptBusy] = useState(false)
+  const [encryptError, setEncryptError] = useState<string | null>(null)
+  const [encryptBatchPaths, setEncryptBatchPaths] = useState<string[] | null>(null)
+  const [encryptBatchProgress, setEncryptBatchProgress] = useState<{
+    index: number
+    total: number
+    fileName: string
+  } | null>(null)
+  const [encryptSaveAlongside, setEncryptSaveAlongside] = useState(true)
   const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
   const sessionPersistReadyRef = useRef(false)
   const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
@@ -227,6 +245,17 @@ export default function App() {
     void window.desktop.setWatchedModelPaths([...new Set(paths)])
   }, [tabState.tabs, performancePrefs.autoReloadOnChange])
 
+  useEffect(() => {
+    if (!window.desktop?.setContentProtection) return
+    const hasSmsh = tabState.tabs.some(
+      tab => Boolean(tab.model?.path && isEncryptedModelFileName(tab.model.path))
+    )
+    void window.desktop.setContentProtection(hasSmsh)
+    return () => {
+      void window.desktop?.setContentProtection?.(false)
+    }
+  }, [tabState.tabs])
+
   const confirmCloseTabsWithModels = useCallback(
     (tabs: ModelTab[]) => {
       if (!confirmCloseTabsRef.current) return true
@@ -242,9 +271,150 @@ export default function App() {
 
   const applyOpenedModel = useCallback((file: OpenedModel) => {
     const source = modelSourceFromOpened(file)
-    setTabState(prev => openModelInTabs(prev, source))
+    setTabState(prev => openModelInTabs(prev, source, file.permissions))
     canvasRefs.current[tabStateRef.current.focusedGroupId] = null
   }, [])
+
+  const handleOpenResult = useCallback(
+    (result: OpenModelResult) => {
+      if (result.kind === 'locked') {
+        setLockedPending({ name: result.name, path: result.path })
+        setUnlockPassword('')
+        setUnlockError(null)
+        return
+      }
+      const { kind: _kind, ...opened } = result
+      applyOpenedModel(opened)
+    },
+    [applyOpenedModel]
+  )
+
+  const handleUnlockSubmit = useCallback(
+    async (password: string) => {
+      if (!lockedPending || !window.desktop?.unlockModel) return
+      setUnlockBusy(true)
+      setUnlockError(null)
+      try {
+        const result = await window.desktop.unlockModel({
+          path: lockedPending.path,
+          password,
+        })
+        if (!result.ok) {
+          if (result.reason === 'expired') {
+            setUnlockError(t('unlock.expired'))
+          } else if (result.reason === 'bad-password') {
+            setUnlockError(t('unlock.badPassword'))
+          } else {
+            setUnlockError(result.reason)
+          }
+          return
+        }
+        setLockedPending(null)
+        setUnlockPassword('')
+        applyOpenedModel(result.model)
+      } catch (err) {
+        setUnlockError(err instanceof Error ? err.message : t('error.openFileFailed'))
+      } finally {
+        setUnlockBusy(false)
+      }
+    },
+    [lockedPending, applyOpenedModel, t]
+  )
+
+  const handleEncryptSubmit = useCallback(
+    async (payload: { password: string; permissions: ModelPermissions }) => {
+      if (encryptBatchPaths && encryptBatchPaths.length > 0) {
+        if (!window.desktop?.encryptModelsBatch) return
+        setEncryptBusy(true)
+        setEncryptError(null)
+        setEncryptBatchProgress({
+          index: 0,
+          total: encryptBatchPaths.length,
+          fileName: '',
+        })
+        try {
+          let outputDir: string | null = null
+          if (!encryptSaveAlongside) {
+            outputDir = (await window.desktop.chooseEncryptOutputDir?.()) ?? null
+            if (!outputDir) {
+              setEncryptError(t('encrypt.canceled'))
+              return
+            }
+          }
+          const result = await window.desktop.encryptModelsBatch({
+            sourcePaths: encryptBatchPaths,
+            password: payload.password,
+            permissions: payload.permissions,
+            outputDir,
+          })
+          const okCount = result.results.filter(r => r.path).length
+          const failures = result.results.filter(r => r.error)
+          setEncryptOpen(false)
+          setEncryptBatchPaths(null)
+          const summary = t('encrypt.batch.doneSummary', {
+            ok: okCount,
+            failed: failures.length,
+          })
+          if (failures.length > 0) {
+            const list = failures
+              .slice(0, 8)
+              .map(f => `${f.sourcePath.split(/[\\/]/).pop()}: ${f.error}`)
+              .join('\n')
+            pushTextToast({
+              severity: 'info',
+              message: `${t('encrypt.batch.doneTitle')}: ${summary}\n${t('encrypt.batch.partialFailures', { list })}`,
+              durationMs: 12000,
+            })
+          } else {
+            pushTextToast({
+              severity: 'success',
+              message: `${t('encrypt.batch.doneTitle')}: ${summary}`,
+              durationMs: 8000,
+            })
+          }
+        } catch (err) {
+          setEncryptError(err instanceof Error ? err.message : t('encrypt.failed'))
+        } finally {
+          setEncryptBusy(false)
+          setEncryptBatchProgress(null)
+        }
+        return
+      }
+
+      const sourcePath = activeTab.model?.path
+      if (!sourcePath || !canRevealModelPath(sourcePath) || !window.desktop?.encryptModel) return
+      if (isEncryptedModelFileName(sourcePath)) return
+      setEncryptBusy(true)
+      setEncryptError(null)
+      try {
+        const result = await window.desktop.encryptModel({
+          sourcePath,
+          password: payload.password,
+          permissions: payload.permissions,
+        })
+        if (!result.ok) {
+          setEncryptError(
+            result.reason === 'canceled' ? t('encrypt.canceled') : result.reason
+          )
+          return
+        }
+        setEncryptOpen(false)
+        pushFileSavedToast(result.path, 'encrypt.savedTitle', 8000)
+      } catch (err) {
+        setEncryptError(err instanceof Error ? err.message : t('encrypt.failed'))
+      } finally {
+        setEncryptBusy(false)
+      }
+    },
+    [
+      activeTab.model?.path,
+      encryptBatchPaths,
+      encryptSaveAlongside,
+      pushFileSavedToast,
+      pushTextToast,
+      t,
+    ]
+  )
 
   const applyBrowserFiles = useCallback(async (files: File[] | FileList, nativePath: string | null = null) => {
     try {
@@ -272,7 +442,7 @@ export default function App() {
       if (window.desktop) {
         try {
           const file = await window.desktop.openModel()
-          if (file) applyOpenedModel(file)
+          if (file) handleOpenResult(file)
         } catch (err) {
           patchActive({ error: err instanceof Error ? err.message : t('error.openFileFailed') })
         }
@@ -282,19 +452,19 @@ export default function App() {
     } finally {
       setOpeningModel(false)
     }
-  }, [recording, exporting, openingModel, applyOpenedModel, patchActive, t])
+  }, [recording, exporting, openingModel, handleOpenResult, patchActive, t])
 
   const handleOpenRecentPath = useCallback(
     async (filePath: string) => {
       if (recording || exporting || !window.desktop) return
       try {
         const file = await window.desktop.readModelPath(filePath)
-        applyOpenedModel(file)
+        handleOpenResult(file)
       } catch (err) {
         patchActive({ error: err instanceof Error ? err.message : t('error.openFileFailed') })
       }
     },
-    [recording, exporting, applyOpenedModel, patchActive, t]
+    [recording, exporting, handleOpenResult, patchActive, t]
   )
 
   const reloadModelPath = useCallback(
@@ -308,8 +478,9 @@ export default function App() {
       if (!tab || tab.recording || tab.exporting) return
       try {
         const file = await window.desktop.readModelPath(filePath)
+        if (file.kind === 'locked') return
         const source = modelSourceFromOpened(file)
-        setTabState(prev => replaceTabModel(prev, tab.id, source))
+        setTabState(prev => replaceTabModel(prev, tab.id, source, file.permissions))
       } catch (err) {
         const message = err instanceof Error ? err.message : t('error.openFileFailed')
         setTabState(prev => patchTab(prev, tab.id, { error: message, loading: false }))
@@ -334,7 +505,7 @@ export default function App() {
     if (nativePath && window.desktop && files.length === 1) {
       void window.desktop
         .readModelPath(nativePath)
-        .then(applyOpenedModel)
+        .then(handleOpenResult)
         .catch(() => {
           void applyBrowserFiles(files, nativePath)
         })
@@ -349,7 +520,7 @@ export default function App() {
     const unsub = window.desktop.onModelOpened(file => {
       const tab = getActiveTab(tabStateRef.current)
       if (tab.recording || tab.exporting) return
-      applyOpenedModel(file)
+      handleOpenResult(file)
     })
 
     let cancelled = false
@@ -362,7 +533,7 @@ export default function App() {
           try {
             const file = await window.desktop!.readModelPath(filePath)
             if (cancelled) return
-            applyOpenedModel(file)
+            handleOpenResult(file)
           } catch (err) {
             if (cancelled) return
             const message = err instanceof Error ? err.message : t('error.openFileFailed')
@@ -410,7 +581,39 @@ export default function App() {
       cancelled = true
       unsub()
     }
-  }, [applyOpenedModel, t])
+  }, [handleOpenResult, t])
+
+  useEffect(() => {
+    if (!window.desktop?.onEncryptModelRequest) return
+    return window.desktop.onEncryptModelRequest(() => {
+      setEncryptBatchPaths(null)
+      setEncryptError(null)
+      setEncryptOpen(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.onEncryptModelsBatchRequest) return
+    return window.desktop.onEncryptModelsBatchRequest(() => {
+      void (async () => {
+        if (!window.desktop?.pickModelsForBatchEncrypt) return
+        const paths = await window.desktop.pickModelsForBatchEncrypt()
+        if (!paths || paths.length === 0) return
+        setEncryptBatchPaths(paths)
+        setEncryptSaveAlongside(true)
+        setEncryptError(null)
+        setEncryptBatchProgress(null)
+        setEncryptOpen(true)
+      })()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.onEncryptBatchProgress) return
+    return window.desktop.onEncryptBatchProgress(progress => {
+      setEncryptBatchProgress(progress)
+    })
+  }, [])
 
   useEffect(() => {
     if (!window.desktop) return
@@ -927,6 +1130,7 @@ export default function App() {
           format: isImages ? 'images' : rec.videoExportFormat,
           quality,
           fps,
+          sourcePath: tab.model?.path ?? undefined,
           images: isImages
             ? {
                 exportSequence: rec.exportSequence,
@@ -1117,7 +1321,7 @@ export default function App() {
     if (nativePath && window.desktop && files.length === 1) {
       try {
         const opened = await window.desktop.readModelPath(nativePath)
-        applyOpenedModel(opened)
+        handleOpenResult(opened)
         return
       } catch (err) {
         patchActive({ error: err instanceof Error ? err.message : t('error.openFailed') })
@@ -1129,6 +1333,18 @@ export default function App() {
 
   const sessionLocked = tabState.tabs.some(tab => tab.recording || tab.exporting)
   const pickerDisabled = sessionLocked
+  const encryptSourcePath = activeTab.model?.path ?? null
+  const encryptDisabled =
+    !encryptSourcePath ||
+    !canRevealModelPath(encryptSourcePath) ||
+    isEncryptedModelFileName(encryptSourcePath)
+
+  const getRecordBlocked = (tab: ModelTab) => {
+    const perms = tab.permissions
+    return tab.recordingMode === 'video'
+      ? perms?.allowRecordVideo === false
+      : perms?.allowRecordImages === false
+  }
 
   const fileInput = (
     <input
@@ -1170,6 +1386,24 @@ export default function App() {
           onOpenPreferences={() => setPreferencesOpen(true)}
           onToggleStatusBar={toggleStatusBar}
           onOpenRecentPath={filePath => void handleOpenRecentPath(filePath)}
+          onEncryptModel={() => {
+            setEncryptBatchPaths(null)
+            setEncryptError(null)
+            setEncryptOpen(true)
+          }}
+          onEncryptModelsBatch={() => {
+            void (async () => {
+              if (!window.desktop?.pickModelsForBatchEncrypt) return
+              const paths = await window.desktop.pickModelsForBatchEncrypt()
+              if (!paths || paths.length === 0) return
+              setEncryptBatchPaths(paths)
+              setEncryptSaveAlongside(true)
+              setEncryptError(null)
+              setEncryptBatchProgress(null)
+              setEncryptOpen(true)
+            })()
+          }}
+          encryptDisabled={encryptDisabled || sessionLocked}
         />
       ) : null}
       <main
@@ -1193,6 +1427,7 @@ export default function App() {
             const groupTab = getActiveTab(tabState, group.id)
             const rec = recordingForTab(groupTab, recordingPrefs)
             const groupLocked = sessionLocked
+            const recordBlocked = getRecordBlocked(groupTab)
             return (
               <div
                 key={group.id}
@@ -1286,6 +1521,13 @@ export default function App() {
                         onFileSavedToast={path => pushFileSavedToast(path, 'decimate.exportSavedTitle')}
                         captureRef={getCaptureRef(group.id)}
                         showInfoHud={statusBarVisible}
+                        allowExport={
+                          groupTab.permissions?.allowExport !== false
+                        }
+                        allowInspectAssets={
+                          groupTab.permissions?.allowInspectAssets !== false
+                        }
+                        watermarkText={groupTab.permissions?.watermark ?? null}
                       />
                       <SceneSettingsPanels
                         lighting={groupTab.lighting}
@@ -1335,16 +1577,20 @@ export default function App() {
                         <div className="record-fab-wrap">
                           <IconButton
                             className={`record-fab record-fab--${groupTab.recordingMode}`}
-                            disabled={groupLocked || groupTab.loading}
+                            disabled={groupLocked || groupTab.loading || recordBlocked}
                             aria-label={
-                              groupTab.recordingMode === 'video'
-                                ? t('record.start.video')
-                                : t('record.start.images')
+                              recordBlocked
+                                ? t('encrypt.permissions.recordBlocked')
+                                : groupTab.recordingMode === 'video'
+                                  ? t('record.start.video')
+                                  : t('record.start.images')
                             }
                             title={
-                              groupTab.recordingMode === 'video'
-                                ? t('record.start.video')
-                                : t('record.start.images')
+                              recordBlocked
+                                ? t('encrypt.permissions.recordBlocked')
+                                : groupTab.recordingMode === 'video'
+                                  ? t('record.start.video')
+                                  : t('record.start.images')
                             }
                             onClick={() => {
                               setTabState(prev => focusGroup(prev, group.id))
@@ -1364,7 +1610,7 @@ export default function App() {
                           </IconButton>
                           <IconButton
                             className={`record-fab-mode record-fab-mode--${groupTab.recordingMode}`}
-                            disabled={groupLocked || groupTab.loading}
+                            disabled={groupLocked || groupTab.loading || recordBlocked}
                             aria-label={
                               groupTab.recordingMode === 'video'
                                 ? t('record.switchTo.images')
@@ -1511,6 +1757,45 @@ export default function App() {
           setStatusBarVisible(prefs.general.statusBarVisible)
           confirmCloseTabsRef.current = prefs.general.confirmCloseTabs
           setPerformancePrefs(prefs.performance)
+        }}
+      />
+
+      <UnlockModelDialog
+        open={lockedPending != null}
+        fileName={lockedPending?.name ?? ''}
+        busy={unlockBusy}
+        error={unlockError}
+        password={unlockPassword}
+        onPasswordChange={setUnlockPassword}
+        onSubmit={password => void handleUnlockSubmit(password)}
+        onCancel={() => {
+          if (unlockBusy) return
+          setLockedPending(null)
+          setUnlockPassword('')
+          setUnlockError(null)
+        }}
+      />
+
+      <EncryptModelDialog
+        open={encryptOpen}
+        modelLabel={model?.label ?? t('app.tab.new')}
+        batchCount={encryptBatchPaths?.length ?? 1}
+        busy={encryptBusy}
+        error={encryptError}
+        progress={encryptBatchProgress}
+        saveAlongside={encryptSaveAlongside}
+        onSaveAlongsideChange={setEncryptSaveAlongside}
+        onSubmit={payload => void handleEncryptSubmit(payload)}
+        onCancel={() => {
+          if (encryptBusy && encryptBatchProgress) {
+            void window.desktop?.cancelEncryptBatch?.()
+          }
+          if (encryptBusy && !encryptBatchProgress) return
+          setEncryptOpen(false)
+          setEncryptError(null)
+          setEncryptBatchPaths(null)
+          setEncryptBatchProgress(null)
+          setEncryptBusy(false)
         }}
       />
     </div>

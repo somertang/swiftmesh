@@ -1,4 +1,5 @@
 import { createTheme, type Theme } from '@mui/material/styles'
+import type {} from '@mui/x-date-pickers/themeAugmentation'
 import type { UiTheme } from './uiTheme'
 import {
   createMinimalShadows,
@@ -145,6 +146,33 @@ const PALETTES: Record<UiTheme, ThemePaletteDef> = {
   },
 }
 
+/**
+ * Shared density for small outlined fields (TextField / Select / DatePicker).
+ * Floating labels and input text share font size and stay vertically centered.
+ */
+const CONTROL_FONT_SIZE = '0.8125rem'
+const CONTROL_LINE_HEIGHT = 1.4375
+/** Vertical padding for size="small" outlined inputs (MUI default is 8.5). */
+const OUTLINED_SMALL_PADDING_Y = 6.5
+const OUTLINED_SMALL_PADDING_X = 14
+/** InputLabel translate Y for outlined + small at CONTROL_FONT_SIZE (MUI default is 9 / -9). */
+const OUTLINED_LABEL_Y = 7
+const OUTLINED_LABEL_SHRINK_Y = -8
+/** Match IconButton size="small" (18px) so TextField / DatePicker adornment icons share weight. */
+const CONTROL_ADORNMENT_ICON_BUTTON = {
+  width: 28,
+  height: 28,
+  padding: 4,
+  fontSize: '1.125rem',
+  '& .MuiSvgIcon-root': {
+    fontSize: 'inherit',
+  },
+  '& .iconify': {
+    width: '1em',
+    height: '1em',
+  },
+} as const
+
 function buildMuiShadows(set: MinimalShadowSet): Theme['shadows'] {
   const shadows = [...createTheme().shadows] as Theme['shadows']
   shadows[1] = set.z1
@@ -234,11 +262,30 @@ function buildTheme(name: UiTheme, p: ThemePaletteDef): Theme {
       MuiTextField: {
         defaultProps: { size: 'small', variant: 'outlined' },
       },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            fontSize: CONTROL_FONT_SIZE,
+            lineHeight: CONTROL_LINE_HEIGHT,
+          },
+          outlined: {
+            // Keep label metrics in lockstep with CONTROL_FONT_SIZE + small padding.
+            '&.MuiInputLabel-sizeSmall:not(.MuiInputLabel-shrink)': {
+              transform: `translate(${OUTLINED_SMALL_PADDING_X}px, ${OUTLINED_LABEL_Y}px) scale(1)`,
+            },
+            '&.MuiInputLabel-sizeSmall.MuiInputLabel-shrink': {
+              transform: `translate(${OUTLINED_SMALL_PADDING_X}px, ${OUTLINED_LABEL_SHRINK_Y}px) scale(0.75)`,
+            },
+          },
+        },
+      },
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
             borderRadius: MINIMAL_RADIUS.sm,
             backgroundColor: p.input,
+            fontSize: CONTROL_FONT_SIZE,
+            lineHeight: CONTROL_LINE_HEIGHT,
             '&:hover .MuiOutlinedInput-notchedOutline': {
               borderColor: p.borderStrong,
             },
@@ -246,12 +293,85 @@ function buildTheme(name: UiTheme, p: ThemePaletteDef): Theme {
               borderColor: p.primary,
               borderWidth: 1,
             },
+            '&.MuiInputBase-sizeSmall': {
+              minHeight: 34,
+            },
+            '&.MuiInputBase-sizeSmall .MuiOutlinedInput-input': {
+              padding: `${OUTLINED_SMALL_PADDING_Y}px ${OUTLINED_SMALL_PADDING_X}px`,
+            },
+            '&.MuiInputBase-sizeSmall.MuiOutlinedInput-adornedStart .MuiOutlinedInput-input': {
+              paddingLeft: 0,
+            },
+            '&.MuiInputBase-sizeSmall.MuiOutlinedInput-adornedEnd .MuiOutlinedInput-input': {
+              paddingRight: 0,
+            },
           },
           notchedOutline: {
             borderColor: p.border,
           },
           input: {
-            fontSize: '0.8125rem',
+            fontSize: CONTROL_FONT_SIZE,
+            lineHeight: CONTROL_LINE_HEIGHT,
+          },
+        },
+      },
+      MuiInputAdornment: {
+        styleOverrides: {
+          root: {
+            // Keep adornment icons aligned with password-field IconButton size="small".
+            '& .MuiIconButton-root': CONTROL_ADORNMENT_ICON_BUTTON,
+          },
+        },
+      },
+      // DatePicker v9 uses PickersTextField / PickersOutlinedInput (not MuiOutlinedInput).
+      MuiPickersTextField: {
+        defaultProps: { size: 'small', variant: 'outlined' },
+      },
+      MuiDatePicker: {
+        defaultProps: {
+          slotProps: {
+            openPickerButton: { size: 'small' },
+            // Default calendar SvgIcon is medium (24px); inherit IconButton sizeSmall (18px).
+            openPickerIcon: { fontSize: 'inherit' },
+            clearIcon: { fontSize: 'inherit' },
+          },
+        },
+      },
+      MuiDesktopDatePicker: {
+        defaultProps: {
+          slotProps: {
+            openPickerButton: { size: 'small' },
+            openPickerIcon: { fontSize: 'inherit' },
+            clearIcon: { fontSize: 'inherit' },
+          },
+        },
+      },
+      MuiPickersOutlinedInput: {
+        styleOverrides: {
+          root: {
+            borderRadius: MINIMAL_RADIUS.sm,
+            backgroundColor: p.input,
+            fontSize: CONTROL_FONT_SIZE,
+            lineHeight: CONTROL_LINE_HEIGHT,
+            minHeight: 34,
+            '&:hover .MuiPickersOutlinedInput-notchedOutline': {
+              borderColor: p.borderStrong,
+            },
+            '&.Mui-focused .MuiPickersOutlinedInput-notchedOutline': {
+              borderColor: p.primary,
+              borderWidth: 1,
+            },
+            '& .MuiIconButton-root': CONTROL_ADORNMENT_ICON_BUTTON,
+          },
+          notchedOutline: {
+            borderColor: p.border,
+          },
+          // Pickers maps the "input" slot to the sections container.
+          input: {
+            fontSize: CONTROL_FONT_SIZE,
+            lineHeight: CONTROL_LINE_HEIGHT,
+            paddingTop: OUTLINED_SMALL_PADDING_Y,
+            paddingBottom: OUTLINED_SMALL_PADDING_Y,
           },
         },
       },

@@ -19,13 +19,21 @@ const INSPECT_TOOLS: {
   { id: 'decimate', labelKey: 'tool.decimate', icon: 'material-symbols:compress' },
 ]
 
+const INSPECT_ASSET_TOOLS = new Set<InspectPanelId>(['textures', 'materials', 'geometries', 'info'])
+
 type ViewportToolbarProps = {
   active: ViewportToolId | null
   onToggle: (id: ViewportToolId) => void
   disabled?: boolean
+  allowInspectAssets?: boolean
 }
 
-export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarProps) {
+export function ViewportToolbar({
+  active,
+  onToggle,
+  disabled,
+  allowInspectAssets = true,
+}: ViewportToolbarProps) {
   const t = useT()
   return (
     <Paper
@@ -39,6 +47,7 @@ export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarP
       {INSPECT_TOOLS.map(tool => {
         const isActive = active === tool.id
         const label = t(tool.labelKey)
+        const toolDisabled = disabled || (!allowInspectAssets && INSPECT_ASSET_TOOLS.has(tool.id))
         return (
           <IconButton
             key={tool.id}
@@ -47,7 +56,7 @@ export function ViewportToolbar({ active, onToggle, disabled }: ViewportToolbarP
             title={label}
             aria-label={label}
             aria-pressed={isActive}
-            disabled={disabled}
+            disabled={toolDisabled}
             onClick={() => onToggle(tool.id)}
           >
             <Icon icon={tool.icon} aria-hidden />

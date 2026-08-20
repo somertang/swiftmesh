@@ -7,6 +7,7 @@ import pngToIco from 'png-to-ico'
 
 const repoRoot = process.cwd()
 const inputLogo = path.join(repoRoot, 'src', 'assets', 'logo.png')
+const inputSmshLogo = path.join(repoRoot, 'src', 'assets', 'smsh-logo.png')
 const publicDir = path.join(repoRoot, 'public')
 const buildDir = path.join(repoRoot, 'build')
 
@@ -34,12 +35,12 @@ async function writePng(size, outFileName) {
   await sharp(inputLogo).resize(size, size, { fit: 'contain' }).png().toFile(outPath)
 }
 
-async function writeIco(outPath) {
+async function writeIcoFromPng(inputPng, outPath) {
   // png-to-ico takes a square PNG and produces a multi-size .ico (incl. 256).
   // Some logo files can contain trailing bytes or metadata that `pngjs` rejects;
   // re-encode via sharp first to normalize the PNG stream.
   const cleanPngPath = path.join(publicDir, '_logo-clean.png')
-  await sharp(inputLogo).png().toFile(cleanPngPath)
+  await sharp(inputPng).resize(256, 256, { fit: 'contain' }).png().toFile(cleanPngPath)
 
   const icoBuffer = await pngToIco(cleanPngPath)
   await fs.writeFile(outPath, icoBuffer)
@@ -47,24 +48,23 @@ async function writeIco(outPath) {
   await fs.rm(cleanPngPath).catch(() => {})
 }
 
-async function writeIcns() {
+async function writeIcnsFromPng(inputPng, icnsPath, iconsetName) {
   if (process.platform !== 'darwin') {
-    console.info('[brand-icons] skip .icns (not macOS)')
+    console.info(`[brand-icons] skip ${path.basename(icnsPath)} (not macOS)`)
     return
   }
 
-  const iconsetDir = path.join(buildDir, 'icon.iconset')
+  const iconsetDir = path.join(buildDir, iconsetName)
   await fs.rm(iconsetDir, { recursive: true, force: true })
   await fs.mkdir(iconsetDir, { recursive: true })
 
   for (const { name, size } of ICNS_SIZES) {
-    await sharp(inputLogo)
+    await sharp(inputPng)
       .resize(size, size, { fit: 'contain' })
       .png()
       .toFile(path.join(iconsetDir, name))
   }
 
-  const icnsPath = path.join(buildDir, 'icon.icns')
   const result = spawnSync('iconutil', ['-c', 'icns', iconsetDir, '-o', icnsPath], {
     encoding: 'utf8',
   })
@@ -82,11 +82,17 @@ async function main() {
   await writePng(192, 'logo-192.png')
   await writePng(512, 'logo-512.png')
   await writePng(180, 'apple-touch-icon.png')
-  await writeIco(path.join(publicDir, 'favicon.ico'))
+  await writeIcoFromPng(inputLogo, path.join(publicDir, 'favicon.ico'))
   // electron-builder Windows app / installer icon
-  await writeIco(path.join(buildDir, 'icon.ico'))
+  await writeIcoFromPng(inputLogo, path.join(buildDir, 'icon.ico'))
   // electron-builder macOS app icon
-  await writeIcns()
+  await writeIcnsFromPng(inputLogo, path.join(buildDir, 'icon.icns'), 'icon.iconset')
+
+  // Dedicated .smsh document icon (distinct from the app icon)
+  await fs.access(inputSmshLogo)
+  await writeIcoFromPng(inputSmshLogo, path.join(buildDir, 'smsh.ico'))
+  await writeIcnsFromPng(inputSmshLogo, path.join(buildDir, 'smsh.icns'), 'smsh.iconset')
+  console.info('[brand-icons] wrote build/smsh.ico')
 }
 
 await main()

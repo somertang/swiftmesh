@@ -5,6 +5,8 @@ release/
 build/ffmpeg/
 build/icon.iconset/
 build/icon.icns
+build/smsh.iconset/
+build/smsh.icns
 *.log
 .DS_Store
 .env

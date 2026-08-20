@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState, type FC } from 'react'
 import { useT } from '../i18n'
 import { LoadingButton } from './LoadingButton'
 
-export type FileSavedTitleKey = 'record.savedTitle' | 'decimate.exportSavedTitle'
+export type FileSavedTitleKey =
+  | 'record.savedTitle'
+  | 'decimate.exportSavedTitle'
+  | 'encrypt.savedTitle'
 
 export type AppToastItem =
   | {
@@ -34,7 +37,7 @@ const MAX_TOASTS = 3
 const TOAST_ANIM_MS = 280
 
 // Output paths either point at a single file or a folder (image sequence).
-const FILE_PATH_PATTERN = /\.(zip|mp4|webm|mov|png|jpe?g|webp|glb|gltf)$/i
+const FILE_PATH_PATTERN = /\.(zip|mp4|webm|mov|png|jpe?g|webp|glb|gltf|smsh)$/i
 
 function isFilePath(path: string): boolean {
   return FILE_PATH_PATTERN.test(path)

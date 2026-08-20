@@ -5,13 +5,36 @@ export type OpenedModelCompanion = {
   data: ArrayBuffer
 }
 
+/** Permissions embedded in an encrypted .smsh container. */
+export type ModelPermissions = {
+  allowExport: boolean
+  allowRecordVideo: boolean
+  allowRecordImages: boolean
+  allowInspectAssets: boolean
+  expiresAt: string | null
+  watermark: string | null
+}
+
 export type OpenedModel = {
   name: string
   path: string
   data: ArrayBuffer
   format: ModelFormat
   companions?: OpenedModelCompanion[]
+  /** Present when the model was unlocked from a .smsh container. */
+  permissions?: ModelPermissions
 }
+
+/** Header-only peek of an encrypted model that still needs a password. */
+export type LockedModel = {
+  kind: 'locked'
+  name: string
+  path: string
+}
+
+export type OpenModelResult =
+  | ({ kind: 'model' } & OpenedModel)
+  | LockedModel
 
 /** @deprecated Use OpenedModel */
 export type OpenedGlb = OpenedModel
@@ -71,6 +94,8 @@ export type StartRecordingSessionPayload = {
   fps: number
   /** Required when format is `images`. */
   images?: RecordingImagesOptions
+  /** Absolute path of the currently open model (for permission checks). */
+  sourcePath?: string
 }
 
 export type StartRecordingSessionResult =
@@ -151,12 +176,51 @@ export type WindowChromeInfo = {
 }
 
 export type DesktopApi = {
-  openModel: () => Promise<OpenedModel | null>
-  readModelPath: (filePath: string) => Promise<OpenedModel>
+  openModel: () => Promise<OpenModelResult | null>
+  readModelPath: (filePath: string) => Promise<OpenModelResult>
   /** @deprecated Use openModel */
-  openGlb: () => Promise<OpenedModel | null>
+  openGlb: () => Promise<OpenModelResult | null>
   /** @deprecated Use readModelPath */
-  readGlbPath: (filePath: string) => Promise<OpenedModel>
+  readGlbPath: (filePath: string) => Promise<OpenModelResult>
+  /** Unlock a .smsh file with a password. */
+  unlockModel: (payload: {
+    path: string
+    password: string
+  }) => Promise<
+    | { ok: true; model: OpenedModel }
+    | { ok: false; reason: 'bad-password' | 'expired' | string }
+  >
+  /** Encrypt the model at sourcePath into a .smsh via Save As. */
+  encryptModel: (payload: {
+    sourcePath: string
+    password: string
+    permissions: ModelPermissions
+  }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
+  /** Multi-select plain model files for batch encrypt (null if canceled). */
+  pickModelsForBatchEncrypt: () => Promise<string[] | null>
+  /** Encrypt many sources with one password/permissions set. */
+  encryptModelsBatch: (payload: {
+    sourcePaths: string[]
+    password: string
+    permissions: ModelPermissions
+    outputDir: string | null
+  }) => Promise<{
+    ok: true
+    results: Array<{ sourcePath: string; path?: string; error?: string }>
+    canceled: boolean
+  }>
+  cancelEncryptBatch: () => Promise<void>
+  chooseEncryptOutputDir: () => Promise<string | null>
+  onEncryptBatchProgress: (
+    handler: (progress: { index: number; total: number; fileName: string }) => void
+  ) => () => void
+  /**
+   * Toggle OS-level window content protection (reduces capture of the window).
+   * Used while any unlocked .smsh tab is open — not hard DRM.
+   */
+  setContentProtection: (enabled: boolean) => Promise<void>
+  /** Copy text via Electron clipboard (works under file://). */
+  writeClipboardText: (text: string) => Promise<void>
   saveRecording: (payload: SaveRecordingPayload) => Promise<SaveRecordingResult>
   startRecordingSession: (payload: StartRecordingSessionPayload) => Promise<StartRecordingSessionResult>
   appendRecordingFrame: (payload: AppendRecordingFramePayload) => Promise<void>
@@ -183,6 +247,8 @@ export type DesktopApi = {
   saveModelFile: (payload: {
     defaultName: string
     data: ArrayBuffer
+    /** Absolute path of the currently open model (for permission checks). */
+    sourcePath?: string
   }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
   /** Pick a folder for cache / temporary files (null if canceled). */
   chooseCacheDir: () => Promise<string | null>
@@ -205,6 +271,10 @@ export type DesktopApi = {
   onToggleStatusBar: (handler: () => void) => () => void
   /** Fired when Preferences… is chosen (legacy menu / IPC). */
   onOpenPreferences: (handler: () => void) => () => void
+  /** Fired when File → Encrypt Model… is chosen (macOS menu / IPC). */
+  onEncryptModelRequest: (handler: () => void) => () => void
+  /** Fired when File → Encrypt Models… (batch) is chosen. */
+  onEncryptModelsBatchRequest: (handler: () => void) => () => void
   /** Recent model absolute paths for the custom File menu. */
   getRecentPaths: () => Promise<string[]>
   /** Persist Open Recent max length and trim the stored list. */
@@ -247,9 +317,9 @@ export type DesktopApi = {
    * Call after the renderer has subscribed to model-open handlers.
    */
   takePendingOpenPaths: () => Promise<string[]>
-  onModelOpened: (handler: (file: OpenedModel) => void) => () => void
+  onModelOpened: (handler: (file: OpenModelResult) => void) => () => void
   /** @deprecated Use onModelOpened */
-  onGlbOpened: (handler: (file: OpenedModel) => void) => () => void
+  onGlbOpened: (handler: (file: OpenModelResult) => void) => () => void
   onExportProgress: (handler: (event: ExportProgressEvent) => void) => () => void
   getPathForFile: (file: File) => string
 }

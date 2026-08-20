@@ -2,7 +2,7 @@
 
 Desktop app for viewing local 3D models, inspecting scene data, and capturing turntable video or stills.
 
-**Formats:** `.glb` / `.gltf` / `.obj` / `.fbx`  
+**Formats:** `.glb` / `.gltf` / `.obj` / `.fbx` / `.smsh` (encrypted)  
 **Platforms:** Windows x64 · macOS (Apple Silicon + Intel)  
 **Stack:** Electron · React · Three.js · Vite · Material UI  
 **License:** [MIT](./LICENSE)
@@ -47,9 +47,11 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 ### Features
 
 - Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
+- Encrypt a local model to `.smsh` (password + optional export/recording/inspect permissions, expiry, watermark) for controlled sharing; **Encrypt Models…** batch-encrypts multiple files with the same settings
+- Unlocked `.smsh` tabs ask the OS to reduce window capture (`setContentProtection`) — best-effort, not hard DRM
 - Multi-tab viewing; perspective / orthographic camera
 - Inspect hierarchy, textures, materials, geometries, and model info
-- Reduce static mesh triangle/vertex counts in the viewport (ratio slider) and export a preview GLB
+- Reduce static mesh triangle/vertex counts in the viewport (ratio slider) and export a preview GLB (not encrypted export; encrypt the original source file instead)
 - Play skeletal animation clips from glTF / FBX from a viewport playback bar (manual start)
 - Viewport **Annotate** and **Measure** tools
 - Capture a turntable as **video** (MP4 / WebM via bundled ffmpeg) or **stills** (frame sequence / spritesheet atlas, optional multi-axis)
