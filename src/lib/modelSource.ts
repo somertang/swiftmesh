@@ -9,9 +9,10 @@ export type ModelSource = {
   resourceUrls: Record<string, string>
 }
 
-export const MODEL_FILE_ACCEPT = '.glb,.gltf,.obj,.fbx,model/gltf-binary,model/gltf+json'
+export const MODEL_FILE_ACCEPT =
+  '.glb,.gltf,.obj,.fbx,.smsh,model/gltf-binary,model/gltf+json'
 
-export const MODEL_FORMAT_LIST = '.glb / .gltf / .obj / .fbx'
+export const MODEL_FORMAT_LIST = '.glb / .gltf / .obj / .fbx / .smsh'
 
 export function detectModelFormat(fileName: string): ModelFormat | null {
   if (/\.glb$/i.test(fileName)) return 'glb'
@@ -21,12 +22,16 @@ export function detectModelFormat(fileName: string): ModelFormat | null {
   return null
 }
 
+export function isEncryptedModelFileName(fileName: string): boolean {
+  return /\.smsh$/i.test(fileName)
+}
+
 export function isFbxTextureFileName(fileName: string): boolean {
   return /\.(png|jpe?g|webp|gif|tga|bmp|tiff?)$/i.test(fileName)
 }
 
 export function isModelFileName(fileName: string): boolean {
-  return detectModelFormat(fileName) !== null
+  return detectModelFormat(fileName) !== null || isEncryptedModelFileName(fileName)
 }
 
 export function basenameOf(filePath: string): string {

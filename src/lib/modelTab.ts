@@ -1,7 +1,7 @@
 import { DEFAULT_CAMERA, type CameraSettings } from '../config/cameraDefaults'
 import type { LightingSettings } from '../config/lightingDefaults'
 import type { ExportPhase } from '../components/ExportProgressModal'
-import type { RecordingMode } from '../desktopTypes'
+import type { ModelPermissions, RecordingMode } from '../desktopTypes'
 import { basenameOf, revokeModelSource, type ModelSource } from './modelSource'
 import {
   DEFAULT_RECORDING_PREFERENCES,
@@ -35,6 +35,8 @@ export type ModelTab = {
   exportPhase: ExportPhase
   progressRad: number
   error: string | null
+  /** Permissions from an unlocked .smsh container; absent for plain models. */
+  permissions?: ModelPermissions
 }
 
 export type TabState = {
@@ -167,7 +169,12 @@ export function patchTab(state: TabState, tabId: string, patch: Partial<ModelTab
 }
 
 /** Reload a model into an existing tab (revokes the previous source). */
-export function replaceTabModel(state: TabState, tabId: string, source: ModelSource): TabState {
+export function replaceTabModel(
+  state: TabState,
+  tabId: string,
+  source: ModelSource,
+  permissions?: ModelPermissions
+): TabState {
   const tab = state.tabs.find(candidate => candidate.id === tabId)
   if (!tab || tab.recording || tab.exporting) {
     revokeModelSource(source)
@@ -176,6 +183,7 @@ export function replaceTabModel(state: TabState, tabId: string, source: ModelSou
   revokeTabModel(tab)
   return patchTab(state, tabId, {
     model: source,
+    permissions,
     error: null,
     loading: true,
   })
@@ -338,7 +346,11 @@ export function unsplitIfNeeded(state: TabState): TabState {
  * If the same file is already open, activate that tab instead (does not reload / reset settings).
  * Never replaces an existing model in-place.
  */
-export function openModelInTabs(state: TabState, source: ModelSource): TabState {
+export function openModelInTabs(
+  state: TabState,
+  source: ModelSource,
+  permissions?: ModelPermissions
+): TabState {
   const active = getActiveTab(state)
   if (active.recording || active.exporting) {
     revokeModelSource(source)
@@ -356,6 +368,7 @@ export function openModelInTabs(state: TabState, source: ModelSource): TabState 
     return updateActiveTab(state, tab => ({
       ...tab,
       model: source,
+      permissions,
       error: null,
       progressRad: 0,
       loading: false,
@@ -366,7 +379,10 @@ export function openModelInTabs(state: TabState, source: ModelSource): TabState 
   const group = getFocusedGroup(state)
   return {
     ...state,
-    tabs: [...state.tabs, { ...tab, model: source, error: null, progressRad: 0, loading: false }],
+    tabs: [
+      ...state.tabs,
+      { ...tab, model: source, permissions, error: null, progressRad: 0, loading: false },
+    ],
     groups: state.groups.map(candidate =>
       candidate.id === group.id
         ? { ...candidate, tabIds: [...candidate.tabIds, tab.id], activeTabId: tab.id }

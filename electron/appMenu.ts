@@ -11,6 +11,8 @@ export type DarwinAppMenuHandlers = {
   onOpen: () => void
   onOpenRecent: (filePath: string) => void
   onClearRecent: () => void
+  onEncryptModel: () => void
+  onEncryptModelsBatch: () => void
   onOpenPreferences: () => void
   onToggleStatusBar: () => void
   onReload: () => void
@@ -82,6 +84,14 @@ export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Men
         {
           label: t('menu.openRecent'),
           submenu: recentSubmenu,
+        },
+        {
+          label: t('menu.encryptModel'),
+          click: () => handlers.onEncryptModel(),
+        },
+        {
+          label: t('menu.encryptBatch'),
+          click: () => handlers.onEncryptModelsBatch(),
         },
       ],
     },

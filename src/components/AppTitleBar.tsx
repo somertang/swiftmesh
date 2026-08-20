@@ -22,6 +22,9 @@ type AppTitleBarProps = {
   onOpenPreferences: () => void
   onToggleStatusBar: () => void
   onOpenRecentPath: (filePath: string) => void
+  onEncryptModel?: () => void
+  onEncryptModelsBatch?: () => void
+  encryptDisabled?: boolean
 }
 
 function basenamePath(filePath: string): string {
@@ -76,6 +79,9 @@ export function AppTitleBar({
   onOpenPreferences,
   onToggleStatusBar,
   onOpenRecentPath,
+  onEncryptModel,
+  onEncryptModelsBatch,
+  encryptDisabled = false,
 }: AppTitleBarProps) {
   const t = useT()
   const rootRef = useRef<HTMLElement>(null)
@@ -283,6 +289,19 @@ export function AppTitleBar({
                           </Paper>
                         ) : null}
                       </li>
+                      {onEncryptModel ? (
+                        <TitleBarMenuItem
+                          label={t('menu.encryptModel')}
+                          disabled={encryptDisabled}
+                          onClick={() => run(onEncryptModel)}
+                        />
+                      ) : null}
+                      {onEncryptModelsBatch ? (
+                        <TitleBarMenuItem
+                          label={t('menu.encryptBatch')}
+                          onClick={() => run(onEncryptModelsBatch)}
+                        />
+                      ) : null}
                       <Divider component="li" />
                       <TitleBarMenuItem
                         label={t('menu.preferencesOpen')}

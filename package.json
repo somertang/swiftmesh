@@ -2,7 +2,7 @@
   "name": "swiftmesh",
   "version": "0.3.2",
   "private": true,
-  "description": "SwiftMesh — open local .glb / .gltf / .obj / .fbx, inspect, record turntable",
+  "description": "SwiftMesh — open local .glb / .gltf / .obj / .fbx / .smsh, inspect, record turntable",
   "author": "Somer Tang",
   "license": "MIT",
   "repository": {
@@ -38,6 +38,8 @@
     "@emotion/styled": "^11.14.1",
     "@iconify/react": "^6.0.2",
     "@mui/material": "^9.2.0",
+    "@mui/x-date-pickers": "^9.11.0",
+    "dayjs": "^1.11.23",
     "dompurify": "^3.4.12",
     "electron-updater": "^6.8.9",
     "ffmpeg-static": "^5.2.0",
@@ -125,6 +127,14 @@
         "mimeType": "application/octet-stream",
         "role": "Editor",
         "icon": "build/icon.ico"
+      },
+      {
+        "ext": "smsh",
+        "name": "SwiftMesh.SMSH",
+        "description": "SwiftMesh Encrypted 3D Model",
+        "mimeType": "application/octet-stream",
+        "role": "Editor",
+        "icon": "build/smsh.ico"
       }
     ],
     "win": {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
 import { constants as fsConstants, watch as fsWatch, type FSWatcher } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -18,6 +18,7 @@ import type {
   FinishRecordingSessionPayload,
   OpenedModel,
   OpenedModelCompanion,
+  OpenModelResult,
   RecordingExportFormat,
   RecordingImagesOptions,
   RecordingQuality,
@@ -31,11 +32,25 @@ import {
   collectMtlTextureUris,
   collectObjMtllibs,
   detectModelFormat,
+  isEncryptedModelFileName,
   isFbxTextureFileName,
+  isModelFileName,
   MODEL_FORMAT_LIST,
   normalizeAssetPath,
   stemFromName,
 } from '../src/lib/modelSource'
+import {
+  isSmshBytes,
+  packBundle,
+  unpackBundle,
+  SmshFormatError,
+} from '../src/lib/smsh/container'
+import {
+  isPermissionExpired,
+  normalizePermissions,
+  type ModelPermissions,
+} from '../src/lib/smsh/permissions'
+import { encryptSmsh, decryptSmsh } from './smshCrypto'
 import {
   isLocale,
   translate,
@@ -80,6 +95,35 @@ type ModelWatchEntry = {
 }
 
 const modelWatchers = new Map<string, ModelWatchEntry>()
+
+/** Permissions for unlocked .smsh models, keyed by absolute path (normalized). */
+const modelPermissionsByPath = new Map<string, ModelPermissions>()
+
+function normalizePermPath(filePath: string): string {
+  return path.resolve(filePath).replace(/\\/g, '/').toLowerCase()
+}
+
+function rememberPermissions(filePath: string, permissions: ModelPermissions | undefined) {
+  const key = normalizePermPath(filePath)
+  if (permissions) modelPermissionsByPath.set(key, permissions)
+  else modelPermissionsByPath.delete(key)
+}
+
+function getPermissionsForPath(filePath: string | undefined | null): ModelPermissions | null {
+  if (!filePath) return null
+  return modelPermissionsByPath.get(normalizePermPath(filePath)) ?? null
+}
+
+function denyUnlessAllowed(
+  sourcePath: string | undefined,
+  allowed: (p: ModelPermissions) => boolean,
+  reason: string
+): string | null {
+  const perms = getPermissionsForPath(sourcePath)
+  if (!perms) return null
+  if (!allowed(perms)) return reason
+  return null
+}
 
 function normalizeWatchPath(filePath: string): string {
   return path.normalize(filePath.trim())
@@ -426,13 +470,58 @@ async function collectSidecars(filePath: string, format: NonNullable<ReturnType<
   return companions
 }
 
-async function readModelFile(filePath: string): Promise<OpenedModel> {
+async function peekSmshMagic(filePath: string): Promise<boolean> {
+  const handle = await fs.open(filePath, 'r')
+  try {
+    const buf = Buffer.alloc(6)
+    const { bytesRead } = await handle.read(buf, 0, 6, 0)
+    if (bytesRead < 6) return false
+    return isSmshBytes(new Uint8Array(buf.buffer, buf.byteOffset, 6))
+  } finally {
+    await handle.close()
+  }
+}
+
+function uint8ToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy.buffer
+}
+
+async function readModelFile(filePath: string): Promise<OpenModelResult> {
+  if (isEncryptedModelFileName(filePath)) {
+    return {
+      kind: 'locked',
+      name: path.basename(filePath),
+      path: filePath,
+    }
+  }
+
   const format = detectModelFormat(filePath)
-  if (!format) throw new Error(`Not a supported model file (${MODEL_FORMAT_LIST})`)
+  if (!format) {
+    if (await peekSmshMagic(filePath)) {
+      return {
+        kind: 'locked',
+        name: path.basename(filePath),
+        path: filePath,
+      }
+    }
+    throw new Error(`Not a supported model file (${MODEL_FORMAT_LIST})`)
+  }
+
   const buffer = await fs.readFile(filePath)
+  if (isSmshBytes(new Uint8Array(buffer.buffer, buffer.byteOffset, Math.min(6, buffer.byteLength)))) {
+    return {
+      kind: 'locked',
+      name: path.basename(filePath),
+      path: filePath,
+    }
+  }
+
   const data = toArrayBuffer(buffer)
   const companions = await collectSidecars(filePath, format, data)
   return {
+    kind: 'model',
     name: path.basename(filePath),
     path: filePath,
     data,
@@ -441,11 +530,233 @@ async function readModelFile(filePath: string): Promise<OpenedModel> {
   }
 }
 
-async function readModelFileAndRemember(filePath: string): Promise<OpenedModel> {
+async function readModelFileAndRemember(filePath: string): Promise<OpenModelResult> {
   const model = await readModelFile(filePath)
   await addRecentPath(filePath)
   notifyRecentPathsChanged()
   return model
+}
+
+async function unlockModelFile(
+  filePath: string,
+  password: string
+): Promise<
+  | { ok: true; model: OpenedModel }
+  | { ok: false; reason: 'bad-password' | 'expired' | string }
+> {
+  try {
+    const buffer = await fs.readFile(filePath)
+    const fileBytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+    let decrypted: Awaited<ReturnType<typeof decryptSmsh>>
+    try {
+      decrypted = await decryptSmsh(fileBytes, password)
+    } catch (err) {
+      if (err instanceof SmshFormatError) {
+        return { ok: false, reason: 'bad-password' }
+      }
+      throw err
+    }
+
+    const permissions = normalizePermissions(decrypted.permissions)
+    if (isPermissionExpired(permissions)) {
+      return { ok: false, reason: 'expired' }
+    }
+
+    const bundle = unpackBundle(decrypted.plaintext)
+    const mainEntry = bundle.entries.find(e => e.path === bundle.manifest.mainPath)
+    if (!mainEntry) {
+      return { ok: false, reason: 'Bundle missing main entry' }
+    }
+
+    const companions: OpenedModelCompanion[] = bundle.entries
+      .filter(e => e.path !== bundle.manifest.mainPath)
+      .map(e => ({
+        relativePath: e.path,
+        data: uint8ToArrayBuffer(e.data),
+      }))
+
+    const model: OpenedModel = {
+      name: path.basename(filePath),
+      path: filePath,
+      data: uint8ToArrayBuffer(mainEntry.data),
+      format: bundle.manifest.format,
+      companions,
+      permissions,
+    }
+
+    rememberPermissions(filePath, permissions)
+    await addRecentPath(filePath)
+    notifyRecentPathsChanged()
+    return { ok: true, model }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    return { ok: false, reason }
+  }
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function uniqueSmshOutPath(dir: string, stem: string): Promise<string> {
+  const safeStem = stem.replace(/[<>:"/\\|?*]/g, '_') || 'model'
+  let candidate = path.join(dir, `${safeStem}.smsh`)
+  let n = 1
+  while (await pathExists(candidate)) {
+    candidate = path.join(dir, `${safeStem} (${n}).smsh`)
+    n += 1
+  }
+  return candidate
+}
+
+async function buildEncryptedSmshBytes(
+  sourcePath: string,
+  password: string,
+  permissions: ModelPermissions
+): Promise<Uint8Array> {
+  const opened = await readModelFile(sourcePath)
+  if (opened.kind !== 'model') {
+    throw new Error('Source is not a plain model file')
+  }
+
+  const mainPath = opened.name || path.basename(sourcePath)
+  const entries = [
+    { path: mainPath, data: new Uint8Array(opened.data) },
+    ...(opened.companions ?? []).map(c => ({
+      path: c.relativePath,
+      data: new Uint8Array(c.data),
+    })),
+  ]
+  const plaintext = packBundle({
+    manifest: {
+      format: opened.format,
+      mainPath,
+      entries: entries.map(e => ({ path: e.path, byteLength: e.data.byteLength })),
+    },
+    entries,
+  })
+
+  return encryptSmsh({ plaintext, password, permissions: normalizePermissions(permissions) })
+}
+
+async function encryptModelFile(payload: {
+  sourcePath: string
+  password: string
+  permissions: ModelPermissions
+}): Promise<{ ok: true; path: string } | { ok: false; reason: string }> {
+  if (!mainWindow) return { ok: false, reason: 'No window' }
+
+  const sourcePath = typeof payload?.sourcePath === 'string' ? payload.sourcePath.trim() : ''
+  if (!sourcePath) return { ok: false, reason: 'Missing source path' }
+  if (isEncryptedModelFileName(sourcePath)) {
+    return { ok: false, reason: 'Source is already an encrypted .smsh file' }
+  }
+
+  const password = typeof payload?.password === 'string' ? payload.password : ''
+  if (!password) return { ok: false, reason: 'Missing password' }
+
+  try {
+    const encrypted = await buildEncryptedSmshBytes(sourcePath, password, payload.permissions)
+
+    const stem = stemFromName(sourcePath).replace(/[<>:"/\\|?*]/g, '_') || 'model'
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: t('menu.encryptDialogTitle'),
+      defaultPath: `${stem}.smsh`,
+      filters: [{ name: t('menu.filterSmsh'), extensions: ['smsh'] }],
+    })
+    if (result.canceled || !result.filePath) {
+      return { ok: false, reason: 'canceled' }
+    }
+    const outPath = result.filePath.toLowerCase().endsWith('.smsh')
+      ? result.filePath
+      : `${result.filePath}.smsh`
+
+    await fs.writeFile(outPath, Buffer.from(encrypted))
+    return { ok: true, path: outPath }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    return { ok: false, reason }
+  }
+}
+
+let batchEncryptCancelRequested = false
+
+async function pickModelsForBatchEncrypt(): Promise<string[] | null> {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: t('menu.encryptBatch'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj', 'fbx'] },
+      { name: 'GLB', extensions: ['glb'] },
+      { name: 'glTF', extensions: ['gltf'] },
+      { name: 'OBJ', extensions: ['obj'] },
+      { name: 'FBX', extensions: ['fbx'] },
+    ],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths.filter(p => !isEncryptedModelFileName(p))
+}
+
+async function encryptModelsBatch(payload: {
+  sourcePaths: string[]
+  password: string
+  permissions: ModelPermissions
+  /** When set, write all .smsh into this folder; otherwise beside each source. */
+  outputDir: string | null
+}): Promise<{
+  ok: true
+  results: Array<{ sourcePath: string; path?: string; error?: string }>
+  canceled: boolean
+}> {
+  const password = typeof payload?.password === 'string' ? payload.password : ''
+  const sourcePaths = Array.isArray(payload?.sourcePaths)
+    ? payload.sourcePaths.map(p => String(p).trim()).filter(Boolean)
+    : []
+  const permissions = normalizePermissions(payload.permissions)
+  const outputDir =
+    typeof payload?.outputDir === 'string' && payload.outputDir.trim()
+      ? path.resolve(payload.outputDir.trim())
+      : null
+
+  batchEncryptCancelRequested = false
+  const results: Array<{ sourcePath: string; path?: string; error?: string }> = []
+
+  for (let i = 0; i < sourcePaths.length; i++) {
+    if (batchEncryptCancelRequested) {
+      return { ok: true, results, canceled: true }
+    }
+    const sourcePath = sourcePaths[i]!
+    mainWindow?.webContents.send('desktop:encrypt-batch-progress', {
+      index: i + 1,
+      total: sourcePaths.length,
+      fileName: path.basename(sourcePath),
+    })
+
+    if (isEncryptedModelFileName(sourcePath)) {
+      results.push({ sourcePath, error: 'Already an encrypted .smsh file' })
+      continue
+    }
+
+    try {
+      const encrypted = await buildEncryptedSmshBytes(sourcePath, password, permissions)
+      const stem = stemFromName(sourcePath)
+      const dir = outputDir ?? path.dirname(sourcePath)
+      const outPath = await uniqueSmshOutPath(dir, stem)
+      await fs.writeFile(outPath, Buffer.from(encrypted))
+      results.push({ sourcePath, path: outPath })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      results.push({ sourcePath, error: reason })
+    }
+  }
+
+  return { ok: true, results, canceled: false }
 }
 
 async function openRecentModel(filePath: string) {
@@ -481,7 +792,7 @@ function collectModelPathsFromArgv(argv: string[]): string[] {
         continue
       }
     }
-    if (!detectModelFormat(trimmed)) continue
+    if (!isModelFileName(trimmed)) continue
     const resolved = path.resolve(trimmed)
     const key = resolved.toLowerCase()
     if (key === execKey || seen.has(key)) continue
@@ -570,6 +881,8 @@ async function rebuildApplicationMenu(recentPaths?: string[]) {
       void clearRecentPaths().then(() => notifyRecentPathsChanged())
     },
     onOpenPreferences: () => sendToRenderer('desktop:open-preferences'),
+    onEncryptModel: () => sendToRenderer('desktop:encrypt-model-request'),
+    onEncryptModelsBatch: () => sendToRenderer('desktop:encrypt-models-batch-request'),
     onToggleStatusBar: () => sendToRenderer('desktop:toggle-status-bar'),
     onReload: () => {
       void runWindowMenuAction('reload')
@@ -748,11 +1061,12 @@ async function openModelDialog() {
     title: t('menu.openDialogTitle'),
     properties: ['openFile'],
     filters: [
-      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj', 'fbx'] },
+      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj', 'fbx', 'smsh'] },
       { name: t('menu.filterGlb'), extensions: ['glb'] },
       { name: t('menu.filterGltf'), extensions: ['gltf'] },
       { name: t('menu.filterObj'), extensions: ['obj'] },
       { name: t('menu.filterFbx'), extensions: ['fbx'] },
+      { name: t('menu.filterSmsh'), extensions: ['smsh'] },
     ],
   })
   if (result.canceled || result.filePaths.length === 0) return null
@@ -899,15 +1213,103 @@ ipcMain.handle('desktop:open-glb', async () => openModelDialog())
 ipcMain.handle('desktop:take-pending-open-paths', async () => takePendingShellModelPaths())
 
 ipcMain.handle(
+  'desktop:unlock-model',
+  async (_event, payload: { path?: string; password?: string }) => {
+    const filePath = typeof payload?.path === 'string' ? payload.path.trim() : ''
+    const password = typeof payload?.password === 'string' ? payload.password : ''
+    if (!filePath) return { ok: false as const, reason: 'Missing path' }
+    if (!password) return { ok: false as const, reason: 'Missing password' }
+    return unlockModelFile(filePath, password)
+  }
+)
+
+ipcMain.handle(
+  'desktop:encrypt-model',
+  async (
+    _event,
+    payload: { sourcePath?: string; password?: string; permissions?: ModelPermissions }
+  ) => {
+    return encryptModelFile({
+      sourcePath: payload?.sourcePath ?? '',
+      password: payload?.password ?? '',
+      permissions: normalizePermissions(payload?.permissions),
+    })
+  }
+)
+
+ipcMain.handle('desktop:pick-models-for-batch-encrypt', async () => pickModelsForBatchEncrypt())
+
+ipcMain.handle(
+  'desktop:encrypt-models-batch',
+  async (
+    _event,
+    payload: {
+      sourcePaths?: string[]
+      password?: string
+      permissions?: ModelPermissions
+      outputDir?: string | null
+    }
+  ) => {
+    return encryptModelsBatch({
+      sourcePaths: payload?.sourcePaths ?? [],
+      password: payload?.password ?? '',
+      permissions: normalizePermissions(payload?.permissions),
+      outputDir: payload?.outputDir ?? null,
+    })
+  }
+)
+
+ipcMain.handle('desktop:cancel-encrypt-batch', async () => {
+  batchEncryptCancelRequested = true
+})
+
+ipcMain.handle('desktop:choose-encrypt-output-dir', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: t('encrypt.batch.chooseOutputDir'),
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle('desktop:set-content-protection', async (_event, enabled: unknown) => {
+  const on = Boolean(enabled)
+  try {
+    mainWindow?.setContentProtection(on)
+  } catch (error) {
+    console.warn('[content-protection]', error)
+  }
+})
+
+ipcMain.handle('desktop:write-clipboard-text', async (_event, text: string) => {
+  clipboard.writeText(typeof text === 'string' ? text : String(text ?? ''))
+})
+
+ipcMain.handle(
   'desktop:start-recording-session',
   async (_event, payload: StartRecordingSessionPayload) => {
     if (!mainWindow) return { ok: false as const, reason: 'No window' }
 
     if (payload.format === 'images') {
+      const denied = denyUnlessAllowed(
+        payload.sourcePath,
+        p => p.allowRecordImages,
+        'permission-denied'
+      )
+      if (denied) return { ok: false as const, reason: denied }
+
       const images = payload.images
       if (!images || (!images.exportSequence && !images.exportAtlas)) {
         return { ok: false as const, reason: 'Images export requires sequence and/or atlas.' }
       }
+    } else {
+      const denied = denyUnlessAllowed(
+        payload.sourcePath,
+        p => p.allowRecordVideo,
+        'permission-denied'
+      )
+      if (denied) return { ok: false as const, reason: denied }
     }
 
     const sessionId = crypto.randomUUID()
@@ -1148,9 +1550,15 @@ ipcMain.handle(
   'desktop:save-model-file',
   async (
     _event,
-    payload: { defaultName?: string; data?: ArrayBuffer }
+    payload: { defaultName?: string; data?: ArrayBuffer; sourcePath?: string }
   ): Promise<{ ok: true; path: string } | { ok: false; reason: string }> => {
     if (!mainWindow) return { ok: false as const, reason: 'No window' }
+    const denied = denyUnlessAllowed(
+      payload?.sourcePath,
+      p => p.allowExport,
+      'permission-denied'
+    )
+    if (denied) return { ok: false as const, reason: denied }
     const defaultName = typeof payload?.defaultName === 'string' ? payload.defaultName.trim() : ''
     const raw = payload?.data as ArrayBuffer | Buffer | Uint8Array | undefined
     let bytes: Buffer | null = null

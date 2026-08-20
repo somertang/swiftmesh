@@ -5,6 +5,30 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Encrypted models (`.smsh`):** File → Encrypt Model… packs the current local model (and sidecars) into a password-protected container. Recipients open it in SwiftMesh with the shared password. Optional permissions can disable GLB export, video/image recording, and texture/structure inspect; optional expiry and viewport/capture watermark are supported. This is encrypted storage to prevent casual opening and accidental sharing — not DRM.
+- **Batch encrypt:** File → Encrypt Models… multi-selects local models, reuses the encrypt dialog (password / permissions / validity), writes `.smsh` beside each source or into a chosen folder, shows progress, and summarizes failures without stopping the whole batch.
+- **`.smsh` document icon:** Distinct install icon (`build/smsh.ico` / `smsh.icns`) so Explorer/Finder can tell encrypted files apart from other model associations; the app window icon is unchanged.
+- **Window content protection:** While any unlocked `.smsh` tab is open, the main window enables Electron `setContentProtection` to lower OS capture success; it turns off when no `.smsh` tabs remain. Best-effort only — not a hard screen-recording block.
+- **Encrypt expiry date:** Use MUI DatePicker with dayjs so the calendar UI follows the app language (English / 中文), not the OS locale.
+- **Encrypt validity presets:** Chip choices for 1 / 3 / 7 / 30 days, permanent, or custom date; presets count from encrypt time and store a local YYYY-MM-DD expiry. Chip labels include the calendar date; DRM notes live in tooltips.
+- **Encrypt / unlock passphrase UX:** Passphrases stay visible (no show/hide). Encrypt opens with a generated passphrase shown as large monospace text; edit switches to a custom field in place, refresh regenerates and returns to the display. Strength meter removed; encrypt still requires at least 8 non-whitespace characters.
+- **Encrypt dialog fields:** Unify password / expiry / watermark to Preferences-style `small` outlined fields with floating labels, and reorder to Password → Optional settings → Permissions.
+- **DatePicker field styling:** Theme `MuiPickersOutlinedInput` to match `MuiOutlinedInput` (input background, radius, font size, hover/focus border) so DatePicker fields align with TextField app-wide.
+- **Small outlined field density:** Align floating-label font size, line height, padding, and label translate with input text so empty labels sit vertically centered; keep DatePicker on the same metrics.
+- **DatePicker open icon:** Shrink calendar (and clear) icons to match TextField adornment `IconButton size="small"` weight (18px inherit).
+
+### Notes
+
+- **Out of scope for `.smsh`:** No online license check or remote revocation (no server). Reduce-mesh export stays preview GLB only — encrypting decimated results is not offered because it cannot match disk OBJ+MTL+texture fidelity of encrypting the original source.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.2] - 2026-08-20
 
 ### Added

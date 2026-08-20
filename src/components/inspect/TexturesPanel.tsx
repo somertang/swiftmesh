@@ -9,10 +9,16 @@ import { InspectPanelShell } from './InspectPanelShell'
 type TexturesPanelProps = {
   open: boolean
   items: TextureInspectItem[]
+  allowInspectAssets?: boolean
   onClose: () => void
 }
 
-export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
+export function TexturesPanel({
+  open,
+  items,
+  allowInspectAssets = true,
+  onClose,
+}: TexturesPanelProps) {
   const t = useT()
   const [query, setQuery] = useState('')
 
@@ -50,7 +56,7 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
           {filtered.map(item => (
             <li key={item.id} className="inspect-card">
               <div className="inspect-thumb-wrap">
-                {item.previewUrl ? (
+                {allowInspectAssets && item.previewUrl ? (
                   <img src={item.previewUrl} alt="" className="inspect-thumb" />
                 ) : (
                   <div className="inspect-thumb is-empty">{t('textures.noPreview')}</div>
@@ -66,6 +72,7 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
                   <div className="inspect-card-sub">{item.materialNames.join(', ')}</div>
                 ) : null}
               </div>
+              {allowInspectAssets ? (
               <IconButton
                 className="inspect-icon-btn"
                 size="small"
@@ -76,6 +83,7 @@ export function TexturesPanel({ open, items, onClose }: TexturesPanelProps) {
               >
                 <Icon icon="material-symbols:download" aria-hidden />
               </IconButton>
+              ) : null}
             </li>
           ))}
         </ul>

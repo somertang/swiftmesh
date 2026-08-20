@@ -1056,6 +1056,24 @@ function CanvasBridge({ onCanvasReady }: { onCanvasReady: (canvas: HTMLCanvasEle
  * at partially-transparent edge pixels (avoids a dark halo from blurring
  * toward the cleared black-transparent background).
  */
+function drawWatermarkOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  width: number,
+  height: number
+): void {
+  const fontSize = Math.max(12, width * 0.04)
+  ctx.save()
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.translate(width / 2, height / 2)
+  ctx.rotate(-Math.PI / 6)
+  ctx.fillText(text, 0, 0)
+  ctx.restore()
+}
+
 function featherAlphaChannel(
   data: Uint8ClampedArray,
   width: number,
@@ -1105,6 +1123,7 @@ function CaptureBridge({
   exportMask,
   recording,
   animationApiRef,
+  watermarkText,
 }: {
   turntableGroupRef: MutableRefObject<Group | null>
   captureRef: MutableRefObject<CaptureHandle | null>
@@ -1116,6 +1135,7 @@ function CaptureBridge({
   exportMask: boolean
   recording: boolean
   animationApiRef: MutableRefObject<AnimationCaptureApi | null>
+  watermarkText?: string | null
 }) {
   const { gl, scene, camera } = useThree()
   const controls = useThree(s => s.controls) as OrbitControlsLike | null
@@ -1288,6 +1308,10 @@ function CaptureBridge({
               ctx.fillRect(0, 0, tw, th)
             }
             ctx.drawImage(gl.domElement, sx, syTop, cropW, cropH, 0, 0, tw, th)
+          }
+
+          if (watermarkText) {
+            drawWatermarkOnCanvas(ctx, watermarkText, tw, th)
           }
 
           stage.toBlob(
@@ -1520,6 +1544,7 @@ function CaptureBridge({
     exportHelpersRef,
     exportMask,
     animationApiRef,
+    watermarkText,
   ])
 
   return null
@@ -1808,6 +1833,12 @@ type ViewerSceneProps = {
   showInfoHud?: boolean
   onToast?: (tip: { severity: 'info' | 'error' | 'success'; message: string; durationMs?: number }) => void
   onFileSavedToast?: (path: string) => void
+  /** When false, mesh export from Reduce panel is disabled. */
+  allowExport?: boolean
+  /** When false, texture previews/downloads and asset inspect tools are limited. */
+  allowInspectAssets?: boolean
+  /** Optional watermark shown on viewport and baked into captures. */
+  watermarkText?: string | null
 }
 
 export function ViewerScene({
@@ -1834,6 +1865,9 @@ export function ViewerScene({
   showInfoHud = false,
   onToast,
   onFileSavedToast,
+  allowExport = true,
+  allowInspectAssets = true,
+  watermarkText = null,
 }: ViewerSceneProps) {
   const t = useT()
   const { previewTheme } = usePreviewTheme()
@@ -2112,10 +2146,12 @@ export function ViewerScene({
 
   const selectedObject = selectedId ? (objectsRef.current.get(selectedId) ?? null) : null
 
-  const textures = useMemo(
-    () => (inspectRoot ? extractTextures(inspectRoot) : []),
-    [inspectRoot]
-  )
+  const textures = useMemo(() => {
+    if (!inspectRoot) return []
+    const items = extractTextures(inspectRoot)
+    if (allowInspectAssets) return items
+    return items.map(item => ({ ...item, previewUrl: null }))
+  }, [inspectRoot, allowInspectAssets])
   const materials = useMemo(() => {
     if (!inspectRoot) return []
     const extracted = extractMaterials(inspectRoot)
@@ -2203,6 +2239,7 @@ export function ViewerScene({
       const result = await desktop.saveModelFile({
         defaultName: `${model.label}-reduced`,
         data,
+        sourcePath: model.path ?? undefined,
       })
       if (!result.ok) {
         onToast?.({
@@ -2226,7 +2263,7 @@ export function ViewerScene({
     } finally {
       setDecimateExporting(false)
     }
-  }, [decimate, model.label, onFileSavedToast, onToast, t])
+  }, [decimate, model.label, model.path, onFileSavedToast, onToast, t])
 
   const interactive = !recording
   const mouseButtons = useMemo(
@@ -2240,8 +2277,18 @@ export function ViewerScene({
 
   return (
     <div className="scene-root" ref={sceneRootRef}>
+      {watermarkText && !recording ? (
+        <div className="viewport-watermark" aria-hidden>
+          {watermarkText}
+        </div>
+      ) : null}
       {!recording ? (
-        <ViewportToolbar active={activeTool} onToggle={handleToolToggle} disabled={!modelRoot} />
+        <ViewportToolbar
+          active={activeTool}
+          onToggle={handleToolToggle}
+          disabled={!modelRoot}
+          allowInspectAssets={allowInspectAssets}
+        />
       ) : null}
       {showInfoHud && !recording ? (
         <ViewportInfoHud
@@ -2288,7 +2335,12 @@ export function ViewerScene({
           onSelect={handleHierarchySelect}
           onToggleVisible={handleToggleVisible}
         />
-        <TexturesPanel open={activeTool === 'textures'} items={textures} onClose={closeActiveTool} />
+        <TexturesPanel
+          open={activeTool === 'textures'}
+          items={textures}
+          allowInspectAssets={allowInspectAssets}
+          onClose={closeActiveTool}
+        />
         <MaterialsPanel
           open={activeTool === 'materials'}
           items={materials}
@@ -2308,6 +2360,7 @@ export function ViewerScene({
           percent={decimate.percent}
           lockBorder={decimate.lockBorder}
           exporting={decimateExporting}
+          exportDisabled={!allowExport}
           onPercentChange={decimate.setPercent}
           onLockBorderChange={decimate.setLockBorder}
           onExport={() => {
@@ -2349,6 +2402,7 @@ export function ViewerScene({
             exportMask={exportMask}
             recording={recording}
             animationApiRef={animationApiRef}
+            watermarkText={watermarkText}
           />
         )}
         <AnimationClock
