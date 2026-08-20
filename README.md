@@ -49,6 +49,7 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 - Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
 - Multi-tab viewing; perspective / orthographic camera
 - Inspect hierarchy, textures, materials, geometries, and model info
+- Reduce static mesh triangle/vertex counts in the viewport (ratio slider) and export a preview GLB
 - Play skeletal animation clips from glTF / FBX from a viewport playback bar (manual start)
 - Viewport **Annotate** and **Measure** tools
 - Capture a turntable as **video** (MP4 / WebM via bundled ffmpeg) or **stills** (frame sequence / spritesheet atlas, optional multi-axis)
@@ -61,7 +62,7 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 
 1. Install and launch SwiftMesh.
 2. Open a `.glb`, `.gltf`, `.obj`, or `.fbx` file.
-3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info, plus Annotate / Measure.
+3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info, plus Reduce mesh, Annotate / Measure.
 4. Adjust lighting, camera, and perspective / orthographic as needed.
 5. Use the viewport record button to capture a turntable video or stills. Set format, size, quality, and image options in Preferences.
 6. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording defaults, updates, and license/repo info.
@@ -92,6 +93,7 @@ pnpm run dev          # Vite + Electron
 | --- | --- |
 | `pnpm run dev` | Development app (syncs glTF vendor assets, then Vite + Electron) |
 | `pnpm run build` | Typecheck + production renderer / Electron bundles |
+| `pnpm test` | Run unit tests (Vitest) |
 | `pnpm run sync:vendor` | Copy Draco / Basis transcoder assets into `public/vendor` |
 | `pnpm run brand-icons` | Generate Windows `.ico` (and `.icns` on macOS) |
 | `pnpm run prepare-ffmpeg-mac` | Download darwin arm64/x64 ffmpeg into `build/ffmpeg/` |

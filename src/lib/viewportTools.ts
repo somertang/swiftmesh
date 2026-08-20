@@ -9,6 +9,7 @@ const INSPECT_PANEL_IDS: ReadonlySet<string> = new Set([
   'materials',
   'geometries',
   'info',
+  'decimate',
 ])
 
 export function isInspectPanelId(id: ViewportToolId | null): id is InspectPanelId {

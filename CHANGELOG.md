@@ -5,6 +5,24 @@ All notable changes to SwiftMesh are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Reduce mesh:** Viewport tool to weld and decimate static meshes with a keep-ratio slider, live triangle/vertex counts, and GLB export. Skinned and morph-target meshes are skipped. Closing the panel restores the original geometry.
+
+### Fixed
+
+- **Reduce mesh export:** Strip runtime `userData` (`__shadingData`, hierarchy ids) before writing GLB so reopening a reduced file keeps a live material and the mesh stays visible.
+- **Reduce mesh ratio:** Auto-solve meshoptimizer error from the keep-ratio slider so aggressive targets (e.g. 50%) actually reach the requested triangle count instead of stopping at the old fixed 0.02 cap.
+- **Reduce mesh export feedback:** Show a file-saved toast with truncated path, hover for full path, and an Open file action; keep export results out of the reduce panel.
+- **Reduce mesh panel:** Restyle Lock UV borders as a settings row with a full-size switch, and show an inline progress bar while exporting.
+- **Reduce mesh toolbar:** Use compress for Reduce mesh (shipped in the offline Material Symbols pack so the glyph renders).
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.1] - 2026-08-18
 
 ### Added

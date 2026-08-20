@@ -42,9 +42,19 @@ type MeshShadingData = {
   temps: Material | Material[] | null
 }
 
+function isLiveMaterial(value: unknown): value is Material {
+  return !!value && typeof value === 'object' && (value as Material).isMaterial === true
+}
+
+function originalsAreLive(originals: unknown): originals is Material | Material[] {
+  const list = Array.isArray(originals) ? originals : [originals]
+  return list.length > 0 && list.every(isLiveMaterial)
+}
+
 function getShadingData(mesh: Mesh): MeshShadingData {
   let data = mesh.userData.__shadingData as MeshShadingData | undefined
-  if (!data) {
+  // glTF extras can rehydrate __shadingData as plain JSON (no isMaterial).
+  if (!data || !originalsAreLive(data.originals)) {
     data = { originals: mesh.material, temps: null }
     mesh.userData.__shadingData = data
   }

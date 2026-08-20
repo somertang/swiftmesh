@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "node scripts/sync-gltf-vendor.mjs && vite",
     "build": "node scripts/sync-gltf-vendor.mjs && tsc -p tsconfig.json --noEmit && vite build",
+    "test": "vitest run",
     "sync:vendor": "node scripts/sync-gltf-vendor.mjs",
     "sync:release-notes": "node scripts/sync-release-notes.mjs",
     "brand-icons": "node scripts/generate-brand-icons.mjs",
@@ -55,6 +56,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.1.2",
     "electron-builder": "^26.0.12",
+    "meshoptimizer": "^1.2.0",
     "png-to-ico": "^3.0.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -63,7 +65,8 @@
     "typescript": "^5.5.0",
     "vite": "^6.2.5",
     "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^4.1.11"
   },
   "build": {
     "appId": "com.swiftmesh.app",
