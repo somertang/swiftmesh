@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-08-20
+
 ### Added
 
 - **Encrypted models (`.smsh`):** File → Encrypt Model… packs the current local model (and sidecars) into a password-protected container. Recipients open it in SwiftMesh with the shared password. Optional permissions can disable GLB export, video/image recording, and texture/structure inspect; optional expiry and viewport/capture watermark are supported. This is encrypted storage to prevent casual opening and accidental sharing — not DRM.
