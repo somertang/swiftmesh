@@ -10,6 +10,7 @@ export type FileSavedTitleKey =
   | 'decimate.exportSavedTitle'
   | 'encrypt.savedTitle'
   | 'convert.savedTitle'
+  | 'watermark.savedTitle'
 
 export type AppToastItem =
   | {

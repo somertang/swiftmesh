@@ -19,6 +19,7 @@ import { PreferencesModal } from './components/PreferencesModal'
 import { UnlockModelDialog } from './components/UnlockModelDialog'
 import { EncryptModelDialog } from './components/EncryptModelDialog'
 import { ConvertFormatDialog } from './components/ConvertFormatDialog'
+import { WatermarkToolDialog } from './components/WatermarkToolDialog'
 import {
   AppToastStack,
   createToastId,
@@ -99,6 +100,7 @@ import {
   type TabState,
 } from './lib/modelTab'
 import { cameraForRecording, withCameraProjection } from './lib/cameraFocus'
+import type { WatermarkConfig } from './lib/watermark'
 import logoUrl from './assets/logo.png'
 import { Icon } from './icons'
 import { useT } from './i18n'
@@ -140,14 +142,9 @@ export default function App() {
   const [encryptOpen, setEncryptOpen] = useState(false)
   const [encryptBusy, setEncryptBusy] = useState(false)
   const [encryptError, setEncryptError] = useState<string | null>(null)
-  const [encryptBatchPaths, setEncryptBatchPaths] = useState<string[] | null>(null)
-  const [encryptBatchProgress, setEncryptBatchProgress] = useState<{
-    index: number
-    total: number
-    fileName: string
-  } | null>(null)
-  const [encryptSaveAlongside, setEncryptSaveAlongside] = useState(true)
   const [convertOpen, setConvertOpen] = useState(false)
+  const [watermarkOpen, setWatermarkOpen] = useState(false)
+  const [watermarkPreview, setWatermarkPreview] = useState<WatermarkConfig | null>(null)
   const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
   const sessionPersistReadyRef = useRef(false)
   const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
@@ -330,64 +327,6 @@ export default function App() {
 
   const handleEncryptSubmit = useCallback(
     async (payload: { password: string; permissions: ModelPermissions }) => {
-      if (encryptBatchPaths && encryptBatchPaths.length > 0) {
-        if (!window.desktop?.encryptModelsBatch) return
-        setEncryptBusy(true)
-        setEncryptError(null)
-        setEncryptBatchProgress({
-          index: 0,
-          total: encryptBatchPaths.length,
-          fileName: '',
-        })
-        try {
-          let outputDir: string | null = null
-          if (!encryptSaveAlongside) {
-            outputDir = (await window.desktop.chooseEncryptOutputDir?.()) ?? null
-            if (!outputDir) {
-              setEncryptError(t('encrypt.canceled'))
-              return
-            }
-          }
-          const result = await window.desktop.encryptModelsBatch({
-            sourcePaths: encryptBatchPaths,
-            password: payload.password,
-            permissions: payload.permissions,
-            outputDir,
-          })
-          const okCount = result.results.filter(r => r.path).length
-          const failures = result.results.filter(r => r.error)
-          setEncryptOpen(false)
-          setEncryptBatchPaths(null)
-          const summary = t('encrypt.batch.doneSummary', {
-            ok: okCount,
-            failed: failures.length,
-          })
-          if (failures.length > 0) {
-            const list = failures
-              .slice(0, 8)
-              .map(f => `${f.sourcePath.split(/[\\/]/).pop()}: ${f.error}`)
-              .join('\n')
-            pushTextToast({
-              severity: 'info',
-              message: `${t('encrypt.batch.doneTitle')}: ${summary}\n${t('encrypt.batch.partialFailures', { list })}`,
-              durationMs: 12000,
-            })
-          } else {
-            pushTextToast({
-              severity: 'success',
-              message: `${t('encrypt.batch.doneTitle')}: ${summary}`,
-              durationMs: 8000,
-            })
-          }
-        } catch (err) {
-          setEncryptError(err instanceof Error ? err.message : t('encrypt.failed'))
-        } finally {
-          setEncryptBusy(false)
-          setEncryptBatchProgress(null)
-        }
-        return
-      }
-
       const sourcePath = activeTab.model?.path
       if (!sourcePath || !canRevealModelPath(sourcePath) || !window.desktop?.encryptModel) return
       if (isEncryptedModelFileName(sourcePath)) return
@@ -413,14 +352,7 @@ export default function App() {
         setEncryptBusy(false)
       }
     },
-    [
-      activeTab.model?.path,
-      encryptBatchPaths,
-      encryptSaveAlongside,
-      pushFileSavedToast,
-      pushTextToast,
-      t,
-    ]
+    [activeTab.model?.path, pushFileSavedToast, t]
   )
 
   const applyBrowserFiles = useCallback(async (files: File[] | FileList, nativePath: string | null = null) => {
@@ -593,25 +525,8 @@ export default function App() {
   useEffect(() => {
     if (!window.desktop?.onEncryptModelRequest) return
     return window.desktop.onEncryptModelRequest(() => {
-      setEncryptBatchPaths(null)
       setEncryptError(null)
       setEncryptOpen(true)
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!window.desktop?.onEncryptModelsBatchRequest) return
-    return window.desktop.onEncryptModelsBatchRequest(() => {
-      void (async () => {
-        if (!window.desktop?.pickModelsForBatchEncrypt) return
-        const paths = await window.desktop.pickModelsForBatchEncrypt()
-        if (!paths || paths.length === 0) return
-        setEncryptBatchPaths(paths)
-        setEncryptSaveAlongside(true)
-        setEncryptError(null)
-        setEncryptBatchProgress(null)
-        setEncryptOpen(true)
-      })()
     })
   }, [])
 
@@ -623,9 +538,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!window.desktop?.onEncryptBatchProgress) return
-    return window.desktop.onEncryptBatchProgress(progress => {
-      setEncryptBatchProgress(progress)
+    if (!window.desktop?.onAddWatermarkRequest) return
+    return window.desktop.onAddWatermarkRequest(() => {
+      if (!tabStateRef.current) return
+      const focused = getActiveTab(tabStateRef.current)
+      if (!focused?.model) return
+      if (tabStateRef.current.tabs.some(tab => tab.recording || tab.exporting)) return
+      setWatermarkOpen(true)
     })
   }, [])
 
@@ -1347,6 +1266,7 @@ export default function App() {
     !encryptSourcePath ||
     !canRevealModelPath(encryptSourcePath) ||
     isEncryptedModelFileName(encryptSourcePath)
+  const watermarkDisabled = !activeTab.model || sessionLocked
 
   const getRecordBlocked = (tab: ModelTab) => {
     const perms = tab.permissions
@@ -1396,24 +1316,13 @@ export default function App() {
           onToggleStatusBar={toggleStatusBar}
           onOpenRecentPath={filePath => void handleOpenRecentPath(filePath)}
           onEncryptModel={() => {
-            setEncryptBatchPaths(null)
             setEncryptError(null)
             setEncryptOpen(true)
           }}
-          onEncryptModelsBatch={() => {
-            void (async () => {
-              if (!window.desktop?.pickModelsForBatchEncrypt) return
-              const paths = await window.desktop.pickModelsForBatchEncrypt()
-              if (!paths || paths.length === 0) return
-              setEncryptBatchPaths(paths)
-              setEncryptSaveAlongside(true)
-              setEncryptError(null)
-              setEncryptBatchProgress(null)
-              setEncryptOpen(true)
-            })()
-          }}
           onConvertFormat={() => setConvertOpen(true)}
+          onAddWatermark={() => setWatermarkOpen(true)}
           encryptDisabled={encryptDisabled || sessionLocked}
+          watermarkDisabled={watermarkDisabled}
         />
       ) : null}
       <main
@@ -1547,6 +1456,11 @@ export default function App() {
                           groupTab.permissions?.allowInspectAssets !== false
                         }
                         watermarkText={groupTab.permissions?.watermark ?? null}
+                        watermarkPreview={
+                          watermarkOpen && group.id === tabState.focusedGroupId
+                            ? watermarkPreview
+                            : null
+                        }
                       />
                       <SceneSettingsPanels
                         lighting={groupTab.lighting}
@@ -1672,6 +1586,27 @@ export default function App() {
                       <div className="empty-hint max-w-md text-center text-sm opacity-70">{t('app.emptyHint')}</div>
                     </div>
                   )}
+                  {watermarkOpen && group.id === tabState.focusedGroupId ? (
+                    <WatermarkToolDialog
+                      open={watermarkOpen}
+                      onClose={() => {
+                        setWatermarkOpen(false)
+                        setWatermarkPreview(null)
+                      }}
+                      currentModel={groupTab.model}
+                      onPreviewConfigChange={setWatermarkPreview}
+                      onFileSavedToast={(path, skippedTextures) =>
+                        pushFileSavedToast(
+                          path,
+                          'watermark.savedTitle',
+                          8000,
+                          skippedTextures && skippedTextures > 0
+                            ? t('export.texturesSkipped', { count: skippedTextures })
+                            : undefined
+                        )
+                      }
+                    />
+                  ) : null}
                 </div>
                 {index === 0 && tabState.groups.length === 2 ? (
                   <div
@@ -1798,22 +1733,13 @@ export default function App() {
       <EncryptModelDialog
         open={encryptOpen}
         modelLabel={model?.label ?? t('app.tab.new')}
-        batchCount={encryptBatchPaths?.length ?? 1}
         busy={encryptBusy}
         error={encryptError}
-        progress={encryptBatchProgress}
-        saveAlongside={encryptSaveAlongside}
-        onSaveAlongsideChange={setEncryptSaveAlongside}
         onSubmit={payload => void handleEncryptSubmit(payload)}
         onCancel={() => {
-          if (encryptBusy && encryptBatchProgress) {
-            void window.desktop?.cancelEncryptBatch?.()
-          }
-          if (encryptBusy && !encryptBatchProgress) return
+          if (encryptBusy) return
           setEncryptOpen(false)
           setEncryptError(null)
-          setEncryptBatchPaths(null)
-          setEncryptBatchProgress(null)
           setEncryptBusy(false)
         }}
       />

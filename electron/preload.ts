@@ -44,32 +44,6 @@ const desktop: DesktopApi = {
   }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('desktop:encrypt-model', payload),
 
-  pickModelsForBatchEncrypt: (): Promise<string[] | null> =>
-    ipcRenderer.invoke('desktop:pick-models-for-batch-encrypt'),
-
-  encryptModelsBatch: (payload: {
-    sourcePaths: string[]
-    password: string
-    permissions: ModelPermissions
-    outputDir: string | null
-  }) => ipcRenderer.invoke('desktop:encrypt-models-batch', payload),
-
-  cancelEncryptBatch: (): Promise<void> => ipcRenderer.invoke('desktop:cancel-encrypt-batch'),
-
-  chooseEncryptOutputDir: (): Promise<string | null> =>
-    ipcRenderer.invoke('desktop:choose-encrypt-output-dir'),
-
-  onEncryptBatchProgress: (
-    handler: (progress: { index: number; total: number; fileName: string }) => void
-  ) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      progress: { index: number; total: number; fileName: string }
-    ) => handler(progress)
-    ipcRenderer.on('desktop:encrypt-batch-progress', listener)
-    return () => ipcRenderer.removeListener('desktop:encrypt-batch-progress', listener)
-  },
-
   setContentProtection: (enabled: boolean): Promise<void> =>
     ipcRenderer.invoke('desktop:set-content-protection', enabled),
 
@@ -161,16 +135,16 @@ const desktop: DesktopApi = {
     return () => ipcRenderer.removeListener('desktop:convert-format-request', listener)
   },
 
+  onAddWatermarkRequest: (handler: () => void) => {
+    const listener = () => handler()
+    ipcRenderer.on('desktop:add-watermark-request', listener)
+    return () => ipcRenderer.removeListener('desktop:add-watermark-request', listener)
+  },
+
   onEncryptModelRequest: (handler: () => void) => {
     const listener = () => handler()
     ipcRenderer.on('desktop:encrypt-model-request', listener)
     return () => ipcRenderer.removeListener('desktop:encrypt-model-request', listener)
-  },
-
-  onEncryptModelsBatchRequest: (handler: () => void) => {
-    const listener = () => handler()
-    ipcRenderer.on('desktop:encrypt-models-batch-request', listener)
-    return () => ipcRenderer.removeListener('desktop:encrypt-models-batch-request', listener)
   },
 
   getRecentPaths: (): Promise<string[]> => ipcRenderer.invoke('desktop:get-recent-paths'),

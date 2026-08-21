@@ -127,6 +127,12 @@ import {
 } from './NavGizmo'
 import { applyShadingMode, type ShadingMode } from '../lib/shadingMode'
 import {
+  applyTriplanarPreview,
+  clearTriplanarPreview,
+  createStampTexture,
+  type WatermarkConfig,
+} from '../lib/watermark'
+import {
   hasModelOwnLights,
   hideModelOwnCameras,
   initModelOwnLights,
@@ -1839,6 +1845,8 @@ type ViewerSceneProps = {
   allowInspectAssets?: boolean
   /** Optional watermark shown on viewport and baked into captures. */
   watermarkText?: string | null
+  /** Live Tools → Add Watermark preview (shader only; never mutates inspectRoot). */
+  watermarkPreview?: WatermarkConfig | null
 }
 
 export function ViewerScene({
@@ -1868,6 +1876,7 @@ export function ViewerScene({
   allowExport = true,
   allowInspectAssets = true,
   watermarkText = null,
+  watermarkPreview = null,
 }: ViewerSceneProps) {
   const t = useT()
   const { previewTheme } = usePreviewTheme()
@@ -2143,6 +2152,38 @@ export function ViewerScene({
       animationApiRef.current = null
     }
   }, [])
+
+  // Live Tools → Add Watermark preview on the display clone only (never inspectRoot).
+  // Incremental uniform updates for intensity/tileScale; stamp/mode changes bump the
+  // program cache key so Three.js re-runs onBeforeCompile (avoids disposed stamp binds).
+  useEffect(() => {
+    if (!innerRoot) return
+    if (!watermarkPreview) {
+      clearTriplanarPreview(innerRoot)
+      return
+    }
+
+    let stamp: ReturnType<typeof createStampTexture> | null = null
+    try {
+      stamp = createStampTexture(watermarkPreview)
+      applyTriplanarPreview(innerRoot, stamp, watermarkPreview)
+    } catch {
+      clearTriplanarPreview(innerRoot)
+      stamp?.dispose()
+      stamp = null
+    }
+
+    return () => {
+      stamp?.dispose()
+    }
+  }, [innerRoot, watermarkPreview])
+
+  useEffect(() => {
+    const root = innerRoot
+    return () => {
+      if (root) clearTriplanarPreview(root)
+    }
+  }, [innerRoot])
 
   const selectedObject = selectedId ? (objectsRef.current.get(selectedId) ?? null) : null
 
