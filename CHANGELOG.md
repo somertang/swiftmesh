@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- **Add Watermark…:** Tools menu opens a left-dock panel under the tab bar for the active model. Live triplanar preview (orbit/zoom while editing); bake into albedo on export as a GLB/GLTF copy. Text and image stamp modes (image dropzone; near-black keyed to transparent). No custom font upload; toast “Open file” after export.
+
+### Removed
+
+- **Encrypt Models… (batch):** Remove the Tools batch-encrypt entry and related Electron IPC / dialog batch mode.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.6] - 2026-08-21
 
 ### Added
