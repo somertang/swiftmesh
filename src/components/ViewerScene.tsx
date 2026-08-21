@@ -1832,7 +1832,7 @@ type ViewerSceneProps = {
   captureRef?: MutableRefObject<CaptureHandle | null>
   showInfoHud?: boolean
   onToast?: (tip: { severity: 'info' | 'error' | 'success'; message: string; durationMs?: number }) => void
-  onFileSavedToast?: (path: string) => void
+  onFileSavedToast?: (path: string, skippedTextures?: number) => void
   /** When false, mesh export from Reduce panel is disabled. */
   allowExport?: boolean
   /** When false, texture previews/downloads and asset inspect tools are limited. */
@@ -2230,7 +2230,7 @@ export function ViewerScene({
   const handleDecimateExport = useCallback(async () => {
     setDecimateExporting(true)
     try {
-      const data = await decimate.exportGlb()
+      const exported = await decimate.exportGlb()
       const desktop = window.desktop
       if (!desktop?.saveModelFile) {
         onToast?.({ severity: 'error', message: t('error.desktopUnavailable'), durationMs: 4000 })
@@ -2238,7 +2238,7 @@ export function ViewerScene({
       }
       const result = await desktop.saveModelFile({
         defaultName: `${model.label}-reduced`,
-        data,
+        data: exported.data,
         sourcePath: model.path ?? undefined,
       })
       if (!result.ok) {
@@ -2252,7 +2252,7 @@ export function ViewerScene({
         })
         return
       }
-      onFileSavedToast?.(result.path)
+      onFileSavedToast?.(result.path, exported.skippedTextures)
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       onToast?.({

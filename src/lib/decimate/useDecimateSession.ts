@@ -5,7 +5,7 @@ import {
   EMPTY_DECIMATE_STATS,
   type DecimateStats,
 } from './decimateSession'
-import { exportObjectAsGlb } from './exportDecimatedGlb'
+import { exportObjectAsGlb, type ExportGltfResult } from './exportDecimatedGlb'
 import { ratioFromPercent } from './decimateMath'
 
 const APPLY_DEBOUNCE_MS = 50
@@ -111,7 +111,7 @@ export function useDecimateSession(root: Object3D | null, active: boolean) {
     [scheduleApply, stats.phase]
   )
 
-  const exportGlb = useCallback(async (): Promise<ArrayBuffer> => {
+  const exportGlb = useCallback(async (): Promise<ExportGltfResult> => {
     if (!root) throw new Error('No model root')
     return exportObjectAsGlb(root)
   }, [root])

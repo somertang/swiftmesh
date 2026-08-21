@@ -883,6 +883,7 @@ async function rebuildApplicationMenu(recentPaths?: string[]) {
     onOpenPreferences: () => sendToRenderer('desktop:open-preferences'),
     onEncryptModel: () => sendToRenderer('desktop:encrypt-model-request'),
     onEncryptModelsBatch: () => sendToRenderer('desktop:encrypt-models-batch-request'),
+    onConvertFormat: () => sendToRenderer('desktop:convert-format-request'),
     onToggleStatusBar: () => sendToRenderer('desktop:toggle-status-bar'),
     onReload: () => {
       void runWindowMenuAction('reload')
@@ -1553,7 +1554,13 @@ ipcMain.handle(
   'desktop:save-model-file',
   async (
     _event,
-    payload: { defaultName?: string; data?: ArrayBuffer; sourcePath?: string }
+    payload: {
+      defaultName?: string
+      data?: ArrayBuffer
+      sourcePath?: string
+      format?: 'glb' | 'gltf'
+      dialogTitle?: string
+    }
   ): Promise<{ ok: true; path: string } | { ok: false; reason: string }> => {
     if (!mainWindow) return { ok: false as const, reason: 'No window' }
     const denied = denyUnlessAllowed(
@@ -1563,6 +1570,13 @@ ipcMain.handle(
     )
     if (denied) return { ok: false as const, reason: denied }
     const defaultName = typeof payload?.defaultName === 'string' ? payload.defaultName.trim() : ''
+    const format = payload?.format === 'gltf' ? 'gltf' : 'glb'
+    const dialogTitle =
+      typeof payload?.dialogTitle === 'string' && payload.dialogTitle.trim()
+        ? payload.dialogTitle.trim()
+        : t('decimate.saveDialogTitle')
+    const filterName =
+      format === 'gltf' ? t('menu.filterGltf') : t('decimate.filterGlb')
     const raw = payload?.data as ArrayBuffer | Buffer | Uint8Array | undefined
     let bytes: Buffer | null = null
     if (raw instanceof ArrayBuffer) bytes = Buffer.from(raw)
@@ -1573,16 +1587,17 @@ ipcMain.handle(
     }
     const stem = (defaultName.replace(/\.[^.]+$/, '') || 'model').replace(/[<>:"/\\|?*]/g, '_')
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: t('decimate.saveDialogTitle'),
-      defaultPath: `${stem}.glb`,
-      filters: [{ name: t('decimate.filterGlb'), extensions: ['glb'] }],
+      title: dialogTitle,
+      defaultPath: `${stem}.${format}`,
+      filters: [{ name: filterName, extensions: [format] }],
     })
     if (result.canceled || !result.filePath) {
       return { ok: false as const, reason: 'canceled' }
     }
-    const outPath = result.filePath.toLowerCase().endsWith('.glb')
+    const ext = `.${format}`
+    const outPath = result.filePath.toLowerCase().endsWith(ext)
       ? result.filePath
-      : `${result.filePath}.glb`
+      : `${result.filePath}${ext}`
     try {
       await fs.writeFile(outPath, bytes)
       return { ok: true as const, path: outPath }

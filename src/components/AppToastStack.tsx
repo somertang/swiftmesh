@@ -9,6 +9,7 @@ export type FileSavedTitleKey =
   | 'record.savedTitle'
   | 'decimate.exportSavedTitle'
   | 'encrypt.savedTitle'
+  | 'convert.savedTitle'
 
 export type AppToastItem =
   | {
@@ -24,6 +25,8 @@ export type AppToastItem =
       path: string
       titleKey: FileSavedTitleKey
       durationMs: number
+      /** Optional secondary line (e.g. skipped textures). */
+      detail?: string
     }
 
 type ToastPhase = 'enter' | 'shown' | 'exit'
@@ -141,6 +144,15 @@ function ToastCard({
         >
           {toast.path}
         </Typography>
+        {toast.detail ? (
+          <Typography
+            variant="caption"
+            component="div"
+            sx={{ mt: 0.75, color: 'text.secondary', lineHeight: 1.4 }}
+          >
+            {toast.detail}
+          </Typography>
+        ) : null}
         <LoadingButton
           color="primary"
           size="small"

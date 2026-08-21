@@ -18,6 +18,7 @@ import { AppTitleBar } from './components/AppTitleBar'
 import { PreferencesModal } from './components/PreferencesModal'
 import { UnlockModelDialog } from './components/UnlockModelDialog'
 import { EncryptModelDialog } from './components/EncryptModelDialog'
+import { ConvertFormatDialog } from './components/ConvertFormatDialog'
 import {
   AppToastStack,
   createToastId,
@@ -70,6 +71,7 @@ import type {
 } from './desktopTypes'
 import { isEncryptedModelFileName, MODEL_FILE_ACCEPT } from './lib/modelSource'
 import { ModelResolveError, modelSourceFromFiles, modelSourceFromOpened } from './lib/resolveModelSource'
+import { resolveDroppedModelFiles } from './lib/resolveDroppedModel'
 import {
   createEmptyTab,
   createInitialTabState,
@@ -145,6 +147,7 @@ export default function App() {
     fileName: string
   } | null>(null)
   const [encryptSaveAlongside, setEncryptSaveAlongside] = useState(true)
+  const [convertOpen, setConvertOpen] = useState(false)
   const confirmCloseTabsRef = useRef(readPreferences().general.confirmCloseTabs)
   const sessionPersistReadyRef = useRef(false)
   const autoReloadRef = useRef(readPreferences().performance.autoReloadOnChange)
@@ -195,17 +198,21 @@ export default function App() {
     []
   )
 
-  const pushFileSavedToast = useCallback((path: string, titleKey: FileSavedTitleKey, durationMs = 4000) => {
-    setAppToasts(prev =>
-      pushAppToast(prev, {
-        id: createToastId(),
-        kind: 'fileSaved',
-        path,
-        titleKey,
-        durationMs,
-      })
-    )
-  }, [])
+  const pushFileSavedToast = useCallback(
+    (path: string, titleKey: FileSavedTitleKey, durationMs = 4000, detail?: string) => {
+      setAppToasts(prev =>
+        pushAppToast(prev, {
+          id: createToastId(),
+          kind: 'fileSaved',
+          path,
+          titleKey,
+          durationMs,
+          detail,
+        })
+      )
+    },
+    []
+  )
 
   useEffect(() => {
     return () => {
@@ -605,6 +612,13 @@ export default function App() {
         setEncryptBatchProgress(null)
         setEncryptOpen(true)
       })()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!window.desktop?.onConvertFormatRequest) return
+    return window.desktop.onConvertFormatRequest(() => {
+      setConvertOpen(true)
     })
   }, [])
 
@@ -1313,22 +1327,17 @@ export default function App() {
     setDragOver(false)
     if (recording || exporting) return
 
-    const files = event.dataTransfer.files
-    if (!files || files.length === 0) return
-
-    const first = files[0]!
-    const nativePath = window.desktop?.getPathForFile(first)
-    if (nativePath && window.desktop && files.length === 1) {
-      try {
-        const opened = await window.desktop.readModelPath(nativePath)
-        handleOpenResult(opened)
-        return
-      } catch (err) {
-        patchActive({ error: err instanceof Error ? err.message : t('error.openFailed') })
+    try {
+      const resolved = await resolveDroppedModelFiles(event.dataTransfer.files)
+      if (!resolved) return
+      if (resolved.mode === 'desktop') {
+        handleOpenResult(resolved.result)
         return
       }
+      await applyBrowserFiles(resolved.files, resolved.nativePath)
+    } catch (err) {
+      patchActive({ error: err instanceof Error ? err.message : t('error.openFailed') })
     }
-    await applyBrowserFiles(files, nativePath || null)
   }
 
   const sessionLocked = tabState.tabs.some(tab => tab.recording || tab.exporting)
@@ -1403,6 +1412,7 @@ export default function App() {
               setEncryptOpen(true)
             })()
           }}
+          onConvertFormat={() => setConvertOpen(true)}
           encryptDisabled={encryptDisabled || sessionLocked}
         />
       ) : null}
@@ -1518,7 +1528,16 @@ export default function App() {
                           setTabState(prev => patchTab(prev, groupTab.id, { camera: next }))
                         }
                         onToast={pushTextToast}
-                        onFileSavedToast={path => pushFileSavedToast(path, 'decimate.exportSavedTitle')}
+                        onFileSavedToast={(path, skippedTextures) =>
+                          pushFileSavedToast(
+                            path,
+                            'decimate.exportSavedTitle',
+                            4000,
+                            skippedTextures && skippedTextures > 0
+                              ? t('export.texturesSkipped', { count: skippedTextures })
+                              : undefined
+                          )
+                        }
                         captureRef={getCaptureRef(group.id)}
                         showInfoHud={statusBarVisible}
                         allowExport={
@@ -1797,6 +1816,22 @@ export default function App() {
           setEncryptBatchProgress(null)
           setEncryptBusy(false)
         }}
+      />
+
+      <ConvertFormatDialog
+        open={convertOpen}
+        onClose={() => setConvertOpen(false)}
+        onOpenResultPath={filePath => void handleOpenRecentPath(filePath)}
+        onFileSavedToast={(path, skippedTextures) =>
+          pushFileSavedToast(
+            path,
+            'convert.savedTitle',
+            8000,
+            skippedTextures && skippedTextures > 0
+              ? t('export.texturesSkipped', { count: skippedTextures })
+              : undefined
+          )
+        }
       />
     </div>
   )
