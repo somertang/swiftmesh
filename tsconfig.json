@@ -19,5 +19,5 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
-  "exclude": ["src/lib/smsh/crypto.test.ts"]
+  "exclude": ["**/*.test.ts"]
 }
