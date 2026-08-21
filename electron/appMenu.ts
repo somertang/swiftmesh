@@ -22,6 +22,7 @@ export type DarwinAppMenuHandlers = {
   onZoomOut: () => void
   onToggleFullscreen: () => void
   onOpenUserGuide: () => void
+  onCheckForUpdates: () => void
   onShowAbout: () => void
 }
 
@@ -29,7 +30,7 @@ function basenamePath(filePath: string): string {
   return path.basename(filePath) || filePath
 }
 
-/** Build the macOS system menu bar (File / View / Help + app menu). */
+/** Build the macOS system menu bar (File / View / Tools / Help + app menu). */
 export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Menu {
   const { t, recentPaths, isPackaged } = handlers
 
@@ -85,14 +86,6 @@ export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Men
           label: t('menu.openRecent'),
           submenu: recentSubmenu,
         },
-        {
-          label: t('menu.encryptModel'),
-          click: () => handlers.onEncryptModel(),
-        },
-        {
-          label: t('menu.encryptBatch'),
-          click: () => handlers.onEncryptModelsBatch(),
-        },
       ],
     },
     {
@@ -143,12 +136,29 @@ export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Men
       ],
     },
     {
+      label: t('menu.tools'),
+      submenu: [
+        {
+          label: t('menu.encryptModel'),
+          click: () => handlers.onEncryptModel(),
+        },
+        {
+          label: t('menu.encryptBatch'),
+          click: () => handlers.onEncryptModelsBatch(),
+        },
+      ],
+    },
+    {
       label: t('menu.help'),
       role: 'help',
       submenu: [
         {
           label: t('menu.userGuide'),
           click: () => handlers.onOpenUserGuide(),
+        },
+        {
+          label: t('menu.checkForUpdates'),
+          click: () => handlers.onCheckForUpdates(),
         },
         {
           label: t('menu.about'),
