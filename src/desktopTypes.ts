@@ -196,24 +196,6 @@ export type DesktopApi = {
     password: string
     permissions: ModelPermissions
   }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
-  /** Multi-select plain model files for batch encrypt (null if canceled). */
-  pickModelsForBatchEncrypt: () => Promise<string[] | null>
-  /** Encrypt many sources with one password/permissions set. */
-  encryptModelsBatch: (payload: {
-    sourcePaths: string[]
-    password: string
-    permissions: ModelPermissions
-    outputDir: string | null
-  }) => Promise<{
-    ok: true
-    results: Array<{ sourcePath: string; path?: string; error?: string }>
-    canceled: boolean
-  }>
-  cancelEncryptBatch: () => Promise<void>
-  chooseEncryptOutputDir: () => Promise<string | null>
-  onEncryptBatchProgress: (
-    handler: (progress: { index: number; total: number; fileName: string }) => void
-  ) => () => void
   /**
    * Toggle OS-level window content protection (reduces capture of the window).
    * Used while any unlocked .smsh tab is open — not hard DRM.
@@ -277,10 +259,10 @@ export type DesktopApi = {
   onOpenPreferences: (handler: () => void) => () => void
   /** Fired when Tools → Convert Format… is chosen (macOS menu / IPC). */
   onConvertFormatRequest: (handler: () => void) => () => void
+  /** Fired when Tools → Add Watermark… is chosen (macOS menu / IPC). */
+  onAddWatermarkRequest: (handler: () => void) => () => void
   /** Fired when File → Encrypt Model… is chosen (macOS menu / IPC). */
   onEncryptModelRequest: (handler: () => void) => () => void
-  /** Fired when File → Encrypt Models… (batch) is chosen. */
-  onEncryptModelsBatchRequest: (handler: () => void) => () => void
   /** Recent model absolute paths for the custom File menu. */
   getRecentPaths: () => Promise<string[]>
   /** Persist Open Recent max length and trim the stored list. */

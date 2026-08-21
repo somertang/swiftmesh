@@ -30,14 +30,8 @@ import { LoadingButton } from './LoadingButton'
 type Props = {
   open: boolean
   modelLabel: string
-  /** When > 1, dialog is in batch mode. */
-  batchCount?: number
   busy?: boolean
   error?: string | null
-  progress?: { index: number; total: number; fileName: string } | null
-  /** Batch only: write beside each source (true) or into a chosen folder (false). */
-  saveAlongside?: boolean
-  onSaveAlongsideChange?: (value: boolean) => void
   onSubmit: (payload: { password: string; permissions: ModelPermissions }) => void
   onCancel: () => void
 }
@@ -68,12 +62,8 @@ function formatChipDate(isoDate: string, locale: 'en' | 'zh'): string {
 export const EncryptModelDialog: FC<Props> = ({
   open,
   modelLabel,
-  batchCount = 1,
   busy = false,
   error = null,
-  progress = null,
-  saveAlongside = true,
-  onSaveAlongsideChange,
   onSubmit,
   onCancel,
 }) => {
@@ -180,12 +170,10 @@ export const EncryptModelDialog: FC<Props> = ({
         </div>
         <div className="update-dialog-header-text">
           <h2 id="encrypt-model-title" className="update-dialog-title">
-            {batchCount > 1 ? t('menu.encryptBatchDialogTitle') : t('menu.encryptDialogTitle')}
+            {t('menu.encryptDialogTitle')}
           </h2>
           <p className="update-dialog-subtitle">
-            {batchCount > 1
-              ? t('encrypt.batch.subtitle', { count: batchCount })
-              : t('encrypt.subtitle', { modelLabel })}
+            {t('encrypt.subtitle', { modelLabel })}
           </p>
         </div>
       </header>
@@ -195,16 +183,6 @@ export const EncryptModelDialog: FC<Props> = ({
           {error ? (
             <Alert severity="error" sx={{ mb: 1.5 }}>
               {error}
-            </Alert>
-          ) : null}
-
-          {progress ? (
-            <Alert severity="info" sx={{ mb: 0 }}>
-              {t('encrypt.batch.progress', {
-                index: progress.index,
-                total: progress.total,
-                fileName: progress.fileName,
-              })}
             </Alert>
           ) : null}
 
@@ -432,26 +410,6 @@ export const EncryptModelDialog: FC<Props> = ({
               }
             />
 
-            {batchCount > 1 && onSaveAlongsideChange ? (
-              <>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={saveAlongside}
-                      disabled={busy}
-                      onChange={event => onSaveAlongsideChange(event.target.checked)}
-                    />
-                  }
-                  label={t('encrypt.batch.saveAlongside')}
-                />
-                {!saveAlongside ? (
-                  <Typography variant="caption" color="text.secondary" component="div">
-                    {t('encrypt.batch.chooseOutputDir')}
-                  </Typography>
-                ) : null}
-              </>
-            ) : null}
           </section>
 
           <section className="encrypt-field-section" aria-labelledby="encrypt-permissions-title">
@@ -526,29 +484,18 @@ export const EncryptModelDialog: FC<Props> = ({
         </DialogContent>
 
         <DialogActions className="update-dialog-footer">
-          <Button
-            onClick={() => {
-              if (busy && progress) void window.desktop?.cancelEncryptBatch?.()
-              onCancel()
-            }}
-            disabled={busy && !progress}
-            size="small"
-          >
-            {busy && progress ? t('encrypt.batch.cancel') : t('common.cancel')}
+          <Button onClick={onCancel} disabled={busy} size="small">
+            {t('common.cancel')}
           </Button>
           <LoadingButton
             type="submit"
             variant="contained"
             size="small"
             loading={busy}
-            loadingText={
-              progress
-                ? t('encrypt.batch.encrypting')
-                : t('encrypt.encrypting')
-            }
+            loadingText={t('encrypt.encrypting')}
             disabled={!canEncrypt}
           >
-            {batchCount > 1 ? t('encrypt.batch.submit') : t('encrypt.submit')}
+            {t('encrypt.submit')}
           </LoadingButton>
         </DialogActions>
       </form>

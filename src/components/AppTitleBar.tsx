@@ -23,9 +23,10 @@ type AppTitleBarProps = {
   onToggleStatusBar: () => void
   onOpenRecentPath: (filePath: string) => void
   onEncryptModel?: () => void
-  onEncryptModelsBatch?: () => void
   onConvertFormat?: () => void
+  onAddWatermark?: () => void
   encryptDisabled?: boolean
+  watermarkDisabled?: boolean
 }
 
 function basenamePath(filePath: string): string {
@@ -81,9 +82,10 @@ export function AppTitleBar({
   onToggleStatusBar,
   onOpenRecentPath,
   onEncryptModel,
-  onEncryptModelsBatch,
   onConvertFormat,
+  onAddWatermark,
   encryptDisabled = false,
+  watermarkDisabled = false,
 }: AppTitleBarProps) {
   const t = useT()
   const rootRef = useRef<HTMLElement>(null)
@@ -367,16 +369,17 @@ export function AppTitleBar({
                           onClick={() => run(onEncryptModel)}
                         />
                       ) : null}
-                      {onEncryptModelsBatch ? (
-                        <TitleBarMenuItem
-                          label={t('menu.encryptBatch')}
-                          onClick={() => run(onEncryptModelsBatch)}
-                        />
-                      ) : null}
                       {onConvertFormat ? (
                         <TitleBarMenuItem
                           label={t('menu.convertFormat')}
                           onClick={() => run(onConvertFormat)}
+                        />
+                      ) : null}
+                      {onAddWatermark ? (
+                        <TitleBarMenuItem
+                          label={t('menu.addWatermark')}
+                          disabled={watermarkDisabled}
+                          onClick={() => run(onAddWatermark)}
                         />
                       ) : null}
                     </MenuList>

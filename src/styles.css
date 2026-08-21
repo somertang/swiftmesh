@@ -927,6 +927,103 @@ button.model-tab-close:not(.MuiButtonBase-root) {
   filter: brightness(1.28);
 }
 
+.watermark-dock {
+  position: absolute;
+  /* Same inset as inspect-dock: below tab bar (viewport-body), clear left toolbar. */
+  top: 10px;
+  left: 52px;
+  z-index: 5;
+  max-width: calc(100% - 62px);
+  max-height: calc(100% - 20px);
+  pointer-events: none;
+}
+
+.watermark-dock > * {
+  pointer-events: auto;
+}
+
+.watermark-panel {
+  width: min(360px, 100%);
+  max-height: min(720px, calc(100% - 0px));
+}
+
+.watermark-panel-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.watermark-panel-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.watermark-panel-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.watermark-panel .watermark-panel-body {
+  gap: 0.75rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.65rem 0.75rem;
+}
+
+.watermark-color-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.watermark-image-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.watermark-image-dropzone {
+  min-height: 88px;
+  padding: 0.75rem 0.65rem;
+}
+
+.watermark-image-card {
+  align-items: center;
+}
+
+.watermark-image-thumb-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.watermark-image-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.watermark-panel-footer {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
+
 .inspect-dock {
   position: absolute;
   top: 10px;

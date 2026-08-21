@@ -12,8 +12,8 @@ export type DarwinAppMenuHandlers = {
   onOpenRecent: (filePath: string) => void
   onClearRecent: () => void
   onEncryptModel: () => void
-  onEncryptModelsBatch: () => void
   onConvertFormat: () => void
+  onAddWatermark: () => void
   onOpenPreferences: () => void
   onToggleStatusBar: () => void
   onReload: () => void
@@ -144,12 +144,12 @@ export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Men
           click: () => handlers.onEncryptModel(),
         },
         {
-          label: t('menu.encryptBatch'),
-          click: () => handlers.onEncryptModelsBatch(),
-        },
-        {
           label: t('menu.convertFormat'),
           click: () => handlers.onConvertFormat(),
+        },
+        {
+          label: t('menu.addWatermark'),
+          click: () => handlers.onAddWatermark(),
         },
       ],
     },

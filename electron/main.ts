@@ -594,26 +594,6 @@ async function unlockModelFile(
   }
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function uniqueSmshOutPath(dir: string, stem: string): Promise<string> {
-  const safeStem = stem.replace(/[<>:"/\\|?*]/g, '_') || 'model'
-  let candidate = path.join(dir, `${safeStem}.smsh`)
-  let n = 1
-  while (await pathExists(candidate)) {
-    candidate = path.join(dir, `${safeStem} (${n}).smsh`)
-    n += 1
-  }
-  return candidate
-}
-
 async function buildEncryptedSmshBytes(
   sourcePath: string,
   password: string,
@@ -682,81 +662,6 @@ async function encryptModelFile(payload: {
     const reason = error instanceof Error ? error.message : String(error)
     return { ok: false, reason }
   }
-}
-
-let batchEncryptCancelRequested = false
-
-async function pickModelsForBatchEncrypt(): Promise<string[] | null> {
-  if (!mainWindow) return null
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: t('menu.encryptBatch'),
-    properties: ['openFile', 'multiSelections'],
-    filters: [
-      { name: t('menu.filterModels'), extensions: ['glb', 'gltf', 'obj', 'fbx'] },
-      { name: 'GLB', extensions: ['glb'] },
-      { name: 'glTF', extensions: ['gltf'] },
-      { name: 'OBJ', extensions: ['obj'] },
-      { name: 'FBX', extensions: ['fbx'] },
-    ],
-  })
-  if (result.canceled || result.filePaths.length === 0) return null
-  return result.filePaths.filter(p => !isEncryptedModelFileName(p))
-}
-
-async function encryptModelsBatch(payload: {
-  sourcePaths: string[]
-  password: string
-  permissions: ModelPermissions
-  /** When set, write all .smsh into this folder; otherwise beside each source. */
-  outputDir: string | null
-}): Promise<{
-  ok: true
-  results: Array<{ sourcePath: string; path?: string; error?: string }>
-  canceled: boolean
-}> {
-  const password = typeof payload?.password === 'string' ? payload.password : ''
-  const sourcePaths = Array.isArray(payload?.sourcePaths)
-    ? payload.sourcePaths.map(p => String(p).trim()).filter(Boolean)
-    : []
-  const permissions = normalizePermissions(payload.permissions)
-  const outputDir =
-    typeof payload?.outputDir === 'string' && payload.outputDir.trim()
-      ? path.resolve(payload.outputDir.trim())
-      : null
-
-  batchEncryptCancelRequested = false
-  const results: Array<{ sourcePath: string; path?: string; error?: string }> = []
-
-  for (let i = 0; i < sourcePaths.length; i++) {
-    if (batchEncryptCancelRequested) {
-      return { ok: true, results, canceled: true }
-    }
-    const sourcePath = sourcePaths[i]!
-    mainWindow?.webContents.send('desktop:encrypt-batch-progress', {
-      index: i + 1,
-      total: sourcePaths.length,
-      fileName: path.basename(sourcePath),
-    })
-
-    if (isEncryptedModelFileName(sourcePath)) {
-      results.push({ sourcePath, error: 'Already an encrypted .smsh file' })
-      continue
-    }
-
-    try {
-      const encrypted = await buildEncryptedSmshBytes(sourcePath, password, permissions)
-      const stem = stemFromName(sourcePath)
-      const dir = outputDir ?? path.dirname(sourcePath)
-      const outPath = await uniqueSmshOutPath(dir, stem)
-      await fs.writeFile(outPath, Buffer.from(encrypted))
-      results.push({ sourcePath, path: outPath })
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      results.push({ sourcePath, error: reason })
-    }
-  }
-
-  return { ok: true, results, canceled: false }
 }
 
 async function openRecentModel(filePath: string) {
@@ -882,8 +787,8 @@ async function rebuildApplicationMenu(recentPaths?: string[]) {
     },
     onOpenPreferences: () => sendToRenderer('desktop:open-preferences'),
     onEncryptModel: () => sendToRenderer('desktop:encrypt-model-request'),
-    onEncryptModelsBatch: () => sendToRenderer('desktop:encrypt-models-batch-request'),
     onConvertFormat: () => sendToRenderer('desktop:convert-format-request'),
+    onAddWatermark: () => sendToRenderer('desktop:add-watermark-request'),
     onToggleStatusBar: () => sendToRenderer('desktop:toggle-status-bar'),
     onReload: () => {
       void runWindowMenuAction('reload')
@@ -1240,42 +1145,6 @@ ipcMain.handle(
     })
   }
 )
-
-ipcMain.handle('desktop:pick-models-for-batch-encrypt', async () => pickModelsForBatchEncrypt())
-
-ipcMain.handle(
-  'desktop:encrypt-models-batch',
-  async (
-    _event,
-    payload: {
-      sourcePaths?: string[]
-      password?: string
-      permissions?: ModelPermissions
-      outputDir?: string | null
-    }
-  ) => {
-    return encryptModelsBatch({
-      sourcePaths: payload?.sourcePaths ?? [],
-      password: payload?.password ?? '',
-      permissions: normalizePermissions(payload?.permissions),
-      outputDir: payload?.outputDir ?? null,
-    })
-  }
-)
-
-ipcMain.handle('desktop:cancel-encrypt-batch', async () => {
-  batchEncryptCancelRequested = true
-})
-
-ipcMain.handle('desktop:choose-encrypt-output-dir', async () => {
-  if (!mainWindow) return null
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: t('encrypt.batch.chooseOutputDir'),
-    properties: ['openDirectory', 'createDirectory'],
-  })
-  if (result.canceled || !result.filePaths[0]) return null
-  return result.filePaths[0]
-})
 
 ipcMain.handle('desktop:set-content-protection', async (_event, enabled: unknown) => {
   const on = Boolean(enabled)
