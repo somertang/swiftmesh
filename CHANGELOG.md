@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-08-21
+
+### Fixed
+
+- **Offline icons:** Register missing Material Symbols glyphs in the Iconify offline bundle (`system-update-alt`, `check-circle-outline`, `error-outline`, `folder-open`, `videocam`, `photo-camera`) so the update dialog and related UI no longer show empty icon wells. Add a Vitest check that every `material-symbols:` usage in `src` is registered.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.3] - 2026-08-20
 
 ### Added
