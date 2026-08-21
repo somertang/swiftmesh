@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-08-21
+
+### Changed
+
+- **Tools menu:** Add a top-level Tools menu and move Encrypt Model… / Encrypt Models… out of File (Windows/Linux title bar and macOS system menu), so File stays document-focused.
+- **Help → Check for Updates…:** Expose the existing updater from Help (User Guide → Check for Updates → About). Preferences keeps its check-for-updates button as a second entry point.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.4] - 2026-08-21
 
 ### Fixed
