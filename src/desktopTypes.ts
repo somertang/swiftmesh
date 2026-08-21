@@ -243,12 +243,16 @@ export type DesktopApi = {
     fileName: string
     json: string
   }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
-  /** Save a GLB ArrayBuffer via Save As. */
+  /** Save a model ArrayBuffer via Save As (.glb or .gltf). */
   saveModelFile: (payload: {
     defaultName: string
     data: ArrayBuffer
     /** Absolute path of the currently open model (for permission checks). */
     sourcePath?: string
+    /** Output container; default glb (decimate). */
+    format?: 'glb' | 'gltf'
+    /** Optional Save As dialog title (defaults to reduce-mesh title). */
+    dialogTitle?: string
   }) => Promise<{ ok: true; path: string } | { ok: false; reason: string }>
   /** Pick a folder for cache / temporary files (null if canceled). */
   chooseCacheDir: () => Promise<string | null>
@@ -271,6 +275,8 @@ export type DesktopApi = {
   onToggleStatusBar: (handler: () => void) => () => void
   /** Fired when Preferences… is chosen (legacy menu / IPC). */
   onOpenPreferences: (handler: () => void) => () => void
+  /** Fired when Tools → Convert Format… is chosen (macOS menu / IPC). */
+  onConvertFormatRequest: (handler: () => void) => () => void
   /** Fired when File → Encrypt Model… is chosen (macOS menu / IPC). */
   onEncryptModelRequest: (handler: () => void) => () => void
   /** Fired when File → Encrypt Models… (batch) is chosen. */

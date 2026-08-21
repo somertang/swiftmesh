@@ -1936,6 +1936,139 @@ button.inspect-table-mesh-btn:hover:not(:disabled),
   gap: 1.5rem;
 }
 
+.convert-open-after {
+  margin: 0 !important;
+  align-self: flex-start;
+}
+
+.convert-open-after .MuiFormControlLabel-label {
+  font-size: 0.8125rem;
+}
+
+.convert-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.convert-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 7.5rem;
+  padding: 1.1rem 1rem;
+  border-radius: var(--radius-sm, 8px);
+  border: 1.5px dashed color-mix(in oklab, var(--color-base-content, currentColor) 22%, transparent);
+  background: color-mix(in oklab, var(--color-base-content, currentColor) 3%, transparent);
+  color: var(--text-muted, var(--color-base-content, currentColor));
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.convert-dropzone:hover:not(.is-disabled),
+.convert-dropzone:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--color-primary, #ec7700) 55%, transparent);
+  background: color-mix(in oklab, var(--color-primary, #ec7700) 8%, transparent);
+  color: var(--color-base-content, var(--text));
+}
+
+.convert-dropzone.is-dragover {
+  border-color: var(--color-primary, var(--accent, #ec7700));
+  border-style: solid;
+  background: color-mix(in oklab, var(--color-primary, #ec7700) 12%, transparent);
+  color: var(--color-base-content, var(--text));
+}
+
+.convert-dropzone.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.convert-dropzone-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.15rem;
+  border-radius: var(--radius, 12px);
+  background: color-mix(in oklab, var(--color-primary, #ec7700) 12%, transparent);
+  color: var(--color-primary, var(--accent));
+}
+
+.convert-dropzone-icon .iconify {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.convert-dropzone-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-base-content, var(--text));
+}
+
+.convert-dropzone-hint {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  opacity: 0.72;
+}
+
+.convert-file-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid color-mix(in oklab, var(--color-base-content, currentColor) 12%, transparent);
+  background: color-mix(in oklab, var(--color-base-content, currentColor) 4%, transparent);
+}
+
+.convert-file-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius, 12px);
+  background: color-mix(in oklab, var(--color-primary, #ec7700) 12%, transparent);
+  color: var(--color-primary, var(--accent));
+}
+
+.convert-file-card-icon .iconify {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.convert-file-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.convert-file-card-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-base-content, var(--text));
+}
+
 .encrypt-field-section {
   display: flex;
   flex-direction: column;

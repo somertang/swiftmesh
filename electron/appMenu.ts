@@ -13,6 +13,7 @@ export type DarwinAppMenuHandlers = {
   onClearRecent: () => void
   onEncryptModel: () => void
   onEncryptModelsBatch: () => void
+  onConvertFormat: () => void
   onOpenPreferences: () => void
   onToggleStatusBar: () => void
   onReload: () => void
@@ -145,6 +146,10 @@ export function buildDarwinApplicationMenu(handlers: DarwinAppMenuHandlers): Men
         {
           label: t('menu.encryptBatch'),
           click: () => handlers.onEncryptModelsBatch(),
+        },
+        {
+          label: t('menu.convertFormat'),
+          click: () => handlers.onConvertFormat(),
         },
       ],
     },

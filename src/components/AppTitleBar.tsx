@@ -24,6 +24,7 @@ type AppTitleBarProps = {
   onOpenRecentPath: (filePath: string) => void
   onEncryptModel?: () => void
   onEncryptModelsBatch?: () => void
+  onConvertFormat?: () => void
   encryptDisabled?: boolean
 }
 
@@ -81,6 +82,7 @@ export function AppTitleBar({
   onOpenRecentPath,
   onEncryptModel,
   onEncryptModelsBatch,
+  onConvertFormat,
   encryptDisabled = false,
 }: AppTitleBarProps) {
   const t = useT()
@@ -369,6 +371,12 @@ export function AppTitleBar({
                         <TitleBarMenuItem
                           label={t('menu.encryptBatch')}
                           onClick={() => run(onEncryptModelsBatch)}
+                        />
+                      ) : null}
+                      {onConvertFormat ? (
+                        <TitleBarMenuItem
+                          label={t('menu.convertFormat')}
+                          onClick={() => run(onConvertFormat)}
                         />
                       ) : null}
                     </MenuList>

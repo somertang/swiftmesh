@@ -168,11 +168,11 @@ export function modelSourceFromOpened(opened: OpenedModel): ModelSource {
   return openedToModelSource(opened)
 }
 
-/** Build ModelSource from a browser FileList / File[] (main + optional sidecars). */
-export async function modelSourceFromFiles(
+/** Build OpenedModel from a browser FileList / File[] (main + optional sidecars). */
+export async function openedModelFromFiles(
   files: File[] | FileList,
   nativePath: string | null = null
-): Promise<ModelSource> {
+): Promise<OpenedModel> {
   const list = Array.from(files)
   if (list.length === 0) {
     throw new ModelResolveError('No files selected.')
@@ -190,12 +190,19 @@ export async function modelSourceFromFiles(
   }
 
   const companions = await collectBrowserCompanions(primary, format, list)
-  const opened: OpenedModel = {
+  return {
     name: primary.name,
     path: nativePath ?? primary.name,
     data: await readFileAsArrayBuffer(primary),
     format,
     companions,
   }
-  return openedToModelSource(opened)
+}
+
+/** Build ModelSource from a browser FileList / File[] (main + optional sidecars). */
+export async function modelSourceFromFiles(
+  files: File[] | FileList,
+  nativePath: string | null = null
+): Promise<ModelSource> {
+  return openedToModelSource(await openedModelFromFiles(files, nativePath))
 }

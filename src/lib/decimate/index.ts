@@ -21,3 +21,4 @@ export {
   type DecimateStats,
 } from './decimateSession'
 export { exportObjectAsGlb, stripRuntimeUserData } from './exportDecimatedGlb'
+export type { ExportGltfResult } from './exportDecimatedGlb'

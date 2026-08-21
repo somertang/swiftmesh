@@ -108,6 +108,8 @@ const desktop: DesktopApi = {
     defaultName: string
     data: ArrayBuffer
     sourcePath?: string
+    format?: 'glb' | 'gltf'
+    dialogTitle?: string
   }): Promise<{ ok: true; path: string } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('desktop:save-model-file', payload),
 
@@ -151,6 +153,12 @@ const desktop: DesktopApi = {
     const listener = () => handler()
     ipcRenderer.on('desktop:open-preferences', listener)
     return () => ipcRenderer.removeListener('desktop:open-preferences', listener)
+  },
+
+  onConvertFormatRequest: (handler: () => void) => {
+    const listener = () => handler()
+    ipcRenderer.on('desktop:convert-format-request', listener)
+    return () => ipcRenderer.removeListener('desktop:convert-format-request', listener)
   },
 
   onEncryptModelRequest: (handler: () => void) => {
