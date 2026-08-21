@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-08-21
+
+### Added
+
+- **Convert Format…:** Tools menu entry opens a single-file converter (GLB ↔ GLTF, OBJ → GLB, FBX → GLB) with a click/drop source picker, target format select, optional “open when done”, progress, and a file-saved toast (including skipped-texture hints).
+
+### Fixed
+
+- **Skinned FBX → GLB:** Export via `SkeletonUtils.clone` (and pass clips when present) so Mixamo-style rigs reopen without the GLTFLoader `isBone` error.
+- **Embedded FBX textures:** Wait for textures to finish loading before sanitize/export so embedded maps are kept; only confirmed missing/invalid maps are stripped.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.3.5] - 2026-08-21
 
 ### Changed
