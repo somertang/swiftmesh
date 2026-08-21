@@ -905,6 +905,9 @@ async function rebuildApplicationMenu(recentPaths?: string[]) {
     onOpenUserGuide: () => {
       void runWindowMenuAction('openUserGuide')
     },
+    onCheckForUpdates: () => {
+      void checkForAppUpdates({ silent: false })
+    },
     onShowAbout: () => {
       void runWindowMenuAction('showAbout')
     },

@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from 'react'
 
-type MenuId = 'file' | 'view' | 'help' | null
+type MenuId = 'file' | 'view' | 'tools' | 'help' | null
 
 type AppTitleBarProps = {
   title: string
@@ -289,19 +289,6 @@ export function AppTitleBar({
                           </Paper>
                         ) : null}
                       </li>
-                      {onEncryptModel ? (
-                        <TitleBarMenuItem
-                          label={t('menu.encryptModel')}
-                          disabled={encryptDisabled}
-                          onClick={() => run(onEncryptModel)}
-                        />
-                      ) : null}
-                      {onEncryptModelsBatch ? (
-                        <TitleBarMenuItem
-                          label={t('menu.encryptBatch')}
-                          onClick={() => run(onEncryptModelsBatch)}
-                        />
-                      ) : null}
                       <Divider component="li" />
                       <TitleBarMenuItem
                         label={t('menu.preferencesOpen')}
@@ -358,6 +345,37 @@ export function AppTitleBar({
                 ) : null}
               </div>
 
+              <div className={`app-titlebar-menu${openMenu === 'tools' ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="app-titlebar-menu-trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === 'tools'}
+                  onClick={() => toggleMenu('tools')}
+                >
+                  {t('menu.tools')}
+                </button>
+                {openMenu === 'tools' ? (
+                  <Paper className="app-titlebar-dropdown" elevation={0}>
+                    <MenuList dense>
+                      {onEncryptModel ? (
+                        <TitleBarMenuItem
+                          label={t('menu.encryptModel')}
+                          disabled={encryptDisabled}
+                          onClick={() => run(onEncryptModel)}
+                        />
+                      ) : null}
+                      {onEncryptModelsBatch ? (
+                        <TitleBarMenuItem
+                          label={t('menu.encryptBatch')}
+                          onClick={() => run(onEncryptModelsBatch)}
+                        />
+                      ) : null}
+                    </MenuList>
+                  </Paper>
+                ) : null}
+              </div>
+
               <div className={`app-titlebar-menu${openMenu === 'help' ? ' is-open' : ''}`}>
                 <button
                   type="button"
@@ -374,6 +392,14 @@ export function AppTitleBar({
                       <TitleBarMenuItem
                         label={t('menu.userGuide')}
                         onClick={() => runWindow('openUserGuide')}
+                      />
+                      <TitleBarMenuItem
+                        label={t('menu.checkForUpdates')}
+                        onClick={() =>
+                          run(() => {
+                            void window.desktop?.checkForUpdates?.()
+                          })
+                        }
                       />
                       <TitleBarMenuItem
                         label={t('menu.about')}
