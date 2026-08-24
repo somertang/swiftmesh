@@ -271,6 +271,7 @@
         <li><a href="#tabs">Tabs &amp; layout</a></li>
         <li><a href="#viewport">Viewport &amp; camera</a></li>
         <li><a href="#inspect">Inspect panels</a></li>
+        <li><a href="#tools">Tools</a></li>
         <li><a href="#recording">Recording</a></li>
         <li><a href="#preferences">Preferences</a></li>
         <li><a href="#updates">Updates</a></li>
@@ -286,7 +287,7 @@
           <p>
             SwiftMesh is a desktop app for Windows and macOS for viewing local 3D models,
             inspecting scene data, and capturing a one-revolution turntable as video or stills.
-            Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, <strong>.obj</strong>, and <strong>.fbx</strong>.
+            Supported formats: <strong>.glb</strong>, <strong>.gltf</strong>, <strong>.obj</strong>, <strong>.fbx</strong>, and encrypted <strong>.smsh</strong>.
           </p>
         </header>
 
@@ -297,6 +298,7 @@
               <li>Open local models from the File menu, empty-state button, drag-and-drop, or Open Recent.</li>
               <li>Work in one or more tabs; optionally split the workspace.</li>
               <li>Inspect Hierarchy, Textures, Materials, Geometries, and Info; Reduce mesh; Annotate or Measure in the viewport.</li>
+              <li>Use <strong>Tools</strong> to encrypt a model to <code>.smsh</code>, convert formats, or add a watermark.</li>
               <li>Capture a turntable as video (MP4 / WebM) or stills (frame sequence / spritesheet atlas, optional multi-axis).</li>
               <li>Configure language, themes, performance, recording defaults, lighting, and updates in Preferences.</li>
             </ul>
@@ -320,12 +322,13 @@
             <li>On an empty tab, use <strong>Open local file</strong>.</li>
             <li>Drag and drop a model onto the viewport (disabled while recording or exporting).</li>
             <li><strong>File → Open Recent</strong> lists recent absolute paths; use <strong>Clear Recent</strong> to empty the list.</li>
-            <li>On Windows, file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> / <code>.fbx</code> with SwiftMesh (“Open with”). On macOS, use Open With or set SwiftMesh as the default app for those types.</li>
+            <li>On Windows, file associations can open <code>.glb</code> / <code>.gltf</code> / <code>.obj</code> / <code>.fbx</code> / <code>.smsh</code> with SwiftMesh (“Open with”). On macOS, use Open With or set SwiftMesh as the default app for those types.</li>
           </ul>
           <p>
             For <code>.gltf</code> and <code>.obj</code> with external buffers, materials, or textures,
             keep companion files next to the model so SwiftMesh can resolve them from the same folder.
             For <code>.fbx</code>, sibling textures and a <code>{name}.fbm</code> folder are optional (missing maps do not block opening).
+            Encrypted <code>.smsh</code> files ask for a password when opened (see <a href="#tools">Tools</a>).
           </p>
           <figure class="shot">
             <img src="../assets/shots/open.png" width="1280" height="720" alt="SwiftMesh with multiple model tabs open" />
@@ -369,7 +372,7 @@
 
           <h3>Lighting &amp; camera popovers</h3>
           <ul>
-            <li><strong>Lighting</strong> (per tab, temporary): Studio (IBL), Classic, or Neutral; Exposure; Env intensity (Studio); Reset.</li>
+            <li><strong>Lighting</strong> (per tab, temporary): Studio (IBL), Classic, Neutral, or <strong>Rendered</strong> (enables lights embedded in the model, Blender-style); Exposure; Env intensity (Studio); Reset.</li>
             <li><strong>Camera</strong> (per tab, temporary): position, target, FOV; Reset.</li>
           </ul>
           <p class="note">
@@ -442,22 +445,6 @@
                   The slider ratio is a target, not a guarantee. Closing the panel restores the original mesh. Export writes a new <code>.glb</code> (preview only; does not overwrite the open file).
                 </td>
               </tr>
-              <tr>
-                <td>Encrypt Model…</td>
-                <td>
-                  File menu action that packs the current local model (including OBJ/MTL textures or glTF sidecars) into a password-protected <code>.smsh</code> file.
-                  Recipients open it in SwiftMesh and enter the password (shared out of band). You can disable GLB export, turntable video, image/atlas export, and texture/structure inspect; optionally set a validity period (1 / 3 / 7 / 30 days, permanent, or a custom date) and a watermark that appears in the viewport and baked capture frames.
-                  This is encrypted storage to prevent casual opening and accidental sharing — not strong DRM. Anyone who unpacks the app can still bypass permission checks.
-                  While an unlocked <code>.smsh</code> is open, SwiftMesh asks the OS to reduce window capture (<code>setContentProtection</code>) — best-effort only, not hard DRM.
-                </td>
-              </tr>
-              <tr>
-                <td>Encrypt Models…</td>
-                <td>
-                  Batch-encrypt multiple local models with the same password, permissions, and validity. Progress shows the current file; failures are listed without aborting the rest.
-                  Choose save beside each source or a single output folder. Already-<code>.smsh</code> files are skipped. Reduce-mesh export cannot be encrypted in one step — encrypt the original source instead.
-                </td>
-              </tr>
             </tbody>
           </table>
           <p>
@@ -471,8 +458,40 @@
           </figure>
         </section>
 
+        <section id="tools">
+          <h2>6. Tools</h2>
+          <p>
+            The top-level <strong>Tools</strong> menu holds model utilities that are not part of File (document open) or the viewport inspect toolbar.
+          </p>
+
+          <h3>Encrypt Model…</h3>
+          <p>
+            Packs the current local model (including OBJ/MTL textures or glTF sidecars) into a password-protected <code>.smsh</code> file.
+            Recipients open it in SwiftMesh and enter the password (shared out of band). You can disable GLB export, turntable video, image/atlas export, and texture/structure inspect; optionally set a validity period (1 / 3 / 7 / 30 days, permanent, or a custom date) and a watermark that appears in the viewport and baked capture frames.
+          </p>
+          <p class="note">
+            This is encrypted storage to prevent casual opening and accidental sharing — not strong DRM. Anyone who unpacks the app can still bypass permission checks.
+            While an unlocked <code>.smsh</code> is open, SwiftMesh asks the OS to reduce window capture (<code>setContentProtection</code>) — best-effort only, not hard DRM.
+            Reduce-mesh export cannot be encrypted in one step — encrypt the original source instead.
+          </p>
+
+          <h3>Convert Format…</h3>
+          <p>
+            Opens a single-file converter. Click or drop a source model, pick a target format, and optionally open the result when done.
+            Supported paths: <strong>GLB ↔ GLTF</strong>, <strong>OBJ → GLB</strong>, <strong>FBX → GLB</strong>.
+            Progress shows while converting; a toast confirms the saved path (and may note skipped textures).
+          </p>
+
+          <h3>Add Watermark…</h3>
+          <p>
+            Opens a left-dock panel under the tab bar for the active model. Choose text or image stamp (image dropzone; near-black keyed to transparent).
+            Live triplanar preview updates as you orbit and zoom. Export bakes the stamp into albedo as a new GLB/GLTF copy (does not overwrite the open file).
+            Custom font upload is not offered; use the built-in font presets.
+          </p>
+        </section>
+
         <section id="recording">
-          <h2>6. Recording</h2>
+          <h2>7. Recording</h2>
           <p>
             Recording requires a loaded model in the desktop app.
             Circular buttons on the viewport start capture; all other parameters live in
@@ -552,7 +571,7 @@
         </section>
 
         <section id="preferences">
-          <h2>7. Preferences</h2>
+          <h2>8. Preferences</h2>
           <p>
             Open with <strong>Preferences…</strong> (<kbd>Ctrl+,</kbd> / <kbd>⌘,</kbd>). Use the search box to filter settings.
             Edits stay in a draft until you <strong>Save</strong>; <strong>Discard</strong> reverts them.
@@ -615,34 +634,37 @@
 
           <h3>Lighting</h3>
           <p>
-            Defaults for new tabs: Mode (Studio / Classic / Neutral), Exposure, Env intensity (Studio).
-            Viewport lighting popover overrides are temporary.
+            Defaults for new tabs: Mode (Studio / Classic / Neutral / Rendered), Exposure, Env intensity (Studio).
+            Rendered enables lights authored in the model. Viewport lighting popover overrides are temporary.
           </p>
 
           <h3>About</h3>
           <ul>
-            <li>Author</li>
-            <li>Repository — open the GitHub project in your browser</li>
             <li>Open-source license — MIT</li>
             <li>Updates — check for a newer GitHub Release (see next section)</li>
           </ul>
         </section>
 
         <section id="updates">
-          <h2>8. Updates</h2>
-          <p>Updates live in <strong>Preferences → About</strong> for packaged installs.</p>
+          <h2>9. Updates</h2>
+          <p>
+            The primary entry is <strong>Help → Check for Updates…</strong> (title-bar Help on Windows/Linux; system Help on macOS).
+            <strong>Preferences → About</strong> has the same check button as a second entry point.
+            When you are already on the latest version, a toast confirms it (same message from either entry).
+            Background auto-update checks do not show that toast.
+          </p>
           <ul>
-            <li><strong>Windows NSIS:</strong> <strong>Check for updates</strong> downloads when a newer release exists. Use <strong>Relaunch application</strong> to install. <strong>Auto-update</strong> on: background check/download; off: only the button checks.</li>
+            <li><strong>Windows NSIS:</strong> when a newer release exists, confirm in the dialog to download. Use <strong>Relaunch application</strong> to install. <strong>Auto-update</strong> on: background check/download; off: only manual checks.</li>
             <li><strong>macOS:</strong> the app checks GitHub Releases and prompts you to <strong>Download from GitHub</strong> (install the DMG yourself). There is no Auto-update toggle on macOS because unsigned builds cannot install updates in-app.</li>
           </ul>
           <p class="note">
-            Development builds (<code>pnpm run dev</code>) cannot install updates.
+            Development builds (<code>pnpm run dev</code>) cannot install updates; a manual check shows a development-build tip.
             Portable Windows builds are not the update target.
           </p>
         </section>
 
         <section id="shortcuts">
-          <h2>9. Keyboard shortcuts</h2>
+          <h2>10. Keyboard shortcuts</h2>
           <table>
             <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
             <tbody>
@@ -660,11 +682,11 @@
         </section>
 
         <section id="limits">
-          <h2>10. Limitations</h2>
+          <h2>11. Limitations</h2>
           <ul>
             <li>Local files only — no remote URL or cloud loading.</li>
             <li>Formats: <code>.glb</code>, <code>.gltf</code>, <code>.obj</code>, <code>.fbx</code>, and encrypted <code>.smsh</code>. The FBX loader covers ASCII and common binary meshes, skins, Lambert/Phong and some PBR, and clips — not Maya NURBS, every newer binary variant, or complex shaders. Coordinates are converted to Y-up by the loader.</li>
-            <li><code>.smsh</code> has no online license check or remote revocation — password, local calendar expiry, and honor-system permissions only.</li>
+            <li><code>.smsh</code> has no online license check or remote revocation — password, local calendar expiry, and honor-system permissions only. There is no batch-encrypt command.</li>
             <li>Reduce mesh exports a preview <code>.glb</code> only; there is no “encrypt decimated result” path, because that cannot match encrypting the original OBJ/MTL/texture (or other source) bytes on disk.</li>
             <li>Window content protection for open <code>.smsh</code> tabs only lowers capture odds; it does not block all OS or hardware capture tools.</li>
             <li>Recording and encoding require the desktop app (bundled ffmpeg for MP4).</li>

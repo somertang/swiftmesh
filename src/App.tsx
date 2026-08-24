@@ -613,6 +613,30 @@ export default function App() {
   useEffect(() => {
     if (!window.desktop?.onUpdateStatus) return
     return window.desktop.onUpdateStatus(status => {
+      if (
+        (status.phase === 'upToDate' || status.phase === 'dev' || status.phase === 'error') &&
+        status.userInitiated
+      ) {
+        if (status.phase === 'upToDate') {
+          pushTextToast({
+            severity: 'info',
+            message: t('update.upToDateMessage', { version: status.version }),
+            durationMs: 4000,
+          })
+        } else if (status.phase === 'dev') {
+          pushTextToast({
+            severity: 'info',
+            message: t('update.devMessage'),
+            durationMs: 4000,
+          })
+        } else {
+          pushTextToast({
+            severity: 'error',
+            message: status.message || t('update.errorMessage'),
+            durationMs: 4000,
+          })
+        }
+      }
       if (!updatePromptOpen) return
       if (status.phase === 'downloading') {
         setUpdateDialogPhase('downloading')
@@ -626,7 +650,7 @@ export default function App() {
         setUpdatePromptBusy(false)
       }
     })
-  }, [updatePromptOpen])
+  }, [updatePromptOpen, pushTextToast, t])
 
   useEffect(() => {
     if (!window.desktop?.onUpdateProgress) return
@@ -1698,13 +1722,6 @@ export default function App() {
       <PreferencesModal
         open={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
-        onUpdateCheckTip={tip =>
-          pushTextToast({
-            severity: tip.severity,
-            message: tip.message,
-            durationMs: 4000,
-          })
-        }
         onPreferencesChange={prefs => {
           setRecordingEnabled(prefs.recording.enabled)
           setRecordingPrefs(cloneRecordingPreferences(prefs.recording))

@@ -39,9 +39,19 @@ let pendingVersion = ''
 let pendingNotes = ''
 let pendingReleaseUrl = ''
 let lastPromptedVersion = ''
+/** True when the in-flight check was started by a user action (Help / Preferences). */
+let checkUserInitiated = false
 
 function t(key: MessageKey, vars?: Record<string, string | number>) {
   return translate(getLocale(), key, vars)
+}
+
+function withUserInitiated<T extends UpdateStatus>(next: T): T {
+  if (!checkUserInitiated) return next
+  if (next.phase === 'upToDate' || next.phase === 'dev' || next.phase === 'error') {
+    return { ...next, userInitiated: true }
+  }
+  return next
 }
 
 function emitStatus(next: UpdateStatus) {
@@ -189,7 +199,8 @@ function wireEvents(updater: AutoUpdater) {
     downloading = false
     getMainWindow()?.setProgressBar(-1)
     const message = error instanceof Error ? error.message : String(error)
-    emitStatus({ phase: 'error', message })
+    emitStatus(withUserInitiated({ phase: 'error', message }))
+    checkUserInitiated = false
     console.error('[updater]', error)
   })
 
@@ -197,10 +208,12 @@ function wireEvents(updater: AutoUpdater) {
     checking = false
     pendingVersion = ''
     pendingNotes = ''
-    emitStatus({ phase: 'upToDate', version: app.getVersion() })
+    emitStatus(withUserInitiated({ phase: 'upToDate', version: app.getVersion() }))
+    checkUserInitiated = false
   })
 
   updater.on('update-available', (info: UpdateInfoLike) => {
+    checkUserInitiated = false
     void handleUpdateAvailable(info)
   })
 
@@ -258,7 +271,8 @@ async function handleUpdateAvailable(info: UpdateInfoLike, releaseUrl?: string) 
 
 async function checkForMacUpdates() {
   if (!app.isPackaged) {
-    emitStatus({ phase: 'dev' })
+    emitStatus(withUserInitiated({ phase: 'dev' }))
+    checkUserInitiated = false
     return { ok: false as const, reason: 'dev' as const }
   }
 
@@ -274,7 +288,8 @@ async function checkForMacUpdates() {
     const latest = await fetchLatestGithubRelease()
     if (!latest) {
       checking = false
-      emitStatus({ phase: 'error', message: t('update.errorMessage') })
+      emitStatus(withUserInitiated({ phase: 'error', message: t('update.errorMessage') }))
+      checkUserInitiated = false
       return { ok: false as const, reason: 'error' as const }
     }
 
@@ -284,7 +299,8 @@ async function checkForMacUpdates() {
       pendingVersion = ''
       pendingNotes = ''
       pendingReleaseUrl = ''
-      emitStatus({ phase: 'upToDate', version: current })
+      emitStatus(withUserInitiated({ phase: 'upToDate', version: current }))
+      checkUserInitiated = false
       return { ok: true as const }
     }
 
@@ -292,6 +308,7 @@ async function checkForMacUpdates() {
     if (!releaseNotes) {
       releaseNotes = t('update.notesUnavailable')
     }
+    checkUserInitiated = false
     await handleUpdateAvailable(
       { version: latest.version, releaseNotes },
       latest.releaseUrl
@@ -300,7 +317,8 @@ async function checkForMacUpdates() {
   } catch (error) {
     checking = false
     const message = error instanceof Error ? error.message : String(error)
-    emitStatus({ phase: 'error', message })
+    emitStatus(withUserInitiated({ phase: 'error', message }))
+    checkUserInitiated = false
     return { ok: false as const, reason: 'error' as const }
   }
 }
@@ -347,16 +365,17 @@ export function setAutoUpdateEnabled(enabled: boolean) {
   if (autoUpdater) autoUpdater.autoDownload = false
 }
 
-/** Manual check from Preferences, or background check when auto-update is on. */
+/** Manual check from Preferences / Help, or background check when auto-update is on. */
 export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
-  void options.silent
+  checkUserInitiated = options.silent !== true
 
   if (MAC_MANUAL_UPDATE) {
     return checkForMacUpdates()
   }
 
   if (!app.isPackaged) {
-    emitStatus({ phase: 'dev' })
+    emitStatus(withUserInitiated({ phase: 'dev' }))
+    checkUserInitiated = false
     return { ok: false as const, reason: 'dev' as const }
   }
 
@@ -371,7 +390,8 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
 
   const updater = await ensureConfigured()
   if (!updater) {
-    emitStatus({ phase: 'error', message: t('update.errorMessage') })
+    emitStatus(withUserInitiated({ phase: 'error', message: t('update.errorMessage') }))
+    checkUserInitiated = false
     return { ok: false as const, reason: 'error' as const }
   }
 
@@ -385,7 +405,8 @@ export async function checkForAppUpdates(options: { silent?: boolean } = {}) {
   } catch (error) {
     checking = false
     const message = error instanceof Error ? error.message : String(error)
-    emitStatus({ phase: 'error', message })
+    emitStatus(withUserInitiated({ phase: 'error', message }))
+    checkUserInitiated = false
     return { ok: false as const, reason: 'error' as const }
   }
 }

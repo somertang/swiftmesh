@@ -12,7 +12,6 @@ import TextField from '@mui/material/TextField'
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FC,
   type ReactNode,
@@ -67,9 +66,7 @@ import type { PreviewTheme } from '../lib/previewTheme'
 import { DEFAULT_SECONDS_PER_REV } from '../lib/modelTab'
 import { RECORD_PROJECTION_OPTIONS, type RecordProjection } from '../config/cameraDefaults'
 import {
-  APP_AUTHOR,
   APP_LICENSE_SPDX,
-  APP_REPOSITORY_URL,
 } from '../lib/openSource'
 import { useUiTheme } from '../uiTheme'
 import { UI_THEMES, type UiTheme } from '../lib/uiTheme'
@@ -91,7 +88,6 @@ type Props = {
   onClose: () => void
   initialSection?: PreferencesSection
   onPreferencesChange?: (prefs: AppPreferences) => void
-  onUpdateCheckTip?: (tip: { severity: 'info' | 'error'; message: string }) => void
 }
 
 const NAV: { id: PreferencesSection; labelKey: MessageKey; icon: string }[] = [
@@ -152,8 +148,6 @@ type SettingId =
   | 'lightingMode'
   | 'exposure'
   | 'envIntensity'
-  | 'aboutAuthor'
-  | 'aboutRepository'
   | 'aboutLicense'
 
 const SETTING_META: Record<
@@ -400,16 +394,6 @@ const SETTING_META: Record<
     titleKey: 'lighting.envIntensity',
     descKey: 'prefs.desc.envIntensity',
   },
-  aboutAuthor: {
-    section: 'about',
-    titleKey: 'prefs.about.author',
-    descKey: 'prefs.desc.about.author',
-  },
-  aboutRepository: {
-    section: 'about',
-    titleKey: 'prefs.about.repository',
-    descKey: 'prefs.desc.about.repository',
-  },
   aboutLicense: {
     section: 'about',
     titleKey: 'prefs.about.license',
@@ -529,7 +513,6 @@ export const PreferencesModal: FC<Props> = ({
   onClose,
   initialSection = 'general',
   onPreferencesChange,
-  onUpdateCheckTip,
 }) => {
   const t = useT()
   const { locale, setLocale } = useLocale()
@@ -546,10 +529,6 @@ export const PreferencesModal: FC<Props> = ({
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: 'idle' })
   const [macManualUpdate, setMacManualUpdate] = useState(false)
   const [installingUpdate, setInstallingUpdate] = useState(false)
-  const [openingRepo, setOpeningRepo] = useState(false)
-  const manualUpdateCheckRef = useRef(false)
-  const onUpdateCheckTipRef = useRef(onUpdateCheckTip)
-  onUpdateCheckTipRef.current = onUpdateCheckTip
 
   useEffect(() => {
     if (!open) {
@@ -568,9 +547,7 @@ export const PreferencesModal: FC<Props> = ({
     setCommittedPreview(previewTheme)
     setConfirmMode(null)
     setSearch('')
-    manualUpdateCheckRef.current = false
     setInstallingUpdate(false)
-    setOpeningRepo(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot locale/theme on open only
   }, [open])
 
@@ -603,25 +580,6 @@ export const PreferencesModal: FC<Props> = ({
     })()
     const unsub = window.desktop.onUpdateStatus?.(status => {
       setUpdateStatus(status)
-      if (!manualUpdateCheckRef.current) return
-      if (status.phase === 'checking') return
-      manualUpdateCheckRef.current = false
-      if (status.phase === 'upToDate') {
-        onUpdateCheckTipRef.current?.({
-          severity: 'info',
-          message: t('update.upToDateMessage', { version: status.version }),
-        })
-      } else if (status.phase === 'dev') {
-        onUpdateCheckTipRef.current?.({
-          severity: 'info',
-          message: t('update.devMessage'),
-        })
-      } else if (status.phase === 'error') {
-        onUpdateCheckTipRef.current?.({
-          severity: 'error',
-          message: status.message || t('update.errorMessage'),
-        })
-      }
     })
     return () => {
       cancelled = true
@@ -735,19 +693,6 @@ export const PreferencesModal: FC<Props> = ({
     if (!window.desktop?.chooseCacheDir) return null
     const dir = await window.desktop.chooseCacheDir()
     return dir || null
-  }
-
-  const openProjectRepository = async () => {
-    setOpeningRepo(true)
-    try {
-      if (window.desktop?.openExternalUrl) {
-        await window.desktop.openExternalUrl(APP_REPOSITORY_URL)
-        return
-      }
-      window.open(APP_REPOSITORY_URL, '_blank', 'noopener,noreferrer')
-    } finally {
-      setOpeningRepo(false)
-    }
   }
 
   const onCacheLocationChange = async (mode: 'system' | 'folder') => {
@@ -2160,7 +2105,6 @@ export const PreferencesModal: FC<Props> = ({
                             void window.desktop.installUpdate?.()
                             return
                           }
-                          manualUpdateCheckRef.current = true
                           void window.desktop.checkForUpdates?.()
                         }}
                       >
@@ -2182,36 +2126,6 @@ export const PreferencesModal: FC<Props> = ({
                         disabled={!desktopAvailable}
                         onChange={checked => updateGeneral({ autoUpdate: checked })}
                       />
-                    </PrefRow>
-                  ) : null}
-                </PrefGroup>
-              ) : null}
-              {show('aboutAuthor') || show('aboutRepository') ? (
-                <PrefGroup title={t('prefs.group.project')}>
-                  {show('aboutAuthor') ? (
-                    <PrefRow
-                      title={t('prefs.about.author')}
-                      description={t('prefs.desc.about.author')}
-                    >
-                      <span className="prefs-about-value">{APP_AUTHOR}</span>
-                    </PrefRow>
-                  ) : null}
-                  {show('aboutRepository') ? (
-                    <PrefRow
-                      title={t('prefs.about.repository')}
-                      description={t('prefs.desc.about.repository')}
-                      controlClassName="is-actions"
-                    >
-                      <LoadingButton
-                        variant="outlined"
-                        loading={openingRepo}
-                        loadingText={t('prefs.about.openingRepo')}
-                        onClick={() => {
-                          void openProjectRepository()
-                        }}
-                      >
-                        {t('prefs.about.openRepo')}
-                      </LoadingButton>
                     </PrefRow>
                   ) : null}
                 </PrefGroup>

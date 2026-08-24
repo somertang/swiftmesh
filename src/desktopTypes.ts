@@ -148,13 +148,13 @@ export type UpdateProgressEvent = {
 
 export type UpdateStatus =
   | { phase: 'idle' }
-  | { phase: 'dev' }
+  | { phase: 'dev'; userInitiated?: boolean }
   | { phase: 'checking' }
-  | { phase: 'upToDate'; version: string }
+  | { phase: 'upToDate'; version: string; userInitiated?: boolean }
   | { phase: 'available'; version: string; releaseNotes?: string; releaseUrl?: string }
   | { phase: 'downloading'; percent: number }
   | { phase: 'ready'; version: string }
-  | { phase: 'error'; message: string }
+  | { phase: 'error'; message: string; userInitiated?: boolean }
 
 export type UpdatePromptEvent = {
   version: string
