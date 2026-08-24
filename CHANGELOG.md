@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Preferences → About:** Remove the Project card (author / Open on GitHub). About keeps Updates and License only.
+- **Help → Check for Updates…:** When already up to date (or on a dev build / check error), show the same app toast as Preferences → About. Background auto-update checks stay silent.
+- **Product page:** Rewrite `docs/index.html` around a local-first model-viewing story and strengthen the visual hierarchy: readable Hero, proof-led Inspect/Capture layouts, GIF-first protected sharing, compact supporting features/themes, connected workflow, and OS-recommended downloads. EN/ZH copy stays within actual feature boundaries; unsigned/Gatekeeper notes remain in Download.
+- **User Guide:** Document Tools (Encrypt / Convert / Watermark), Rendered lighting, `.smsh`, Help check-for-updates toast; remove batch Encrypt Models…; About no longer lists author/repository.
+
 ## [0.4.0] - 2026-08-21
 
 ### Added

@@ -47,7 +47,9 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 ### Features
 
 - Open local models via **File → Open…** (Ctrl+O / ⌘O), drag-and-drop, or Open Recent
-- Encrypt a local model to `.smsh` (password + optional export/recording/inspect permissions, expiry, watermark) for controlled sharing; **Encrypt Models…** batch-encrypts multiple files with the same settings
+- **Tools → Encrypt Model…** packs a local model to `.smsh` (password + optional export/recording/inspect permissions, expiry, watermark) for controlled sharing
+- **Tools → Convert Format…** converts a single file (GLB ↔ GLTF, OBJ → GLB, FBX → GLB)
+- **Tools → Add Watermark…** live triplanar preview; bake text or image stamp into albedo as a GLB/GLTF copy
 - Unlocked `.smsh` tabs ask the OS to reduce window capture (`setContentProtection`) — best-effort, not hard DRM
 - Multi-tab viewing; perspective / orthographic camera
 - Inspect hierarchy, textures, materials, geometries, and model info
@@ -63,11 +65,12 @@ Right-click → **Open** sometimes works for “unidentified developer”, but f
 ### Quick usage
 
 1. Install and launch SwiftMesh.
-2. Open a `.glb`, `.gltf`, `.obj`, or `.fbx` file.
+2. Open a `.glb`, `.gltf`, `.obj`, `.fbx`, or `.smsh` file.
 3. Use the viewport toolbar for Hierarchy / Textures / Materials / Geometries / Info, plus Reduce mesh, Annotate / Measure.
-4. Adjust lighting, camera, and perspective / orthographic as needed.
-5. Use the viewport record button to capture a turntable video or stills. Set format, size, quality, and image options in Preferences.
-6. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording defaults, updates, and license/repo info.
+4. Use **Tools** for Encrypt Model…, Convert Format…, or Add Watermark… when needed.
+5. Adjust lighting, camera, and perspective / orthographic as needed.
+6. Use the viewport record button to capture a turntable video or stills. Set format, size, quality, and image options in Preferences.
+7. Open **Preferences** (Ctrl+, / ⌘,) for themes, performance, recording defaults, updates, and license info.
 
 Remote URL / cloud loading is not included.
 

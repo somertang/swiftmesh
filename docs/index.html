@@ -3,27 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SwiftMesh — open local .glb, .gltf, .obj, and .fbx files, inspect scene data, and capture turntable video or stills on Windows and macOS." />
-  <title>SwiftMesh — Local 3D Model Viewer</title>
+  <meta name="description" content="Open and inspect local GLB, GLTF, OBJ, FBX, and encrypted SMSH models. Capture turntables, reduce meshes, convert formats, and export protected copies on Windows and macOS." />
+  <title>SwiftMesh — Local 3D model viewer and inspector</title>
   <link rel="icon" href="assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0f1115;
+      --bg: #0b0d12;
+      --bg-elevated: #12151c;
       --surface: #171a21;
       --surface-2: #1e232c;
-      --border: #2a3140;
-      --text: #e8eaef;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --text: #f2f4f8;
       --muted: #9aa3b2;
       --accent: #ec7700;
       --accent-hover: #ff8a1a;
-      --accent-soft: rgba(236, 119, 0, 0.14);
-      --cyan-soft: rgba(56, 189, 248, 0.12);
+      --accent-soft: rgba(236, 119, 0, 0.16);
+      --accent-glow: rgba(236, 119, 0, 0.35);
       --link: #7dd3fc;
-      --max: 68rem;
-      --nav-h: 3.75rem;
+      --max: 72rem;
+      --nav-h: 4rem;
+      --radius: 16px;
+      --radius-sm: 12px;
       --font-display: "Outfit", sans-serif;
       --font-body: "Figtree", sans-serif;
     }
@@ -33,7 +37,10 @@
     body {
       margin: 0;
       font-family: var(--font-body);
-      background: var(--bg);
+      background:
+        radial-gradient(900px 520px at 50% -8%, rgba(236, 119, 0, 0.16), transparent 55%),
+        radial-gradient(700px 480px at 100% 18%, rgba(56, 189, 248, 0.06), transparent 50%),
+        var(--bg);
       color: var(--text);
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
@@ -41,22 +48,26 @@
 
     a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    a:focus-visible,
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--accent-hover);
+      outline-offset: 3px;
+    }
 
-    /* —— Top nav —— */
     .site-header {
       position: sticky;
       top: 0;
       z-index: 40;
       height: var(--nav-h);
       border-bottom: 1px solid transparent;
-      background: rgba(15, 17, 21, 0.72);
-      backdrop-filter: blur(14px);
+      background: rgba(11, 13, 18, 0.72);
+      backdrop-filter: blur(16px);
       transition: border-color 0.25s ease, background 0.25s ease;
     }
-
     .site-header.is-scrolled {
       border-bottom-color: var(--border);
-      background: rgba(15, 17, 21, 0.92);
+      background: rgba(11, 13, 18, 0.92);
     }
 
     .nav-inner {
@@ -78,35 +89,30 @@
       font-weight: 700;
       font-size: 1.05rem;
       letter-spacing: -0.015em;
-      line-height: 1.2;
       color: var(--text);
       text-decoration: none;
-      flex-shrink: 0;
     }
-
     .nav-brand:hover { text-decoration: none; color: var(--text); }
-    .nav-brand img { width: 1.55rem; height: 1.55rem; border-radius: 4px; }
+    .nav-brand img { width: 1.55rem; height: 1.55rem; border-radius: 6px; }
     .nav-brand span { color: var(--accent); }
 
     .nav-links {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.15rem 1.15rem;
+      gap: 0.15rem 1.25rem;
       margin: 0;
       padding: 0;
       list-style: none;
       justify-self: center;
       grid-column: 2;
     }
-
     .nav-links a {
       color: var(--muted);
       font-size: 0.92rem;
       font-weight: 500;
       text-decoration: none;
     }
-
     .nav-links a:hover { color: var(--text); }
 
     .nav-actions {
@@ -116,624 +122,713 @@
       gap: 0.65rem;
       justify-self: end;
       grid-column: 3;
-      flex-shrink: 0;
     }
-
-    .nav-github {
-      color: var(--muted);
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 0.95rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
       font-size: 0.88rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
       text-decoration: none;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset, 0 8px 24px var(--accent-glow);
     }
-
-    .nav-github:hover { color: var(--text); text-decoration: none; }
-
-    .lang-toggle {
-      display: inline-flex;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      overflow: hidden;
-      background: var(--surface);
-    }
-
-    .lang-toggle button {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      color: var(--muted);
-      font-family: var(--font-body);
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 0.35rem 0.65rem;
-      cursor: pointer;
-      line-height: 1;
-    }
-
-    .lang-toggle button[aria-pressed="true"] {
-      background: var(--accent-soft);
-      color: var(--accent);
-    }
+    .nav-cta:hover { background: var(--accent-hover); text-decoration: none; color: #fff; }
 
     .nav-toggle {
       display: none;
       appearance: none;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
       background: var(--surface);
       color: var(--text);
-      width: 2.4rem;
-      height: 2.4rem;
-      border-radius: 8px;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 10px;
       cursor: pointer;
       align-items: center;
       justify-content: center;
       padding: 0;
     }
-
     .nav-toggle svg { width: 1.15rem; height: 1.15rem; }
-
     .nav-drawer {
-      display: none;
-      border-bottom: 1px solid var(--border);
-      background: rgba(15, 17, 21, 0.98);
+      border-top: 1px solid var(--border);
+      background: rgba(11, 13, 18, 0.98);
       padding: 0.75rem 1rem 1rem;
     }
-
-    .nav-drawer.is-open { display: block; }
-
-    .nav-drawer ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 0.35rem;
-    }
-
+    .nav-drawer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
     .nav-drawer a {
       display: block;
       padding: 0.65rem 0.75rem;
+      border-radius: 10px;
       color: var(--text);
       text-decoration: none;
-      border-radius: 8px;
-      font-weight: 500;
+      background: var(--surface);
     }
 
-    .nav-drawer a:hover { background: var(--surface); text-decoration: none; }
+    .wrap {
+      width: min(100% - 2rem, var(--max));
+      margin: 0 auto;
+    }
 
-    /* —— Hero —— */
     .hero {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
+      padding: 4.5rem 0 2.5rem;
       text-align: center;
-      isolation: isolate;
-      padding: 2.75rem 1.25rem 3.25rem;
-      gap: 1.75rem;
     }
-
-    .hero-visual {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      background:
-        radial-gradient(ellipse 70% 45% at 50% 0%, rgba(236, 119, 0, 0.14), transparent 55%),
-        radial-gradient(ellipse 50% 40% at 10% 85%, var(--cyan-soft), transparent 55%),
-        linear-gradient(180deg, #12151c 0%, var(--bg) 72%, var(--bg) 100%);
-      pointer-events: none;
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: rgba(236, 119, 0, 0.08);
+      color: var(--accent-hover);
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin: 0 0 1.35rem;
     }
-
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      width: min(100%, 40rem);
-      flex-shrink: 0;
-      animation: fade-up 0.85s ease-out both;
+    .hero-badge::before {
+      content: "";
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .hero h1 {
+      margin: 0 auto 1rem;
+      max-width: 54rem;
+      font-family: var(--font-display);
+      font-size: clamp(2.35rem, 5.5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.08;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(105deg, #ff9a3c 0%, #ec7700 45%, #7dd3fc 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-lead {
+      margin: 0 auto 1.75rem;
+      max-width: 40rem;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+    .hero-cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-bottom: 0.85rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.72rem 1.25rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.98rem;
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 10px 30px var(--accent-glow);
+    }
+    .btn-primary:hover { background: var(--accent-hover); color: #fff; text-decoration: none; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .btn-ghost:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }
+    .hero-note {
+      margin: 0 auto 2.5rem;
+      max-width: 36rem;
+      color: var(--muted);
+      font-size: 0.88rem;
     }
 
     .hero-shot {
-      position: relative;
-      z-index: 1;
-      width: min(100%, 52rem);
-      flex-shrink: 0;
-      animation: fade-up 1s ease-out 0.12s both;
-    }
-
-    .media-frame {
-      display: block;
-      width: 100%;
-      margin: 0;
-      border-radius: 14px;
-      border: 1px solid rgba(42, 49, 64, 0.95);
-      background: #0b0d11;
+      margin: 0 auto;
+      max-width: 68rem;
+      border-radius: calc(var(--radius) + 4px);
+      padding: 0.55rem;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
       box-shadow:
-        0 28px 64px rgba(0, 0, 0, 0.5),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-      overflow: hidden;
+        0 30px 80px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.04);
     }
-
+    .hero-shot img,
     .media-frame img,
     .media-frame video {
       display: block;
       width: 100%;
       height: auto;
+      border-radius: var(--radius);
+      background: #000;
     }
 
-    .brand {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: clamp(2.6rem, 8vw, 4rem);
-      letter-spacing: -0.02em;
-      line-height: 1.12;
-      margin: 0 0 0.85rem;
-    }
-
-    .brand span { color: var(--accent); }
-
-    .tagline {
-      margin: 0 0 1.75rem;
-      color: var(--muted);
-      font-size: clamp(1.05rem, 2.4vw, 1.25rem);
-      font-weight: 500;
-    }
-
-    .cta-row {
+    .chip-strip {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem;
       justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 0 2rem;
     }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      padding: 0.78rem 1.35rem;
-      border-radius: 999px;
-      font-family: var(--font-body);
+    .chip-strip span,
+    .chip-strip code {
+      font-size: 0.84rem;
       font-weight: 600;
-      font-size: 0.95rem;
-      border: 1px solid transparent;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .btn:hover { text-decoration: none; }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #120d08;
-      box-shadow: 0 8px 28px rgba(236, 119, 0, 0.28);
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 12px 32px rgba(236, 119, 0, 0.38);
-    }
-
-    .btn-ghost {
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text);
-      border-color: var(--border);
-    }
-
-    .btn-ghost:hover {
-      border-color: var(--muted);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .cta-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.85rem;
-    }
-
-    .download-alts {
-      margin: 0;
-      font-size: 0.88rem;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.45;
-    }
-
-    .download-alts a {
-      color: var(--link);
-      font-weight: 500;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-
-    .download-alts a:hover { text-decoration: underline; }
-
-    .download-alts .sep {
-      margin: 0 0.35rem;
-      color: var(--border);
-      user-select: none;
-    }
-
-    .formats-note {
-      margin: 1.35rem 0 0;
-      padding: 0.9rem 1rem;
-      border: 1px solid var(--border);
-      border-radius: 0.65rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
       background: var(--surface);
       color: var(--muted);
-      font-size: 0.9rem;
+    }
+    .chip-strip code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--text); }
+
+    .section {
+      padding: 4.25rem 0 1rem;
+    }
+    .section-label {
+      margin: 0 0 0.55rem;
+      color: var(--accent-hover);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .section-title {
+      margin: 0 0 0.75rem;
+      font-family: var(--font-display);
+      font-size: clamp(1.7rem, 3.5vw, 2.35rem);
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+    }
+    .section-lead {
+      margin: 0 0 2rem;
       max-width: 40rem;
+      color: var(--muted);
+      font-size: 1.05rem;
     }
+    .section.center { text-align: center; }
+    .section.center .section-lead { margin-left: auto; margin-right: auto; }
 
-    .formats-note code {
-      font-size: 0.85em;
-      color: var(--text);
-    }
-
-    /* —— Value props —— */
-    .values {
-      width: min(100% - 2.5rem, var(--max));
-      margin: 0 auto;
-      padding: 1.5rem 0 3.5rem;
+    .feature-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.5rem 2.25rem;
+      gap: 1rem;
     }
-
-    .value {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.85rem 1rem;
-      align-items: start;
+    .feature-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%), var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem 1.25rem 1.25rem;
       opacity: 0;
-      transform: translateY(14px);
-      transition: opacity 0.55s ease, transform 0.55s ease;
+      transform: translateY(12px);
+      transition: opacity 0.45s ease, transform 0.45s ease, border-color 0.2s ease;
     }
-
-    .value.in-view {
-      opacity: 1;
-      transform: none;
-    }
-
-    .value-icon {
-      width: 2.75rem;
-      height: 2.75rem;
+    .feature-card.in-view { opacity: 1; transform: none; }
+    .feature-card:hover { border-color: rgba(236, 119, 0, 0.35); }
+    .feature-icon {
+      width: 2.5rem;
+      height: 2.5rem;
       border-radius: 12px;
-      background: var(--accent-soft);
-      border: 1px solid rgba(236, 119, 0, 0.22);
       display: grid;
       place-items: center;
-      color: var(--accent);
+      margin-bottom: 0.95rem;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      font-size: 1.25rem;
     }
-
-    .value-icon svg { width: 1.35rem; height: 1.35rem; }
-
-    .value h3 {
+    .feature-icon svg {
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+    .feature-card h3 {
+      margin: 0 0 0.45rem;
       font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.05rem;
-      margin: 0 0 0.25rem;
+      font-size: 1.12rem;
       letter-spacing: -0.01em;
     }
-
-    .value p {
+    .feature-card p {
       margin: 0;
       color: var(--muted);
       font-size: 0.95rem;
     }
 
-    /* —— Sections —— */
-    section.block {
-      width: min(100% - 2.5rem, var(--max));
-      margin: 0 auto;
-      padding: 4.5rem 0;
-      border-top: 1px solid var(--border);
-    }
-
-    .section-label {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin: 0 0 0.5rem;
-    }
-
-    .section-title {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: clamp(1.55rem, 3.5vw, 2.05rem);
-      letter-spacing: -0.02em;
-      margin: 0 0 0.55rem;
-    }
-
-    .section-lead {
-      margin: 0 0 2.25rem;
-      color: var(--muted);
-      max-width: 36rem;
-    }
-
-    .showcase-grid {
+    .split {
       display: grid;
-      gap: 1.5rem;
-    }
-
-    .showcase-item {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-      gap: 1.5rem 2rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: 2rem;
       align-items: center;
+      padding: 1.5rem 0 0.5rem;
       opacity: 0;
       transform: translateY(14px);
-      transition: opacity 0.55s ease, transform 0.55s ease;
+      transition: opacity 0.5s ease, transform 0.5s ease;
     }
-
-    .showcase-item.in-view {
-      opacity: 1;
-      transform: none;
-    }
-
-    .showcase-item:nth-child(even) .showcase-copy { order: 2; }
-    .showcase-item:nth-child(even) .showcase-visual { order: 1; }
-
-    .showcase-copy h3 {
+    .split.in-view { opacity: 1; transform: none; }
+    .split-copy h2 {
+      margin: 0.35rem 0 0.85rem;
       font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.25rem;
-      margin: 0 0 0.5rem;
-      letter-spacing: -0.015em;
+      font-size: clamp(1.55rem, 3vw, 2.1rem);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
     }
-
-    .showcase-copy p {
-      margin: 0;
-      color: var(--muted);
-    }
-
-    .feature-points {
-      margin: 0.95rem 0 0;
+    .split-copy p { margin: 0 0 0.85rem; color: var(--muted); }
+    .split-points {
+      margin: 1rem 0 0;
       padding: 0;
       list-style: none;
       display: grid;
-      gap: 0.48rem;
+      gap: 0.45rem;
     }
-
-    .feature-points li {
+    .split-points li {
       position: relative;
-      padding-left: 1.05rem;
+      padding-left: 1.15rem;
       color: var(--text);
       font-size: 0.95rem;
-      line-height: 1.45;
     }
-
-    .feature-points li::before {
+    .split-points li::before {
       content: "";
       position: absolute;
       left: 0;
-      top: 0.55em;
-      width: 0.38rem;
-      height: 0.38rem;
+      top: 0.55rem;
+      width: 0.45rem;
+      height: 0.45rem;
       border-radius: 50%;
       background: var(--accent);
     }
-
-    .showcase-visual {
-      min-width: 0;
-    }
-
-    .showcase-pair {
+    .split-visual {
       display: grid;
-      gap: 0.85rem;
+      gap: 0.75rem;
     }
-
-    .showcase-pair .media-frame,
-    .showcase-visual > .media-frame {
-      box-shadow:
-        0 18px 44px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    .inspect-visual {
+      position: relative;
+      padding: 0 0 3.25rem 2.25rem;
     }
-
-    .showcase-visual > .video-caption {
-      margin-top: 0.65rem;
+    .inspect-visual .media-frame { position: relative; }
+    .inspect-visual .media-frame:first-child { z-index: 1; }
+    .inspect-visual .media-frame:last-child {
+      position: absolute;
+      z-index: 2;
+      left: 0;
+      bottom: 0;
+      width: min(56%, 22rem);
+      box-shadow: 0 22px 55px rgba(0, 0, 0, 0.58);
     }
-
-    .theme-compare {
-      margin-top: 3rem;
-      padding-top: 2.75rem;
-      border-top: 1px solid var(--border);
-      opacity: 0;
-      transform: translateY(14px);
-      transition: opacity 0.55s ease, transform 0.55s ease;
+    .media-label {
+      position: absolute;
+      z-index: 3;
+      left: 0.7rem;
+      bottom: 0.7rem;
+      padding: 0.28rem 0.58rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(7, 8, 11, 0.78);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
     }
-
-    .theme-compare.in-view {
-      opacity: 1;
-      transform: none;
+    .media-frame {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
     }
-
-    .theme-compare > h3 {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.25rem;
-      margin: 0 0 0.5rem;
-      letter-spacing: -0.015em;
+    .split-reverse {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     }
-
-    .theme-compare > p {
-      margin: 0 0 1.5rem;
-      color: var(--muted);
-      max-width: 40rem;
-    }
-
-    .theme-compare-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1rem 1.25rem;
-    }
-
-    .theme-card {
-      margin: 0;
-      min-width: 0;
-    }
-
-    .theme-card figcaption {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 0.9rem;
-      letter-spacing: -0.01em;
-      margin: 0 0 0.55rem;
-      color: var(--text);
-    }
-
-    .theme-card .media-frame {
-      box-shadow:
-        0 18px 44px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    }
-
-    .showcase-stack {
-      display: grid;
-      gap: 1rem;
-    }
-
-    .showcase-stack .media-frame {
-      box-shadow:
-        0 18px 44px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    }
-
-    .capability-row {
+    .capability-tags,
+    .tool-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin: 1.15rem 0 0;
+      margin: 1rem 0 0;
+      padding: 0;
+      list-style: none;
     }
-
-    .capability-row span {
-      font-size: 0.82rem;
-      font-weight: 500;
-      padding: 0.32rem 0.72rem;
-      border: 1px solid var(--border);
+    .capability-tags li,
+    .tool-tags li {
+      padding: 0.38rem 0.72rem;
+      border: 1px solid var(--border-strong);
       border-radius: 999px;
-      color: var(--muted);
       background: var(--surface-2);
-    }
-
-    .theme-compare .theme-note {
-      margin: 1.15rem 0 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .video-caption {
-      margin: 0;
+      color: var(--text);
       font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .theme-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+    .themes-section {
+      padding-top: 3.25rem;
+    }
+    .themes-section .section-title {
+      font-size: clamp(1.45rem, 2.8vw, 1.9rem);
+    }
+    .themes-section .section-lead {
+      margin-bottom: 1.25rem;
+      font-size: 0.98rem;
+    }
+    .theme-card {
+      position: relative;
+      margin: 0;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    .theme-card.in-view { opacity: 1; transform: none; }
+    .theme-card figcaption {
+      position: absolute;
+      z-index: 2;
+      top: 0.75rem;
+      left: 0.75rem;
+      margin: 0;
+      padding: 0.3rem 0.65rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(7, 8, 11, 0.78);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+    }
+
+    #tools {
+      position: relative;
+      isolation: isolate;
+      margin-top: 3.25rem;
+      padding-top: 4rem;
+      padding-bottom: 3.5rem;
+    }
+    #tools::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      top: 0;
+      bottom: 0;
+      left: calc((100vw - 100%) / -2);
+      right: calc((100vw - 100%) / -2);
+      border-top: 1px solid rgba(236, 119, 0, 0.14);
+      border-bottom: 1px solid rgba(236, 119, 0, 0.12);
+      background:
+        radial-gradient(700px 320px at 50% 5%, rgba(236, 119, 0, 0.12), transparent 68%),
+        rgba(255, 255, 255, 0.012);
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.15rem;
+      margin-top: 1.5rem;
+    }
+    .tool-card {
+      display: grid;
+      gap: 1rem;
+      align-content: start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.15rem 1.15rem;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.45s ease, transform 0.45s ease, border-color 0.2s ease;
+    }
+    .tool-card.in-view { opacity: 1; transform: none; }
+    .tool-card:hover { border-color: rgba(236, 119, 0, 0.35); }
+    .tool-card h3 {
+      margin: 0 0 0.45rem;
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      letter-spacing: -0.01em;
+    }
+    .tool-card .tool-lead {
+      margin: 0;
       color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .tool-card .media-slot { margin-top: 0.1rem; }
+    .tool-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .media-slot {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      margin: 0;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(236, 119, 0, 0.12), transparent 55%),
+        #070707;
+    }
+    .media-slot img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .media-slot img.is-missing {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .media-slot-label {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      pointer-events: none;
+    }
+    .media-slot.is-empty .media-slot-label { display: grid; }
+
+    .steps {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.85rem;
+      counter-reset: step;
+    }
+    .steps::before {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      top: 2.15rem;
+      left: 8%;
+      right: 8%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(236, 119, 0, 0.45), transparent);
+    }
+    .step {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.1rem 1.15rem;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    .step.in-view { opacity: 1; transform: none; }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      display: inline-grid;
+      place-items: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      margin-bottom: 0.85rem;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .step h3 {
+      margin: 0 0 0.4rem;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+    }
+    .step p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+    .workflow-cta {
+      margin-top: 1.25rem;
       text-align: center;
     }
 
-    .format-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.65rem;
-      margin: 0 0 1.75rem;
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 0.5rem;
     }
-
-    .format-row code {
-      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    .download-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 1.35rem 1.2rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(236, 119, 0, 0.08), transparent 55%), var(--surface);
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    .download-card.in-view { opacity: 1; transform: none; }
+    .download-card:hover {
+      border-color: rgba(236, 119, 0, 0.45);
+      transform: translateY(-2px);
+      text-decoration: none;
+      color: var(--text);
+    }
+    .download-card.is-recommended {
+      border-color: rgba(236, 119, 0, 0.58);
+      box-shadow: 0 18px 45px rgba(236, 119, 0, 0.13);
+    }
+    .recommended-badge {
+      display: none;
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.2rem 0.52rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .download-card.is-recommended .recommended-badge {
+      display: inline-flex;
+      color: #fff;
+      font-size: 0.72rem;
+    }
+    .download-card strong {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+    }
+    .download-card span { color: var(--muted); font-size: 0.9rem; }
+    .download-card em {
+      margin-top: 0.55rem;
+      font-style: normal;
+      color: var(--accent-hover);
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    details.formats-note {
+      margin: 1.35rem 0 0;
+      color: var(--muted);
       font-size: 0.9rem;
-      padding: 0.45rem 0.85rem;
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid rgba(236, 119, 0, 0.28);
+    }
+    details.formats-note summary {
+      width: fit-content;
+      margin: 0 auto;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    details.formats-note p { margin: 0.75rem auto 0; }
+    .formats-note code {
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 0.84em;
+      color: var(--text);
+      background: var(--surface-2);
+      padding: 0.1rem 0.35rem;
       border-radius: 6px;
     }
 
-    .req-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.5rem 2rem;
-    }
-
-    .req-grid dt {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 0.82rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.35rem;
-    }
-
-    .req-grid dd { margin: 0; font-size: 1.05rem; }
-
     footer {
+      margin-top: 4rem;
       border-top: 1px solid var(--border);
-      padding: 2rem 0 2.75rem;
+      padding: 1.75rem 0 2.5rem;
     }
-
     .footer-inner {
-      width: min(100% - 2.5rem, var(--max));
+      width: min(100% - 2rem, var(--max));
       margin: 0 auto;
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem 1.5rem;
+      gap: 1rem;
       justify-content: space-between;
       align-items: center;
+    }
+    .footer-inner p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 0.85rem 1.15rem; }
+    .footer-links a { color: var(--muted); font-size: 0.9rem; font-weight: 500; text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    .video-caption {
+      margin: 0.65rem 0 0;
+      text-align: center;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem 1.25rem;
-    }
-
-    @keyframes fade-up {
-      from { opacity: 0; transform: translateY(18px); }
-      to { opacity: 1; transform: none; }
-    }
-
-    @media (max-width: 900px) {
-      .values { grid-template-columns: 1fr; gap: 1.25rem; }
-      .showcase-item,
-      .showcase-item:nth-child(even) {
-        grid-template-columns: 1fr;
-      }
-      .showcase-item:nth-child(even) .showcase-copy,
-      .showcase-item:nth-child(even) .showcase-visual { order: unset; }
-      .theme-compare-grid { grid-template-columns: 1fr; }
-      .req-grid { grid-template-columns: 1fr; gap: 1.25rem; }
-      .hero { padding: 2rem 1.15rem 2.5rem; gap: 1.35rem; }
-      .hero-shot { width: min(100%, 40rem); }
-    }
-
-    @media (max-width: 760px) {
-      .nav-inner {
-        grid-template-columns: 1fr auto;
-      }
-      .nav-links,
-      .nav-github { display: none; }
+    @media (max-width: 960px) {
+      .feature-grid { grid-template-columns: 1fr 1fr; }
+      .tools-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .split,
+      .split-reverse { grid-template-columns: 1fr; }
+      .split-reverse .split-copy { order: 1; }
+      .split-reverse .split-visual { order: 2; }
+      .download-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .nav-cta { display: none; }
       .nav-toggle { display: inline-flex; }
-      .nav-actions {
-        gap: 0.5rem;
-        grid-column: 2;
+      .nav-inner { grid-template-columns: 1fr auto; }
+      .nav-actions { grid-column: 2; }
+    }
+    @media (max-width: 640px) {
+      .feature-grid,
+      .theme-row,
+      .tools-grid,
+      .steps { grid-template-columns: 1fr; }
+      .hero { padding-top: 3rem; }
+      .hero h1 { font-size: clamp(2rem, 11vw, 3rem); }
+      .hero-cta .btn {
+        width: min(100%, 20rem);
+      }
+      .chip-strip {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        margin-inline: -1rem;
+        padding-inline: 1rem;
+        scrollbar-width: none;
+      }
+      .chip-strip::-webkit-scrollbar { display: none; }
+      .chip-strip > * { flex: 0 0 auto; }
+      .hero-shot { margin-inline: -0.4rem; padding: 0.35rem; }
+      .inspect-visual { padding: 0; }
+      .inspect-visual .media-frame:last-child {
+        position: relative;
+        left: auto;
+        bottom: auto;
+        width: 100%;
+        margin-top: 0.75rem;
+      }
+      .steps {
+        padding-left: 1rem;
+      }
+      .steps::before {
+        top: 1rem;
+        bottom: 1rem;
+        left: 2.85rem;
+        right: auto;
+        width: 1px;
+        height: auto;
+        background: linear-gradient(180deg, transparent, rgba(236, 119, 0, 0.45), transparent);
       }
     }
-
     @media (prefers-reduced-motion: reduce) {
-      .hero-content,
-      .hero-shot,
-      .value,
-      .showcase-item,
-      .theme-compare {
-        animation: none !important;
-        transition: none !important;
-        opacity: 1 !important;
-        transform: none !important;
+      .feature-card, .split, .theme-card, .tool-card, .step, .download-card {
+        opacity: 1;
+        transform: none;
+        transition: none;
       }
     }
   </style>
@@ -746,16 +841,13 @@
         Swift<span>Mesh</span>
       </a>
       <ul class="nav-links">
-        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
+        <li><a href="#inspect" data-i18n="nav.inspect">Inspect</a></li>
         <li><a href="#features" data-i18n="nav.features">Features</a></li>
-        <li><a href="#formats" data-i18n="nav.formats">Formats</a></li>
+        <li><a href="#workflow" data-i18n="nav.workflow">Workflow</a></li>
+        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
       </ul>
       <div class="nav-actions">
-        <a class="nav-github" href="https://github.com/somertang/swiftmesh" data-i18n="nav.github">GitHub</a>
-        <div class="lang-toggle" role="group" aria-label="Language">
-          <button type="button" data-lang="en" aria-pressed="true">EN</button>
-          <button type="button" data-lang="zh" aria-pressed="false">中文</button>
-        </div>
+        <a class="nav-cta" href="#download" data-i18n="nav.download">Download</a>
         <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-drawer" data-i18n-aria="nav.menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" />
@@ -765,37 +857,35 @@
     </div>
     <div class="nav-drawer" id="nav-drawer" hidden>
       <ul>
-        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
+        <li><a href="#inspect" data-i18n="nav.inspect">Inspect</a></li>
         <li><a href="#features" data-i18n="nav.features">Features</a></li>
-        <li><a href="#formats" data-i18n="nav.formats">Formats</a></li>
-        <li><a href="https://github.com/somertang/swiftmesh" data-i18n="nav.github">GitHub</a></li>
+        <li><a href="#workflow" data-i18n="nav.workflow">Workflow</a></li>
+        <li><a href="help/index.html" data-i18n="nav.guide">Guide</a></li>
+        <li><a href="#download" data-i18n="nav.download">Download</a></li>
       </ul>
     </div>
   </header>
 
-  <header class="hero">
-    <div class="hero-visual" aria-hidden="true"></div>
-    <div class="hero-content">
-      <h1 class="brand">Swift<span>Mesh</span></h1>
-      <p class="tagline" data-i18n="hero.tagline">Open local 3D models. Inspect. Capture a turntable.</p>
-      <div class="cta-block">
-        <div class="cta-row">
-          <a
-            class="btn btn-primary"
-            id="download-primary"
-            href="https://github.com/somertang/swiftmesh/releases"
-            data-i18n="hero.download.generic"
-          >Download</a>
-          <a class="btn btn-ghost" href="help/index.html" data-i18n="hero.guide">Guide</a>
-        </div>
-        <p class="download-alts" id="download-alts">
-          <span data-i18n="hero.also">Also:</span>
-          <a data-dl="win" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.win">Windows</a><span class="sep" aria-hidden="true">·</span><a data-dl="mac-arm64" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.macArm">macOS Apple Silicon</a><span class="sep" aria-hidden="true">·</span><a data-dl="mac-x64" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.alt.macIntel">macOS Intel</a>
-        </p>
+  <main>
+    <section class="hero wrap">
+      <p class="hero-badge" data-i18n="hero.badge">Local files · No uploads · Windows &amp; macOS</p>
+      <h1><span data-i18n="hero.titleLead">A </span><span class="grad" data-i18n="hero.titleAccent">local-first 3D workspace</span><span data-i18n="hero.titleTail"> for viewing, inspecting, and presenting your models.</span></h1>
+      <p class="hero-lead" data-i18n="hero.lead">
+        Open GLB, GLTF, OBJ, FBX, and encrypted SMSH files directly from disk. Inspect scene data and capture turntables while your model files stay on this computer.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" id="download-primary" href="https://github.com/somertang/swiftmesh/releases" data-i18n="hero.download.generic">Download</a>
+        <a class="btn btn-ghost" href="#inspect" data-i18n="hero.learn">Explore core features →</a>
       </div>
-    </div>
-    <div class="hero-shot">
-      <figure class="media-frame">
+      <p class="hero-note" data-i18n="hero.note">Windows x64 · macOS Apple Silicon &amp; Intel</p>
+      <div class="chip-strip" aria-label="Supported formats" data-i18n-aria="chips.aria">
+        <code>.glb</code>
+        <code>.gltf</code>
+        <code>.obj</code>
+        <code>.fbx</code>
+        <code>.smsh</code>
+      </div>
+      <div class="hero-shot">
         <img
           src="assets/shots/hero.png"
           width="1600"
@@ -804,129 +894,53 @@
           data-i18n-alt="shots.hero"
           decoding="async"
         />
-      </figure>
-    </div>
-  </header>
+      </div>
+    </section>
 
-  <div class="values" aria-label="Highlights">
-    <article class="value">
-      <div class="value-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" />
-          <path d="M12 12v9M12 12 4 7.5M12 12l8-4.5" />
-        </svg>
-      </div>
-      <div>
-        <h3 data-i18n="values.local.title">Local-first</h3>
-        <p data-i18n="values.local.desc">Open files from disk — no cloud uploads.</p>
-      </div>
-    </article>
-    <article class="value">
-      <div class="value-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="m16 16 4 4" />
-          <path d="M9 11h4M11 9v4" />
-        </svg>
-      </div>
-      <div>
-        <h3 data-i18n="values.inspect.title">Inspect deeply</h3>
-        <p data-i18n="values.inspect.desc">Hierarchy, textures, materials, geometries, plus annotate and measure.</p>
-      </div>
-    </article>
-    <article class="value">
-      <div class="value-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 5a7 7 0 0 1 7 7" />
-          <path d="M5 12a7 7 0 0 1 7-7" />
-          <path d="m17.5 7.5 1.5-2M6.5 16.5 5 18.5" />
-        </svg>
-      </div>
-      <div>
-        <h3 data-i18n="values.record.title">Record turntables</h3>
-        <p data-i18n="values.record.desc">One-revolution video, frame sequences, or spritesheet atlases.</p>
-      </div>
-    </article>
-  </div>
-
-  <section class="block" id="features" aria-labelledby="features-title">
-    <p class="section-label" data-i18n="features.label">Features</p>
-    <h2 class="section-title" id="features-title" data-i18n="features.title">Built for local model work</h2>
-    <p class="section-lead" data-i18n="features.lead">No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable — as video or stills.</p>
-    <div class="showcase-grid">
-      <article class="showcase-item">
-        <div class="showcase-copy">
-          <h3 data-i18n="features.open.title">Work across local models</h3>
-          <p data-i18n="features.open.desc">Keep files on disk. Open several at once, with camera controls that stay out of the way.</p>
-          <ul class="feature-points">
-            <li data-i18n="features.open.p1">File → Open, drag-and-drop, or Open Recent</li>
-            <li data-i18n="features.open.p2">Tabs and split panes for side-by-side work</li>
-            <li data-i18n="features.open.p3">Perspective or orthographic camera</li>
+    <section class="section wrap" id="inspect" aria-labelledby="inspect-title">
+      <div class="split reveal-block">
+        <div class="split-copy">
+          <p class="section-label" data-i18n="inspect.label">Inspect</p>
+          <h2 id="inspect-title" data-i18n="inspect.title">Know what is inside your model</h2>
+          <p data-i18n="inspect.lead">Review the scene structure, textures, materials, geometry, and summary data beside the viewport.</p>
+          <ul class="split-points">
+            <li data-i18n="inspect.p1">Search the hierarchy and select or hide scene nodes</li>
+            <li data-i18n="inspect.p2">Preview textures, materials, geometry, and model statistics</li>
+            <li data-i18n="inspect.p3">Add visible notes and two-point measurements</li>
           </ul>
         </div>
-        <div class="showcase-visual">
+        <div class="split-visual inspect-visual">
           <figure class="media-frame">
             <img
-              src="assets/shots/open.png"
+              src="assets/shots/inspect.png"
               width="1280"
               height="720"
-              alt="SwiftMesh with a model tab and a new tab in the workspace"
-              data-i18n-alt="shots.open"
+              alt="SwiftMesh inspect panel open beside the 3D viewport"
+              data-i18n-alt="shots.inspect"
               loading="lazy"
               decoding="async"
             />
+            <figcaption class="media-label" data-i18n="shots.inspectCaption">Scene inspector</figcaption>
+          </figure>
+          <figure class="media-frame">
+            <img
+              src="assets/shots/annotate.png"
+              width="1280"
+              height="720"
+              alt="SwiftMesh Measure tool showing a distance on the model"
+              data-i18n-alt="shots.annotate"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption class="media-label" data-i18n="shots.annotateCaption">Annotate &amp; measure</figcaption>
           </figure>
         </div>
-      </article>
-      <article class="showcase-item">
-        <div class="showcase-copy">
-          <h3 data-i18n="features.inspect.title">See what the file contains</h3>
-          <p data-i18n="features.inspect.desc">Inspect the scene, then mark notes and distances on the mesh itself.</p>
-          <ul class="feature-points">
-            <li data-i18n="features.inspect.p1">Hierarchy, textures, materials, geometries, and info</li>
-            <li data-i18n="features.inspect.p2">Annotate on the model, ground, or view plane</li>
-            <li data-i18n="features.inspect.p3">Measure two points — overlay lines stay visible</li>
-          </ul>
-        </div>
-        <div class="showcase-visual">
-          <div class="showcase-pair">
-            <figure class="media-frame">
-              <img
-                src="assets/shots/inspect.png"
-                width="1280"
-                height="720"
-                alt="SwiftMesh inspect panel open beside the 3D viewport"
-                data-i18n-alt="shots.inspect"
-                loading="lazy"
-                decoding="async"
-              />
-            </figure>
-            <figure class="media-frame">
-              <img
-                src="assets/shots/annotate.png"
-                width="1280"
-                height="720"
-                alt="SwiftMesh Measure tool showing a distance on the model"
-                data-i18n-alt="shots.annotate"
-                loading="lazy"
-                decoding="async"
-              />
-            </figure>
-          </div>
-        </div>
-      </article>
-      <article class="showcase-item">
-        <div class="showcase-copy">
-          <h3 data-i18n="features.record.title">One revolution, video or stills</h3>
-          <p data-i18n="features.record.desc">Capture a clean turntable for review, the web, or an asset pipeline.</p>
-          <ul class="feature-points">
-            <li data-i18n="features.record.p1">Video as MP4 or WebM</li>
-            <li data-i18n="features.record.p2">Frame sequences and spritesheet atlases</li>
-            <li data-i18n="features.record.p3">Optional multi-axis batch and camera projection</li>
-          </ul>
-        </div>
-        <div class="showcase-visual">
+      </div>
+    </section>
+
+    <section class="section wrap" id="record" aria-labelledby="record-title">
+      <div class="split split-reverse reveal-block">
+        <div class="split-visual">
           <figure class="media-frame">
             <video
               id="record-demo"
@@ -943,78 +957,190 @@
           </figure>
           <p class="video-caption" data-i18n="shots.recordCaption">Turntable output preview</p>
         </div>
-      </article>
-    </div>
+        <div class="split-copy">
+          <p class="section-label" data-i18n="record.label">Present</p>
+          <h2 id="record-title" data-i18n="record.title">Turn your model into a review-ready turntable</h2>
+          <p data-i18n="record.lead">Start capture from the viewport and export one complete revolution using your saved size, quality, and output settings.</p>
+          <ul class="capability-tags">
+            <li data-i18n="record.p1">MP4 or WebM video</li>
+            <li data-i18n="record.p2">Frames or spritesheet atlases</li>
+            <li data-i18n="record.p3">Multi-axis still capture</li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
-    <div class="theme-compare">
-      <h3 data-i18n="features.theme.title">A viewport that fits the work</h3>
-      <p data-i18n="features.theme.desc">Simple is a light studio. Professional is a darker stage with a floor grid and nav gizmo.</p>
-      <div class="theme-compare-grid">
-        <figure class="theme-card">
-          <figcaption data-i18n="features.theme.simple">Simple</figcaption>
-          <div class="media-frame">
+    <section class="section wrap" id="tools" aria-labelledby="tools-title">
+      <p class="section-label" data-i18n="tools.label">Protected sharing</p>
+      <h2 class="section-title" id="tools-title" data-i18n="tools.title">Add protection before you share</h2>
+      <p class="section-lead" data-i18n="tools.lead">Package a model with a password or export a watermarked copy without uploading it to a service.</p>
+      <div class="tools-grid">
+        <article class="tool-card">
+          <div>
+            <h3 data-i18n="tools.encrypt.title">Password-protect a model package</h3>
+            <p class="tool-lead" data-i18n="tools.encrypt.lead">Package the model and its companion files into an encrypted SMSH file. Recipients open it in SwiftMesh using a password you send separately.</p>
+          </div>
+          <figure class="media-frame media-slot">
             <img
-              src="assets/shots/model-theme-simple.png"
+              src="assets/shots/encrypt.gif"
               width="1280"
               height="720"
-              alt="SwiftMesh Simple model theme with a light studio viewport"
-              data-i18n-alt="shots.themeSimple"
+              alt="SwiftMesh Encrypt Model dialog packaging a password-protected .smsh file"
+              data-i18n-alt="shots.encrypt"
               loading="lazy"
               decoding="async"
             />
+            <span class="media-slot-label" data-i18n="tools.slot.encrypt">Encrypt demo</span>
+          </figure>
+          <ul class="tool-tags">
+            <li data-i18n="tools.encrypt.tag1">Password protection</li>
+            <li data-i18n="tools.encrypt.tag2">Permission limits</li>
+            <li data-i18n="tools.encrypt.tag3">Custom expiry</li>
+          </ul>
+          <p class="tool-note" data-i18n="tools.encrypt.note">Designed to discourage casual access—not as hard DRM.</p>
+        </article>
+        <article class="tool-card">
+          <div>
+            <h3 data-i18n="tools.watermark.title">Export a watermarked copy</h3>
+            <p class="tool-lead" data-i18n="tools.watermark.lead">Add a text or image stamp, preview it on the model, and export a new GLB or GLTF copy without overwriting the source.</p>
           </div>
-        </figure>
-        <figure class="theme-card">
-          <figcaption data-i18n="features.theme.professional">Professional</figcaption>
-          <div class="media-frame">
+          <figure class="media-frame media-slot">
             <img
-              src="assets/shots/model-theme-professional.png"
+              src="assets/shots/watermark.gif"
               width="1280"
               height="720"
-              alt="SwiftMesh Professional model theme with a dark viewport and navigation gizmo"
-              data-i18n-alt="shots.themeProfessional"
+              alt="SwiftMesh Add Watermark panel with a live stamp preview on the model"
+              data-i18n-alt="shots.watermark"
               loading="lazy"
               decoding="async"
             />
+            <span class="media-slot-label" data-i18n="tools.slot.watermark">Watermark demo</span>
+          </figure>
+          <ul class="tool-tags">
+            <li data-i18n="tools.watermark.tag1">Text or image</li>
+            <li data-i18n="tools.watermark.tag2">Live preview</li>
+            <li data-i18n="tools.watermark.tag3">New export copy</li>
+          </ul>
+          <p class="tool-note" data-i18n="tools.watermark.note">The original model remains unchanged.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="features" aria-labelledby="features-title">
+      <p class="section-label" data-i18n="features.label">Features</p>
+      <h2 class="section-title" id="features-title" data-i18n="features.title">More tools for everyday model work</h2>
+      <p class="section-lead" data-i18n="features.lead">Compare models, annotate details, reduce static meshes, convert formats, and preview animation—all locally.</p>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7.5h7l2 2h9v9.5H3z"/><path d="M3 7.5V5h7l2 2h9v2.5"/></svg></div>
+          <h3 data-i18n="features.local.title">Local files</h3>
+          <p data-i18n="features.local.desc">Open from File, drag and drop, or Open Recent.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M3 9h18"/></svg></div>
+          <h3 data-i18n="features.inspect.title">Tabs &amp; split view</h3>
+          <p data-i18n="features.inspect.desc">Keep several models open and compare them side by side.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10zM13.8 6.7l3.5 3.5"/><path d="M14 19h6"/></svg></div>
+          <h3 data-i18n="features.annotate.title">Annotate &amp; measure</h3>
+          <p data-i18n="features.annotate.desc">Mark details and measure two points directly in the viewport.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 6 8-3 8 3-8 3zM4 6v6l8 3 8-3V6M4 12v6l8 3 8-3v-6"/></svg></div>
+          <h3 data-i18n="features.reduce.title">Reduce static meshes</h3>
+          <p data-i18n="features.reduce.desc">Preview a lower-density mesh and export it as a new GLB.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h11l-3-3M17 17H6l3 3"/><path d="M18 7v4M6 17v-4"/></svg></div>
+          <h3 data-i18n="features.tools.title">Convert formats</h3>
+          <p data-i18n="features.tools.desc">Convert GLB ↔ GLTF, OBJ → GLB, or FBX → GLB.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="m10 8 6 4-6 4z"/></svg></div>
+          <h3 data-i18n="features.record.title">Preview animation</h3>
+          <p data-i18n="features.record.desc">Play and scrub animation clips included in glTF and FBX files.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap themes-section" id="themes" aria-labelledby="themes-title">
+      <p class="section-label" data-i18n="themes.label">Themes</p>
+      <h2 class="section-title" id="themes-title" data-i18n="themes.title">Choose the viewport that fits the task</h2>
+      <p class="section-lead" data-i18n="themes.lead">Use a clean light studio for focused viewing or a professional dark viewport with a floor grid and navigation gizmo.</p>
+      <div class="theme-row">
+        <figure class="theme-card">
+          <figcaption data-i18n="themes.simple">Simple</figcaption>
+          <div class="media-frame">
+            <img src="assets/shots/model-theme-simple.png" width="1280" height="720" alt="SwiftMesh Simple model theme with a light studio viewport" data-i18n-alt="shots.themeSimple" loading="lazy" decoding="async" />
+          </div>
+        </figure>
+        <figure class="theme-card">
+          <figcaption data-i18n="themes.professional">Professional</figcaption>
+          <div class="media-frame">
+            <img src="assets/shots/model-theme-professional.png" width="1280" height="720" alt="SwiftMesh Professional model theme with a dark viewport and navigation gizmo" data-i18n-alt="shots.themeProfessional" loading="lazy" decoding="async" />
           </div>
         </figure>
       </div>
-      <div class="capability-row" aria-label="Also included" data-i18n-aria="features.chips.aria">
-        <span data-i18n="features.chip.themes">Four interface themes</span>
-        <span data-i18n="features.chip.lang">English / 中文</span>
-        <span data-i18n="features.chip.shading">Wireframe · Solid · Material</span>
-        <span data-i18n="features.chip.updates">Windows auto-update · macOS DMG</span>
-      </div>
-      <p class="theme-note" data-i18n-html="features.theme.note">Recording, lighting, and updates live in Preferences. See the <a href="help/index.html">Guide</a>.</p>
-    </div>
-  </section>
+    </section>
 
-  <section class="block" id="formats" aria-labelledby="formats-title">
-    <p class="section-label" data-i18n="formats.label">Formats &amp; requirements</p>
-    <h2 class="section-title" id="formats-title" data-i18n="formats.title">What you need</h2>
-    <p class="section-lead" data-i18n="formats.lead">Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS checks Releases and you install the DMG yourself. Portable Windows builds may appear in some releases.</p>
-    <div class="format-row" aria-label="Supported formats">
-      <code>.glb</code>
-      <code>.gltf</code>
-      <code>.obj</code>
-      <code>.fbx</code>
-    </div>
-    <dl class="req-grid">
-      <div>
-        <dt data-i18n="formats.platform">Platform</dt>
-        <dd data-i18n="formats.platformValue">Windows x64 · macOS (Apple Silicon + Intel)</dd>
+    <section class="section wrap" id="workflow" aria-labelledby="workflow-title">
+      <p class="section-label" data-i18n="workflow.label">Workflow</p>
+      <h2 class="section-title" id="workflow-title" data-i18n="workflow.title">From local file to review-ready output</h2>
+      <p class="section-lead" data-i18n="workflow.lead">Open, inspect, present, and share without moving your model into a cloud workflow.</p>
+      <div class="steps">
+        <article class="step">
+          <h3 data-i18n="workflow.s1.title">Open</h3>
+          <p data-i18n="workflow.s1.desc">Load a supported model directly from disk.</p>
+        </article>
+        <article class="step">
+          <h3 data-i18n="workflow.s2.title">Inspect</h3>
+          <p data-i18n="workflow.s2.desc">Review its structure, materials, textures, and geometry.</p>
+        </article>
+        <article class="step">
+          <h3 data-i18n="workflow.s3.title">Present</h3>
+          <p data-i18n="workflow.s3.desc">Frame the model and capture a turntable.</p>
+        </article>
+        <article class="step">
+          <h3 data-i18n="workflow.s4.title">Share</h3>
+          <p data-i18n="workflow.s4.desc">Export normally, add a watermark, or package it as SMSH.</p>
+        </article>
       </div>
-      <div>
-        <dt data-i18n="formats.license">License</dt>
-        <dd><a href="https://github.com/somertang/swiftmesh/blob/main/LICENSE">MIT</a></dd>
+      <div class="workflow-cta">
+        <a class="btn btn-ghost" href="#download" data-i18n="workflow.cta">Download SwiftMesh →</a>
       </div>
-      <div>
-        <dt data-i18n="formats.installer">Installer</dt>
-        <dd data-i18n="formats.installerValue">Windows Setup.exe · macOS .dmg (arm64 / x64)</dd>
+    </section>
+
+    <section class="section wrap center" id="download" aria-labelledby="download-title">
+      <p class="section-label" data-i18n="download.label">Download</p>
+      <h2 class="section-title" id="download-title" data-i18n="download.title">Download SwiftMesh</h2>
+      <p class="section-lead" data-i18n="download.lead">Free for Windows and macOS. Choose the build for your computer and open your first local model.</p>
+      <div class="download-grid">
+        <a class="download-card" data-dl="mac-arm64" href="https://github.com/somertang/swiftmesh/releases">
+          <span class="recommended-badge" data-i18n="download.recommended">Recommended</span>
+          <strong data-i18n="download.macArm.title">Apple Silicon</strong>
+          <span data-i18n="download.macArm.sub">macOS arm64 · .dmg</span>
+          <em data-i18n="download.action">Download</em>
+        </a>
+        <a class="download-card" data-dl="mac-x64" href="https://github.com/somertang/swiftmesh/releases">
+          <span class="recommended-badge" data-i18n="download.recommended">Recommended</span>
+          <strong data-i18n="download.macIntel.title">Intel</strong>
+          <span data-i18n="download.macIntel.sub">macOS x64 · .dmg</span>
+          <em data-i18n="download.action">Download</em>
+        </a>
+        <a class="download-card" data-dl="win" href="https://github.com/somertang/swiftmesh/releases">
+          <span class="recommended-badge" data-i18n="download.recommended">Recommended</span>
+          <strong data-i18n="download.win.title">Windows 10+</strong>
+          <span data-i18n="download.win.sub">Windows x64 · Setup.exe</span>
+          <em data-i18n="download.action">Download</em>
+        </a>
       </div>
-    </dl>
-    <p class="formats-note" data-i18n-html="formats.macNote">macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.</p>
-  </section>
+      <details class="formats-note">
+        <summary data-i18n="download.macNoteSummary">macOS installation note</summary>
+        <p data-i18n-html="download.macNote">macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.</p>
+      </details>
+    </section>
+  </main>
 
   <footer>
     <div class="footer-inner">
@@ -1034,160 +1160,229 @@
         en: {
           "nav.guide": "Guide",
           "nav.features": "Features",
-          "nav.formats": "Formats",
-          "nav.github": "GitHub",
+          "nav.inspect": "Inspect",
+          "nav.workflow": "Workflow",
+          "nav.download": "Download",
           "nav.menu": "Menu",
-          "hero.tagline": "Open local 3D models. Inspect. Capture a turntable.",
+          "hero.badge": "Local files · No uploads · Windows & macOS",
+          "hero.titleLead": "A ",
+          "hero.titleAccent": "local-first 3D workspace",
+          "hero.titleTail": " for viewing, inspecting, and presenting your models.",
+          "hero.lead": "Open GLB, GLTF, OBJ, FBX, and encrypted SMSH files directly from disk. Inspect scene data and capture turntables while your model files stay on this computer.",
           "hero.download.win": "Download for Windows",
           "hero.download.macArm": "Download for macOS (Apple Silicon)",
           "hero.download.macIntel": "Download for macOS (Intel)",
           "hero.download.generic": "Download",
-          "hero.also": "Also:",
-          "hero.alt.win": "Windows",
-          "hero.alt.macArm": "macOS Apple Silicon",
-          "hero.alt.macIntel": "macOS Intel",
-          "hero.guide": "Guide",
-          "values.local.title": "Local-first",
-          "values.local.desc": "Open files from disk — no cloud uploads.",
-          "values.inspect.title": "Inspect deeply",
-          "values.inspect.desc": "Hierarchy, textures, materials, geometries, plus annotate and measure.",
-          "values.record.title": "Record turntables",
-          "values.record.desc": "One-revolution video, frame sequences, or spritesheet atlases.",
+          "hero.learn": "Explore core features →",
+          "hero.note": "Windows x64 · macOS Apple Silicon & Intel",
+          "chips.aria": "Supported formats",
           "features.label": "Features",
-          "features.title": "Built for local model work",
-          "features.lead": "No cloud uploads. Open files from disk, inspect what is inside, and capture a clean turntable — as video or stills.",
-          "features.open.title": "Work across local models",
-          "features.open.desc": "Keep files on disk. Open several at once, with camera controls that stay out of the way.",
-          "features.open.p1": "File → Open, drag-and-drop, or Open Recent",
-          "features.open.p2": "Tabs and split panes for side-by-side work",
-          "features.open.p3": "Perspective or orthographic camera",
-          "features.inspect.title": "See what the file contains",
-          "features.inspect.desc": "Inspect the scene, then mark notes and distances on the mesh itself.",
-          "features.inspect.p1": "Hierarchy, textures, materials, geometries, and info",
-          "features.inspect.p2": "Annotate on the model, ground, or view plane",
-          "features.inspect.p3": "Measure two points — overlay lines stay visible",
-          "features.record.title": "One revolution, video or stills",
-          "features.record.desc": "Capture a clean turntable for review, the web, or an asset pipeline.",
-          "features.record.p1": "Video as MP4 or WebM",
-          "features.record.p2": "Frame sequences and spritesheet atlases",
-          "features.record.p3": "Optional multi-axis batch and camera projection",
-          "features.theme.title": "A viewport that fits the work",
-          "features.theme.desc": "Simple is a light studio. Professional is a darker stage with a floor grid and nav gizmo.",
-          "features.theme.note": "Recording, lighting, and updates live in Preferences. See the <a href=\"help/index.html\">Guide</a>.",
-          "features.chips.aria": "Also included",
-          "features.chip.themes": "Four interface themes",
-          "features.chip.lang": "English / 中文",
-          "features.chip.shading": "Wireframe · Solid · Material",
-          "features.chip.updates": "Windows auto-update · macOS DMG",
-          "features.theme.simple": "Simple",
-          "features.theme.professional": "Professional",
-          "formats.label": "Formats & requirements",
-          "formats.title": "What you need",
-          "formats.lead": "Install from GitHub Releases: Windows NSIS Setup (in-app auto-update), or macOS DMG (Apple Silicon / Intel). macOS checks Releases and you install the DMG yourself. Portable Windows builds may appear in some releases.",
-          "formats.platform": "Platform",
-          "formats.platformValue": "Windows x64 · macOS (Apple Silicon + Intel)",
-          "formats.license": "License",
-          "formats.installer": "Installer",
-          "formats.installerValue": "Windows Setup.exe · macOS .dmg (arm64 / x64)",
-          "formats.macNote": "macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.",
+          "features.title": "More tools for everyday model work",
+          "features.lead": "Compare models, annotate details, reduce static meshes, convert formats, and preview animation—all locally.",
+          "features.local.title": "Local files",
+          "features.local.desc": "Open from File, drag and drop, or Open Recent.",
+          "features.inspect.title": "Tabs & split view",
+          "features.inspect.desc": "Keep several models open and compare them side by side.",
+          "features.annotate.title": "Annotate & measure",
+          "features.annotate.desc": "Mark details and measure two points directly in the viewport.",
+          "features.reduce.title": "Reduce static meshes",
+          "features.reduce.desc": "Preview a lower-density mesh and export it as a new GLB.",
+          "features.tools.title": "Convert formats",
+          "features.tools.desc": "Convert GLB ↔ GLTF, OBJ → GLB, or FBX → GLB.",
+          "features.record.title": "Preview animation",
+          "features.record.desc": "Play and scrub animation clips included in glTF and FBX files.",
+          "inspect.label": "Inspect",
+          "inspect.title": "Know what is inside your model",
+          "inspect.lead": "Review the scene structure, textures, materials, geometry, and summary data beside the viewport.",
+          "inspect.p1": "Search the hierarchy and select or hide scene nodes",
+          "inspect.p2": "Preview textures, materials, geometry, and model statistics",
+          "inspect.p3": "Add visible notes and two-point measurements",
+          "record.label": "Present",
+          "record.title": "Turn your model into a review-ready turntable",
+          "record.lead": "Start capture from the viewport and export one complete revolution using your saved size, quality, and output settings.",
+          "record.p1": "MP4 or WebM video",
+          "record.p2": "Frames or spritesheet atlases",
+          "record.p3": "Multi-axis still capture",
+          "tools.label": "Protected sharing",
+          "tools.title": "Add protection before you share",
+          "tools.lead": "Package a model with a password or export a watermarked copy without uploading it to a service.",
+          "tools.encrypt.title": "Password-protect a model package",
+          "tools.encrypt.lead": "Package the model and its companion files into an encrypted SMSH file. Recipients open it in SwiftMesh using a password you send separately.",
+          "tools.encrypt.tag1": "Password protection",
+          "tools.encrypt.tag2": "Permission limits",
+          "tools.encrypt.tag3": "Custom expiry",
+          "tools.encrypt.note": "Designed to discourage casual access—not as hard DRM.",
+          "tools.watermark.title": "Export a watermarked copy",
+          "tools.watermark.lead": "Add a text or image stamp, preview it on the model, and export a new GLB or GLTF copy without overwriting the source.",
+          "tools.watermark.tag1": "Text or image",
+          "tools.watermark.tag2": "Live preview",
+          "tools.watermark.tag3": "New export copy",
+          "tools.watermark.note": "The original model remains unchanged.",
+          "tools.slot.encrypt": "Encrypt demo",
+          "tools.slot.watermark": "Watermark demo",
+          "themes.label": "Themes",
+          "themes.title": "Choose the viewport that fits the task",
+          "themes.lead": "Use a clean light studio for focused viewing or a professional dark viewport with a floor grid and navigation gizmo.",
+          "themes.simple": "Simple",
+          "themes.professional": "Professional",
+          "workflow.label": "Workflow",
+          "workflow.title": "From local file to review-ready output",
+          "workflow.lead": "Open, inspect, present, and share without moving your model into a cloud workflow.",
+          "workflow.s1.title": "Open",
+          "workflow.s1.desc": "Load a supported model directly from disk.",
+          "workflow.s2.title": "Inspect",
+          "workflow.s2.desc": "Review its structure, materials, textures, and geometry.",
+          "workflow.s3.title": "Present",
+          "workflow.s3.desc": "Frame the model and capture a turntable.",
+          "workflow.s4.title": "Share",
+          "workflow.s4.desc": "Export normally, add a watermark, or package it as SMSH.",
+          "workflow.cta": "Download SwiftMesh →",
+          "download.label": "Download",
+          "download.title": "Download SwiftMesh",
+          "download.lead": "Free for Windows and macOS. Choose the build for your computer and open your first local model.",
+          "download.macArm.title": "Apple Silicon",
+          "download.macArm.sub": "macOS arm64 · .dmg",
+          "download.macIntel.title": "Intel",
+          "download.macIntel.sub": "macOS x64 · .dmg",
+          "download.win.title": "Windows 10+",
+          "download.win.sub": "Windows x64 · Setup.exe",
+          "download.action": "Download",
+          "download.recommended": "Recommended",
+          "download.macNoteSummary": "macOS installation note",
+          "download.macNote": "macOS builds are not code-signed. If Gatekeeper says the app is damaged, run <code>xattr -cr /Applications/SwiftMesh.app</code> then open normally.",
           "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
           "footer.guide": "Guide",
           "footer.repo": "Repository",
           "footer.releases": "Releases",
           "footer.license": "License",
           "shots.hero": "SwiftMesh app window with a 3D model in the viewport",
-          "shots.open": "SwiftMesh with a model tab and a new tab in the workspace",
           "shots.inspect": "SwiftMesh inspect panel open beside the 3D viewport",
+          "shots.inspectCaption": "Scene inspector",
           "shots.annotate": "SwiftMesh Measure tool showing a distance on the model",
-          "shots.record": "SwiftMesh viewport with turntable record controls",
-          "shots.prefs": "SwiftMesh Preferences dialog",
+          "shots.annotateCaption": "Annotate & measure",
           "shots.recordVideo": "Turntable recording demo",
           "shots.recordCaption": "Turntable output preview",
+          "shots.encrypt": "SwiftMesh Encrypt Model dialog packaging a password-protected .smsh file",
+          "shots.watermark": "SwiftMesh Add Watermark panel with a live stamp preview on the model",
           "shots.themeSimple": "SwiftMesh Simple model theme with a light studio viewport",
           "shots.themeProfessional": "SwiftMesh Professional model theme with a dark viewport and navigation gizmo",
-          "meta.title": "SwiftMesh — Local 3D Model Viewer",
-          "meta.description": "SwiftMesh — open local .glb, .gltf, .obj, and .fbx files, inspect scene data, and capture turntable video or stills on Windows and macOS."
+          "meta.title": "SwiftMesh — Local 3D model viewer and inspector",
+          "meta.description": "Open and inspect local GLB, GLTF, OBJ, FBX, and encrypted SMSH models. Capture turntables, reduce meshes, convert formats, and export protected copies on Windows and macOS."
         },
         zh: {
           "nav.guide": "指南",
           "nav.features": "功能",
-          "nav.formats": "格式",
-          "nav.github": "GitHub",
+          "nav.inspect": "检查",
+          "nav.workflow": "工作流",
+          "nav.download": "下载",
           "nav.menu": "菜单",
-          "hero.tagline": "打开本地 3D 模型。检查。捕捉转台动画。",
+          "hero.badge": "本地文件 · 无需上传 · Windows 与 macOS",
+          "hero.titleLead": "一个专注于",
+          "hero.titleAccent": "本地 3D 模型",
+          "hero.titleTail": "查看、检查与展示的轻量工作台。",
+          "hero.lead": "直接从磁盘打开 GLB、GLTF、OBJ、FBX 和加密的 SMSH 文件。检查场景数据并导出转台，模型文件始终留在这台电脑上。",
           "hero.download.win": "下载 Windows 版",
           "hero.download.macArm": "下载 macOS 版（Apple Silicon）",
           "hero.download.macIntel": "下载 macOS 版（Intel）",
           "hero.download.generic": "下载",
-          "hero.also": "其他平台：",
-          "hero.alt.win": "Windows",
-          "hero.alt.macArm": "macOS Apple Silicon",
-          "hero.alt.macIntel": "macOS Intel",
-          "hero.guide": "指南",
-          "values.local.title": "本地优先",
-          "values.local.desc": "从磁盘打开文件——无需上传云端。",
-          "values.inspect.title": "深度检查",
-          "values.inspect.desc": "层级、贴图、材质、几何体，以及视口标注与测距。",
-          "values.record.title": "转台录制",
-          "values.record.desc": "一圈视频、帧序列或精灵图集。",
+          "hero.learn": "查看核心功能 →",
+          "hero.note": "Windows x64 · macOS Apple Silicon 与 Intel",
+          "chips.aria": "支持的格式",
           "features.label": "功能",
-          "features.title": "为本地模型工作流而生",
-          "features.lead": "无需云端。从磁盘打开文件，检查内容，并导出干净的转台视频或静帧。",
-          "features.open.title": "在本地模型之间工作",
-          "features.open.desc": "文件留在磁盘。一次打开多个，相机控制不挡视线。",
-          "features.open.p1": "文件 → 打开、拖放或最近打开",
-          "features.open.p2": "多标签与分栏，并排查看",
-          "features.open.p3": "透视或正交相机",
-          "features.inspect.title": "看清文件里有什么",
-          "features.inspect.desc": "检查场景，再在网格上标注和测距。",
-          "features.inspect.p1": "层级、贴图、材质、几何体与信息",
-          "features.inspect.p2": "在模型、地面或视平面上标注",
-          "features.inspect.p3": "两点测距，叠加线不被模型挡住",
-          "features.record.title": "一圈转台，视频或静帧",
-          "features.record.desc": "为审阅、网页或资产管线捕捉干净的转台。",
-          "features.record.p1": "导出 MP4 或 WebM 视频",
-          "features.record.p2": "帧序列与精灵图集",
-          "features.record.p3": "可选多轴批次与相机投影",
-          "features.theme.title": "视口跟着工作走",
-          "features.theme.desc": "简洁是浅色工作室；专业是带地面网格与导航 gizmo 的深色舞台。",
-          "features.theme.note": "录制、光照与更新在偏好设置中。详见<a href=\"help/index.html\">指南</a>。",
-          "features.chips.aria": "同时包含",
-          "features.chip.themes": "四种界面主题",
-          "features.chip.lang": "English / 中文",
-          "features.chip.shading": "线框 · 实体 · 材质",
-          "features.chip.updates": "Windows 自动更新 · macOS DMG",
-          "features.theme.simple": "简洁",
-          "features.theme.professional": "专业",
-          "formats.label": "格式与要求",
-          "formats.title": "你需要准备什么",
-          "formats.lead": "从 GitHub Releases 安装：Windows NSIS 安装包（支持应用内自动更新），或 macOS DMG（Apple Silicon / Intel）。macOS 会检查 Releases，由你自行安装 DMG。部分版本可能含 Windows 便携版。",
-          "formats.platform": "平台",
-          "formats.platformValue": "Windows x64 · macOS（Apple Silicon + Intel）",
-          "formats.license": "许可证",
-          "formats.installer": "安装包",
-          "formats.installerValue": "Windows Setup.exe · macOS .dmg（arm64 / x64）",
-          "formats.macNote": "macOS 构建未签名。若 Gatekeeper 提示应用已损坏，请运行 <code>xattr -cr /Applications/SwiftMesh.app</code> 后再正常打开。",
+          "features.title": "日常模型工作所需的更多工具",
+          "features.lead": "在本地并排对比模型、标注细节、简化静态网格、转换格式并预览动画。",
+          "features.local.title": "本地打开",
+          "features.local.desc": "通过文件菜单、拖放或最近打开加载模型。",
+          "features.inspect.title": "多标签与分栏",
+          "features.inspect.desc": "同时打开多个模型并排对比。",
+          "features.annotate.title": "标注与测距",
+          "features.annotate.desc": "直接在视口中标记细节并进行两点测距。",
+          "features.reduce.title": "简化静态网格",
+          "features.reduce.desc": "预览减面结果并导出为新的 GLB。",
+          "features.tools.title": "格式转换",
+          "features.tools.desc": "支持 GLB ↔ GLTF、OBJ → GLB 和 FBX → GLB。",
+          "features.record.title": "预览动画",
+          "features.record.desc": "播放并拖动查看 glTF 和 FBX 文件中的动画片段。",
+          "inspect.label": "检查",
+          "inspect.title": "看清模型里有什么",
+          "inspect.lead": "在视口旁查看场景层级、贴图、材质、几何体和汇总数据。",
+          "inspect.p1": "搜索层级并选择或隐藏场景节点",
+          "inspect.p2": "预览贴图、材质、几何信息和模型统计",
+          "inspect.p3": "添加始终可见的标注与两点测距",
+          "record.label": "展示",
+          "record.title": "把模型导出为便于审阅的转台",
+          "record.lead": "从视口启动捕捉，按已保存的尺寸、质量和输出设置导出完整一圈。",
+          "record.p1": "MP4 或 WebM 视频",
+          "record.p2": "帧序列或精灵图集",
+          "record.p3": "多轴静帧捕捉",
+          "tools.label": "受控分享",
+          "tools.title": "分享前加一道保护",
+          "tools.lead": "为模型设置口令，或导出带水印的副本，无需上传到在线服务。",
+          "tools.encrypt.title": "用口令保护模型包",
+          "tools.encrypt.lead": "将模型及其附属文件打包为加密的 SMSH 文件。接收方在 SwiftMesh 中输入你另行提供的口令即可打开。",
+          "tools.encrypt.tag1": "口令保护",
+          "tools.encrypt.tag2": "权限限制",
+          "tools.encrypt.tag3": "自定义有效期",
+          "tools.encrypt.note": "用于降低随意访问风险，并非强 DRM。",
+          "tools.watermark.title": "导出带水印的副本",
+          "tools.watermark.lead": "添加文字或图片水印，在模型上实时预览，再导出新的 GLB 或 GLTF 副本，不覆盖源文件。",
+          "tools.watermark.tag1": "文字或图片",
+          "tools.watermark.tag2": "实时预览",
+          "tools.watermark.tag3": "导出新副本",
+          "tools.watermark.note": "原始模型保持不变。",
+          "tools.slot.encrypt": "加密演示",
+          "tools.slot.watermark": "水印演示",
+          "themes.label": "主题",
+          "themes.title": "选择适合当前工作的视口",
+          "themes.lead": "使用简洁的浅色工作室专注查看，或切换到带地面网格与导航指示器的专业深色视口。",
+          "themes.simple": "简洁",
+          "themes.professional": "专业",
+          "workflow.label": "工作流",
+          "workflow.title": "从本地文件到可审阅成果",
+          "workflow.lead": "无需把模型搬进云端，即可完成打开、检查、展示与分享。",
+          "workflow.s1.title": "打开",
+          "workflow.s1.desc": "直接从磁盘加载支持的模型。",
+          "workflow.s2.title": "检查",
+          "workflow.s2.desc": "查看层级、材质、贴图和几何信息。",
+          "workflow.s3.title": "展示",
+          "workflow.s3.desc": "调整构图并导出转台。",
+          "workflow.s4.title": "分享",
+          "workflow.s4.desc": "正常导出、添加水印或打包为 SMSH。",
+          "workflow.cta": "下载 SwiftMesh →",
+          "download.label": "下载",
+          "download.title": "下载 SwiftMesh",
+          "download.lead": "Windows 与 macOS 免费使用。选择适合当前电脑的版本，打开你的第一个本地模型。",
+          "download.macArm.title": "Apple Silicon",
+          "download.macArm.sub": "macOS arm64 · .dmg",
+          "download.macIntel.title": "Intel",
+          "download.macIntel.sub": "macOS x64 · .dmg",
+          "download.win.title": "Windows 10+",
+          "download.win.sub": "Windows x64 · Setup.exe",
+          "download.action": "下载",
+          "download.recommended": "推荐",
+          "download.macNoteSummary": "macOS 安装说明",
+          "download.macNote": "macOS 构建未代码签名。若 Gatekeeper 提示已损坏，请执行 <code>xattr -cr /Applications/SwiftMesh.app</code> 后正常打开。",
           "footer.copy": "MIT © <a href=\"https://github.com/somertang\">Somer Tang</a>",
           "footer.guide": "指南",
           "footer.repo": "仓库",
           "footer.releases": "发布",
-          "footer.license": "许可证",
-          "shots.hero": "SwiftMesh 应用窗口，视口中显示 3D 模型",
-          "shots.open": "SwiftMesh 工作区中同时有模型标签和新标签",
-          "shots.inspect": "SwiftMesh 检查面板在 3D 视口旁打开",
+          "footer.license": "许可",
+          "shots.hero": "SwiftMesh 应用窗口，视口中打开 3D 模型",
+          "shots.inspect": "SwiftMesh 检查面板停靠在 3D 视口旁",
+          "shots.inspectCaption": "场景检查",
           "shots.annotate": "SwiftMesh 测距工具在模型上显示距离",
-          "shots.record": "SwiftMesh 视口中的转台录制控件",
-          "shots.prefs": "SwiftMesh 偏好设置对话框",
+          "shots.annotateCaption": "标注与测距",
           "shots.recordVideo": "转台录制演示",
           "shots.recordCaption": "转台成片预览",
+          "shots.encrypt": "SwiftMesh 加密模型对话框，打包口令保护的 .smsh 文件",
+          "shots.watermark": "SwiftMesh 添加水印面板，模型上实时预览戳记",
           "shots.themeSimple": "SwiftMesh 简洁模型主题，浅色工作室视口",
           "shots.themeProfessional": "SwiftMesh 专业模型主题，深色视口与导航 gizmo",
-          "meta.title": "SwiftMesh — 本地 3D 模型查看器",
-          "meta.description": "SwiftMesh — 在 Windows 与 macOS 上打开本地 .glb / .gltf / .obj / .fbx，检查场景数据，并捕捉转台视频或静帧。"
+          "meta.title": "SwiftMesh — 本地 3D 模型查看与检查工具",
+          "meta.description": "在 Windows 与 macOS 上打开并检查本地 GLB、GLTF、OBJ、FBX 和加密 SMSH 模型，支持转台捕捉、减面、格式转换与受控分享。"
         }
       };
 
-      var STORAGE_KEY = "swiftmesh-landing-lang";
       var RELEASES_URL = "https://github.com/somertang/swiftmesh/releases";
       var RELEASES_API = "https://api.github.com/repos/somertang/swiftmesh/releases/latest";
       var DOWNLOAD_LABEL_KEYS = {
@@ -1263,6 +1458,9 @@
         document.querySelectorAll("[data-dl]").forEach(function (el) {
           var key = el.getAttribute("data-dl");
           el.setAttribute("href", assetUrls[key] || RELEASES_URL);
+          var recommended = detectedPlatform !== "other" && key === detectedPlatform;
+          el.classList.toggle("is-recommended", recommended);
+          el.style.order = recommended ? "-1" : "";
         });
       }
 
@@ -1281,7 +1479,6 @@
           if (!found["mac-arm64"] && /arm64\.dmg$/i.test(name)) found["mac-arm64"] = url;
           if (!found["mac-x64"] && /x64\.dmg$/i.test(name)) found["mac-x64"] = url;
         });
-        // electron-builder often emits Intel DMG without an "x64" suffix (e.g. SwiftMesh-0.2.6.dmg)
         if (!found["mac-x64"]) {
           list.forEach(function (asset) {
             var name = asset && asset.name ? String(asset.name) : "";
@@ -1332,10 +1529,6 @@
       }
 
       function detectLang() {
-        try {
-          var saved = localStorage.getItem(STORAGE_KEY);
-          if (saved === "en" || saved === "zh") return saved;
-        } catch (e) {}
         var nav = (navigator.language || "en").toLowerCase();
         return nav.indexOf("zh") === 0 ? "zh" : "en";
       }
@@ -1368,12 +1561,6 @@
           var key = el.getAttribute("data-i18n-alt");
           if (dict[key] != null) el.setAttribute("alt", dict[key]);
         });
-
-        document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
-          btn.setAttribute("aria-pressed", btn.getAttribute("data-lang") === lang ? "true" : "false");
-        });
-
-        try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
       }
 
       detectedPlatform = detectPlatform();
@@ -1390,14 +1577,6 @@
         applyLang(current);
       });
 
-      document.querySelectorAll(".lang-toggle button").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          current = btn.getAttribute("data-lang");
-          applyLang(current);
-        });
-      });
-
-      /* Mobile nav */
       var toggle = document.getElementById("nav-toggle");
       var drawer = document.getElementById("nav-drawer");
       if (toggle && drawer) {
@@ -1405,18 +1584,15 @@
           var open = toggle.getAttribute("aria-expanded") === "true";
           toggle.setAttribute("aria-expanded", open ? "false" : "true");
           drawer.hidden = open;
-          drawer.classList.toggle("is-open", !open);
         });
         drawer.querySelectorAll("a").forEach(function (link) {
           link.addEventListener("click", function () {
             toggle.setAttribute("aria-expanded", "false");
             drawer.hidden = true;
-            drawer.classList.remove("is-open");
           });
         });
       }
 
-      /* Sticky header border */
       var header = document.getElementById("site-header");
       function onScroll() {
         if (!header) return;
@@ -1425,8 +1601,7 @@
       onScroll();
       window.addEventListener("scroll", onScroll, { passive: true });
 
-      /* Reveal on scroll */
-      var reveal = document.querySelectorAll(".value, .showcase-item, .theme-compare");
+      var reveal = document.querySelectorAll(".feature-card, .reveal-block, .theme-card, .tool-card, .step, .download-card");
       if (!reveal.length || !("IntersectionObserver" in window)) {
         reveal.forEach(function (el) { el.classList.add("in-view"); });
       } else {
@@ -1447,7 +1622,24 @@
         });
       }
 
-      /* Record demo: play when in view */
+      document.querySelectorAll(".media-slot img").forEach(function (img) {
+        var slot = img.closest(".media-slot");
+        function markMissing() {
+          img.classList.add("is-missing");
+          if (slot) slot.classList.add("is-empty");
+        }
+        function markReady() {
+          img.classList.remove("is-missing");
+          if (slot) slot.classList.remove("is-empty");
+        }
+        img.addEventListener("error", markMissing);
+        img.addEventListener("load", markReady);
+        if (img.complete) {
+          if (img.naturalWidth === 0) markMissing();
+          else markReady();
+        }
+      });
+
       var recordVideo = document.getElementById("record-demo");
       var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (recordVideo && !reduceMotion) {
