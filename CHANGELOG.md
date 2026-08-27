@@ -7,12 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-27
+
+### Added
+
+- **Viewport transform tools:** Blender-style left toolbar (Select / Move / Rotate / Scale). Transforms apply to the whole loaded model, not individual meshes. G / R / S shortcuts switch tools; Ctrl+Z / Ctrl+Shift+Z undo and redo transform history.
+- **Custom transform gizmo:** Move, rotate, and scale handles with axis-constrained rotation rings, a view-aligned ring, trackball (center disc or drag on the model), and an axis-colored radius guide during ring drag.
+- **Import assume Z-up:** Preferences toggle to rotate Z-up sources to Y-up on import (Rx −90°).
+
 ### Changed
 
 - **Preferences → About:** Remove the Project card (author / Open on GitHub). About keeps Updates and License only.
 - **Help → Check for Updates…:** When already up to date (or on a dev build / check error), show the same app toast as Preferences → About. Background auto-update checks stay silent.
 - **Product page:** Rewrite `docs/index.html` around a local-first model-viewing story and strengthen the visual hierarchy: readable Hero, proof-led Inspect/Capture layouts, GIF-first protected sharing, compact supporting features/themes, connected workflow, and OS-recommended downloads. EN/ZH copy stays within actual feature boundaries; unsigned/Gatekeeper notes remain in Download.
 - **User Guide:** Document Tools (Encrypt / Convert / Watermark), Rendered lighting, `.smsh`, Help check-for-updates toast; remove batch Encrypt Models…; About no longer lists author/repository.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
 
 ## [0.4.0] - 2026-08-21
 
