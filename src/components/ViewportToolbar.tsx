@@ -1,10 +1,29 @@
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
+import type React from 'react'
 import { Icon } from '../icons'
 import { useT, type MessageKey } from '../i18n'
 import type { InspectPanelId } from './inspect/InspectPanelShell'
-import { AnnotateToolIcon, MeasureToolIcon } from './ViewportToolIcons'
-import type { ViewportToolId } from '../lib/viewportTools'
+import {
+  AnnotateToolIcon,
+  MeasureToolIcon,
+  RotateToolIcon,
+  ScaleToolIcon,
+  SelectToolIcon,
+  TranslateToolIcon,
+} from './ViewportToolIcons'
+import type { TransformToolId, ViewportInteractionToolId } from '../lib/viewportTools'
+
+const TRANSFORM_TOOLS: {
+  id: TransformToolId
+  labelKey: MessageKey
+  Icon: () => React.ReactElement
+}[] = [
+  { id: 'select', labelKey: 'tool.select', Icon: SelectToolIcon },
+  { id: 'translate', labelKey: 'tool.translate', Icon: TranslateToolIcon },
+  { id: 'rotate', labelKey: 'tool.rotate', Icon: RotateToolIcon },
+  { id: 'scale', labelKey: 'tool.scale', Icon: ScaleToolIcon },
+]
 
 const INSPECT_TOOLS: {
   id: InspectPanelId
@@ -22,15 +41,19 @@ const INSPECT_TOOLS: {
 const INSPECT_ASSET_TOOLS = new Set<InspectPanelId>(['textures', 'materials', 'geometries', 'info'])
 
 type ViewportToolbarProps = {
-  active: ViewportToolId | null
-  onToggle: (id: ViewportToolId) => void
+  activeInspect: InspectPanelId | null
+  activeInteraction: ViewportInteractionToolId | null
+  onToggleInspect: (id: InspectPanelId) => void
+  onToggleInteraction: (id: ViewportInteractionToolId) => void
   disabled?: boolean
   allowInspectAssets?: boolean
 }
 
 export function ViewportToolbar({
-  active,
-  onToggle,
+  activeInspect,
+  activeInteraction,
+  onToggleInspect,
+  onToggleInteraction,
   disabled,
   allowInspectAssets = true,
 }: ViewportToolbarProps) {
@@ -44,8 +67,28 @@ export function ViewportToolbar({
       aria-label={t('toolbar.aria')}
       sx={{ bgcolor: 'transparent', backgroundImage: 'none' }}
     >
+      {TRANSFORM_TOOLS.map(tool => {
+        const isActive = activeInteraction === tool.id
+        const label = t(tool.labelKey)
+        const ToolIcon = tool.Icon
+        return (
+          <IconButton
+            key={tool.id}
+            className={isActive ? 'is-active' : undefined}
+            color={isActive ? 'primary' : 'default'}
+            title={label}
+            aria-label={label}
+            aria-pressed={isActive}
+            disabled={disabled}
+            onClick={() => onToggleInteraction(tool.id)}
+          >
+            <ToolIcon />
+          </IconButton>
+        )
+      })}
+      <span className="viewport-toolbar-sep" aria-hidden />
       {INSPECT_TOOLS.map(tool => {
-        const isActive = active === tool.id
+        const isActive = activeInspect === tool.id
         const label = t(tool.labelKey)
         const toolDisabled = disabled || (!allowInspectAssets && INSPECT_ASSET_TOOLS.has(tool.id))
         return (
@@ -57,7 +100,7 @@ export function ViewportToolbar({
             aria-label={label}
             aria-pressed={isActive}
             disabled={toolDisabled}
-            onClick={() => onToggle(tool.id)}
+            onClick={() => onToggleInspect(tool.id)}
           >
             <Icon icon={tool.icon} aria-hidden />
           </IconButton>
@@ -65,24 +108,24 @@ export function ViewportToolbar({
       })}
       <span className="viewport-toolbar-sep" aria-hidden />
       <IconButton
-        className={active === 'annotate' ? 'is-active' : undefined}
-        color={active === 'annotate' ? 'primary' : 'default'}
+        className={activeInteraction === 'annotate' ? 'is-active' : undefined}
+        color={activeInteraction === 'annotate' ? 'primary' : 'default'}
         title={t('tool.annotate')}
         aria-label={t('tool.annotate')}
-        aria-pressed={active === 'annotate'}
+        aria-pressed={activeInteraction === 'annotate'}
         disabled={disabled}
-        onClick={() => onToggle('annotate')}
+        onClick={() => onToggleInteraction('annotate')}
       >
         <AnnotateToolIcon />
       </IconButton>
       <IconButton
-        className={active === 'measure' ? 'is-active' : undefined}
-        color={active === 'measure' ? 'primary' : 'default'}
+        className={activeInteraction === 'measure' ? 'is-active' : undefined}
+        color={activeInteraction === 'measure' ? 'primary' : 'default'}
         title={t('tool.measure')}
         aria-label={t('tool.measure')}
-        aria-pressed={active === 'measure'}
+        aria-pressed={activeInteraction === 'measure'}
         disabled={disabled}
-        onClick={() => onToggle('measure')}
+        onClick={() => onToggleInteraction('measure')}
       >
         <MeasureToolIcon />
       </IconButton>

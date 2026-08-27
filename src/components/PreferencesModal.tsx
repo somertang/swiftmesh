@@ -113,6 +113,7 @@ type SettingId =
   | 'msaa'
   | 'maxTextureSize'
   | 'autoNormalizeUnits'
+  | 'importAssumeZUp'
   | 'autoReloadOnChange'
   | 'cacheLocation'
   | 'cachePath'
@@ -218,6 +219,11 @@ const SETTING_META: Record<
     section: 'performance',
     titleKey: 'prefs.autoNormalizeUnits',
     descKey: 'prefs.desc.autoNormalizeUnits',
+  },
+  importAssumeZUp: {
+    section: 'performance',
+    titleKey: 'prefs.importAssumeZUp',
+    descKey: 'prefs.desc.importAssumeZUp',
   },
   autoReloadOnChange: {
     section: 'performance',
@@ -1017,7 +1023,7 @@ export const PreferencesModal: FC<Props> = ({
                   </PrefRow>
                 </PrefGroup>
               ) : null}
-              {show('maxTextureSize') || show('autoNormalizeUnits') ? (
+              {show('maxTextureSize') || show('autoNormalizeUnits') || show('importAssumeZUp') ? (
                 <PrefGroup title={t('prefs.group.memory')}>
                   {show('maxTextureSize') ? (
                     <PrefRow
@@ -1056,6 +1062,19 @@ export const PreferencesModal: FC<Props> = ({
                         id="prefs-auto-normalize-units"
                         checked={prefs.performance.autoNormalizeUnits}
                         onChange={checked => updatePerformance({ autoNormalizeUnits: checked })}
+                      />
+                    </PrefRow>
+                  ) : null}
+                  {show('importAssumeZUp') ? (
+                    <PrefRow
+                      id="prefs-import-assume-z-up"
+                      title={t('prefs.importAssumeZUp')}
+                      description={t('prefs.desc.importAssumeZUp')}
+                    >
+                      <PrefToggle
+                        id="prefs-import-assume-z-up"
+                        checked={prefs.performance.importAssumeZUp}
+                        onChange={checked => updatePerformance({ importAssumeZUp: checked })}
                       />
                     </PrefRow>
                   ) : null}

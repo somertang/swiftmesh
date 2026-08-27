@@ -1,10 +1,10 @@
 import { useT } from '../i18n'
-import { isSurfaceToolId, type ViewportToolId } from '../lib/viewportTools'
+import { isSurfaceToolId, type ViewportInteractionToolId } from '../lib/viewportTools'
 
 export const ANNOTATE_COLORS = ['#EA334C', '#EC7700', '#F0C000', '#47A559', '#3D7DFF', '#FFFFFF']
 
 type ViewportToolOptionsProps = {
-  active: ViewportToolId | null
+  active: ViewportInteractionToolId | null
   annotateColor: string
   onAnnotateColorChange: (color: string) => void
   canClearAnnotate: boolean

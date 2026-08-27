@@ -1447,6 +1447,7 @@ export default function App() {
                         msaa={performancePrefs.msaa}
                         maxTextureSize={performancePrefs.maxTextureSize}
                         autoNormalizeUnits={performancePrefs.autoNormalizeUnits !== false}
+                        importAssumeZUp={performancePrefs.importAssumeZUp === true}
                         driveRef={getDriveRef(group.id)}
                         onLoading={nextLoading =>
                           setTabState(prev => patchTab(prev, groupTab.id, { loading: nextLoading }))
