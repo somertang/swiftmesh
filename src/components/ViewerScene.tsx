@@ -109,7 +109,6 @@ import { ViewportToolOptions } from './ViewportToolOptions'
 import {
   isSurfaceToolId,
   isTransformMode,
-  isTransformToolId,
   type ViewportInteractionToolId,
 } from '../lib/viewportTools'
 import { TransformHistory } from '../lib/transform/transformHistory'
@@ -163,8 +162,12 @@ type OrbitControlsLike = {
 /** @deprecated Prefer sceneBgCssForTheme — kept for callers expecting the simple theme. */
 export const SCENE_BG_CSS = SIMPLE_SCENE_BG_CSS
 const GROUND_COLOR = 0xcbcbcb
-const CLICK_MAX_MS = 200
-const CLICK_MAX_MOVE_PX = 4
+/** Short LMB press vs orbit-drag: time gate (orbit may move a few px before we decide). */
+const CLICK_MAX_MS = 300
+/** Pointer jitter allowance; real orbit is rejected via camera angle delta. */
+const CLICK_MAX_MOVE_PX = 10
+/** If OrbitControls azimuth/polar moved more than this, treat as drag (not pick). */
+const CLICK_MAX_ORBIT_RAD = 0.008
 const WIRE_COLOR = '#ec7700'
 const EMPTY_CLIPS: AnimationClip[] = []
 
@@ -684,6 +687,19 @@ function InitialModelFitter({
   return null
 }
 
+type OrbitAngleControls = {
+  getAzimuthalAngle?: () => number
+  getPolarAngle?: () => number
+}
+
+function readOrbitAngles(controls: unknown): { azimuth: number; polar: number } | null {
+  const orbit = controls as OrbitAngleControls | null
+  if (!orbit || typeof orbit.getAzimuthalAngle !== 'function' || typeof orbit.getPolarAngle !== 'function') {
+    return null
+  }
+  return { azimuth: orbit.getAzimuthalAngle(), polar: orbit.getPolarAngle() }
+}
+
 function ClickPicker({
   enabled,
   modelRoot,
@@ -693,9 +709,10 @@ function ClickPicker({
   modelRoot: Object3D | null
   onPick: (object: Object3D | null) => void
 }) {
-  const { camera, gl } = useThree()
+  const { camera, gl, controls } = useThree()
   const downAtRef = useRef(0)
   const downPosRef = useRef({ x: 0, y: 0 })
+  const downOrbitRef = useRef<{ azimuth: number; polar: number } | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -705,6 +722,7 @@ function ClickPicker({
       if (event.button !== 0) return
       downAtRef.current = Date.now()
       downPosRef.current = { x: event.clientX, y: event.clientY }
+      downOrbitRef.current = readOrbitAngles(controls)
     }
 
     const onPointerUp = (event: PointerEvent) => {
@@ -713,6 +731,15 @@ function ClickPicker({
       const dx = event.clientX - downPosRef.current.x
       const dy = event.clientY - downPosRef.current.y
       if (dx * dx + dy * dy > CLICK_MAX_MOVE_PX * CLICK_MAX_MOVE_PX) return
+
+      const downOrbit = downOrbitRef.current
+      const upOrbit = readOrbitAngles(controls)
+      if (downOrbit && upOrbit) {
+        const dAz = Math.abs(upOrbit.azimuth - downOrbit.azimuth)
+        const dPol = Math.abs(upOrbit.polar - downOrbit.polar)
+        if (dAz > CLICK_MAX_ORBIT_RAD || dPol > CLICK_MAX_ORBIT_RAD) return
+      }
+
       if (!modelRoot) {
         onPick(null)
         return
@@ -736,7 +763,7 @@ function ClickPicker({
       element.removeEventListener('pointerdown', onPointerDown)
       element.removeEventListener('pointerup', onPointerUp)
     }
-  }, [enabled, modelRoot, camera, gl, onPick])
+  }, [enabled, modelRoot, camera, gl, controls, onPick])
 
   return null
 }
@@ -2244,9 +2271,9 @@ export function ViewerScene({
   }, [innerRoot])
 
   const selectedObject = selectedId ? (objectsRef.current.get(selectedId) ?? null) : null
-  /** While transform tools are active, overlays follow the whole model (innerRoot). */
+  /** While move/rotate/scale are active, overlays follow the whole model (innerRoot). */
   const overlayObject =
-    isTransformToolId(activeViewportTool) && innerRoot ? innerRoot : selectedObject
+    isTransformMode(activeViewportTool) && innerRoot ? innerRoot : selectedObject
 
   const textures = useMemo(() => {
     if (!inspectRoot) return []
@@ -2275,33 +2302,23 @@ export function ViewerScene({
     setHierarchyRoot(prev => (prev ? syncHierarchyVisibility(prev, objectsRef.current) : prev))
   }, [])
 
-  const selectWholeModel = useCallback(
-    (opts?: { openHierarchy?: boolean; focus?: boolean }) => {
-      const id = innerRoot?.userData.__hierId as string | undefined
-      if (!id) return
-      if (opts?.openHierarchy) setActiveInspectPanel('hierarchy')
-      setSelectedId(id)
-      if (opts?.focus !== false) setFocusToken(token => token + 1)
-    },
-    [innerRoot]
-  )
-
   const handleHierarchySelect = useCallback((id: string | null) => {
     setSelectedId(id)
     if (id) setFocusToken(token => token + 1)
   }, [])
 
-  /** Viewport pick always selects the whole model root — transforms apply to the entire model. */
-  const handlePick = useCallback(
-    (object: Object3D | null) => {
-      if (!object) {
-        setSelectedId(null)
-        return
-      }
-      selectWholeModel({ openHierarchy: true, focus: true })
-    },
-    [selectWholeModel]
-  )
+  /** Viewport pick selects the hierarchy node under the cursor (same as Hierarchy panel). */
+  const handlePick = useCallback((object: Object3D | null) => {
+    if (!object) {
+      setSelectedId(null)
+      return
+    }
+    const id = object.userData.__hierId as string | undefined
+    if (!id) return
+    setActiveInspectPanel('hierarchy')
+    setSelectedId(id)
+    setFocusToken(token => token + 1)
+  }, [])
 
   useEffect(() => {
     applyShadingMode(modelRoot, shadingMode)
@@ -2338,9 +2355,9 @@ export function ViewerScene({
     setActiveViewportTool(prev => (prev === id ? null : id))
   }, [])
 
-  /** Opening select/move/rotate/scale forces selection onto the whole-model root. */
+  /** Opening move/rotate/scale forces selection onto the whole-model root (gizmo target). */
   useEffect(() => {
-    if (!isTransformToolId(activeViewportTool) || !innerRoot) return
+    if (!isTransformMode(activeViewportTool) || !innerRoot) return
     const id = innerRoot.userData.__hierId as string | undefined
     if (!id) return
     setSelectedId(id)
@@ -2391,6 +2408,7 @@ export function ViewerScene({
   }, [decimate, model.label, model.path, onFileSavedToast, onToast, t])
 
   const interactive = !recording
+  // LMB orbit (short click still picks via ClickPicker); MMB dolly; RMB pan; wheel zoom.
   const mouseButtons = useMemo(
     () => ({
       LEFT: MOUSE.ROTATE,
@@ -2402,9 +2420,12 @@ export function ViewerScene({
 
   const transformGizmoActive =
     interactive && isTransformMode(activeViewportTool) && !isSurfaceToolId(activeViewportTool)
-  // LMB is reserved for the gizmo while translate/rotate/scale is active (orbit via MMB/RMB still works).
+  // LMB reserved for gizmo while translate/rotate/scale is active (orbit via MMB/RMB still limited: MMB=dolly).
   const orbitRotate =
-    interactive && !isSurfaceToolId(activeViewportTool) && !isTransformMode(activeViewportTool) && !gizmoDragging
+    interactive &&
+    !isSurfaceToolId(activeViewportTool) &&
+    !isTransformMode(activeViewportTool) &&
+    !gizmoDragging
   const pickEnabled = interactive && !isSurfaceToolId(activeViewportTool) && !gizmoDragging
 
   useEffect(() => {
