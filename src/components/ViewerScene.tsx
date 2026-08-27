@@ -106,7 +106,15 @@ import { DecimatePanel } from './inspect/DecimatePanel'
 import { SurfaceAnnotate, type AnnotateStroke } from './SurfaceAnnotate'
 import { SurfaceMeasure, type Measurement } from './SurfaceMeasure'
 import { ViewportToolOptions } from './ViewportToolOptions'
-import { isSurfaceToolId, type ViewportToolId } from '../lib/viewportTools'
+import {
+  isSurfaceToolId,
+  isTransformMode,
+  isTransformToolId,
+  type ViewportInteractionToolId,
+} from '../lib/viewportTools'
+import { TransformHistory } from '../lib/transform/transformHistory'
+import type { InspectPanelId } from '../lib/inspectPanelIds'
+import { ObjectTransformGizmo } from './transform/ObjectTransformGizmo'
 import { useDecimateSession } from '../lib/decimate/useDecimateSession'
 import { useT } from '../i18n'
 import { limitObjectTextures } from '../lib/limitObjectTextures'
@@ -232,11 +240,12 @@ type ModelRoots = {
   animations: AnimationClip[]
 }
 
-/** Clone for mixer; wrap with unit normalize + feet on ground. Turntable pivot is separate. */
+/** Clone for mixer; wrap with optional Z-up axis convert, unit normalize + feet on ground. Turntable pivot is separate. */
 function prepareDisplayRoot(
   source: Object3D,
   maxTextureSize: number,
-  autoNormalizeUnits: boolean
+  autoNormalizeUnits: boolean,
+  importAssumeZUp: boolean
 ): { displayRoot: Object3D; innerRoot: Object3D } {
   const innerRoot = deepCloneScene(source)
   convertNonPbrMaterialsToPbr(innerRoot)
@@ -247,7 +256,17 @@ function prepareDisplayRoot(
 
   const displayRoot = new Group()
   displayRoot.name = 'DisplayRoot'
-  displayRoot.add(innerRoot)
+
+  if (importAssumeZUp) {
+    const axisConvert = new Group()
+    axisConvert.name = 'AxisConvert'
+    // Blender Z-up → Three.js Y-up: rotate −90° about X so +Z becomes +Y.
+    axisConvert.rotation.x = -Math.PI / 2
+    axisConvert.add(innerRoot)
+    displayRoot.add(axisConvert)
+  } else {
+    displayRoot.add(innerRoot)
+  }
 
   if (autoNormalizeUnits) {
     const { maxDim } = measureObjectSize(innerRoot)
@@ -267,11 +286,12 @@ function usePublishModelRoots(
   onReady: () => void,
   onRootChange: (roots: ModelRoots | null) => void,
   maxTextureSize: number,
-  autoNormalizeUnits: boolean
+  autoNormalizeUnits: boolean,
+  importAssumeZUp: boolean
 ) {
   const prepared = useMemo(
-    () => prepareDisplayRoot(source, maxTextureSize, autoNormalizeUnits),
-    [source, maxTextureSize, autoNormalizeUnits]
+    () => prepareDisplayRoot(source, maxTextureSize, autoNormalizeUnits, importAssumeZUp),
+    [source, maxTextureSize, autoNormalizeUnits, importAssumeZUp]
   )
 
   useEffect(() => {
@@ -303,6 +323,7 @@ function LoadedGltfModel({
   resourceUrls,
   maxTextureSize,
   autoNormalizeUnits,
+  importAssumeZUp,
   onReady,
   onRootChange,
 }: {
@@ -310,6 +331,7 @@ function LoadedGltfModel({
   resourceUrls: Record<string, string>
   maxTextureSize: number
   autoNormalizeUnits: boolean
+  importAssumeZUp: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -324,7 +346,8 @@ function LoadedGltfModel({
     onReady,
     onRootChange,
     maxTextureSize,
-    autoNormalizeUnits
+    autoNormalizeUnits,
+    importAssumeZUp
   )
   return <primitive object={displayRoot} />
 }
@@ -335,6 +358,7 @@ function LoadedObjWithMtl({
   resourceUrls,
   maxTextureSize,
   autoNormalizeUnits,
+  importAssumeZUp,
   onReady,
   onRootChange,
 }: {
@@ -343,6 +367,7 @@ function LoadedObjWithMtl({
   resourceUrls: Record<string, string>
   maxTextureSize: number
   autoNormalizeUnits: boolean
+  importAssumeZUp: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -362,7 +387,8 @@ function LoadedObjWithMtl({
     onReady,
     onRootChange,
     maxTextureSize,
-    autoNormalizeUnits
+    autoNormalizeUnits,
+    importAssumeZUp
   )
   return <primitive object={displayRoot} />
 }
@@ -372,6 +398,7 @@ function LoadedObjBare({
   resourceUrls,
   maxTextureSize,
   autoNormalizeUnits,
+  importAssumeZUp,
   onReady,
   onRootChange,
 }: {
@@ -379,6 +406,7 @@ function LoadedObjBare({
   resourceUrls: Record<string, string>
   maxTextureSize: number
   autoNormalizeUnits: boolean
+  importAssumeZUp: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -391,7 +419,8 @@ function LoadedObjBare({
     onReady,
     onRootChange,
     maxTextureSize,
-    autoNormalizeUnits
+    autoNormalizeUnits,
+    importAssumeZUp
   )
   return <primitive object={displayRoot} />
 }
@@ -401,6 +430,7 @@ function LoadedFbxModel({
   resourceUrls,
   maxTextureSize,
   autoNormalizeUnits,
+  importAssumeZUp,
   onReady,
   onRootChange,
 }: {
@@ -408,6 +438,7 @@ function LoadedFbxModel({
   resourceUrls: Record<string, string>
   maxTextureSize: number
   autoNormalizeUnits: boolean
+  importAssumeZUp: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -420,7 +451,8 @@ function LoadedFbxModel({
     onReady,
     onRootChange,
     maxTextureSize,
-    autoNormalizeUnits
+    autoNormalizeUnits,
+    importAssumeZUp
   )
   return <primitive object={displayRoot} />
 }
@@ -429,12 +461,14 @@ function LoadedModel({
   model,
   maxTextureSize,
   autoNormalizeUnits,
+  importAssumeZUp,
   onReady,
   onRootChange,
 }: {
   model: ModelSource
   maxTextureSize: number
   autoNormalizeUnits: boolean
+  importAssumeZUp: boolean
   onReady: () => void
   onRootChange: (roots: ModelRoots | null) => void
 }) {
@@ -448,6 +482,7 @@ function LoadedModel({
           resourceUrls={model.resourceUrls}
           maxTextureSize={maxTextureSize}
           autoNormalizeUnits={autoNormalizeUnits}
+          importAssumeZUp={importAssumeZUp}
           onReady={onReady}
           onRootChange={onRootChange}
         />
@@ -459,6 +494,7 @@ function LoadedModel({
         resourceUrls={model.resourceUrls}
         maxTextureSize={maxTextureSize}
         autoNormalizeUnits={autoNormalizeUnits}
+        importAssumeZUp={importAssumeZUp}
         onReady={onReady}
         onRootChange={onRootChange}
       />
@@ -472,6 +508,7 @@ function LoadedModel({
         resourceUrls={model.resourceUrls}
         maxTextureSize={maxTextureSize}
         autoNormalizeUnits={autoNormalizeUnits}
+        importAssumeZUp={importAssumeZUp}
         onReady={onReady}
         onRootChange={onRootChange}
       />
@@ -485,6 +522,7 @@ function LoadedModel({
         resourceUrls={model.resourceUrls}
         maxTextureSize={maxTextureSize}
         autoNormalizeUnits={autoNormalizeUnits}
+        importAssumeZUp={importAssumeZUp}
         onReady={onReady}
         onRootChange={onRootChange}
       />
@@ -495,7 +533,13 @@ function LoadedModel({
 }
 
 /** Wireframe overlay + RGB origin axes — mirrors glb-viewer-core selection visuals. */
-function SelectionOverlay({ object }: { object: Object3D | null }) {
+function SelectionOverlay({
+  object,
+  showAxes = true,
+}: {
+  object: Object3D | null
+  showAxes?: boolean
+}) {
   const { camera, size } = useThree()
   const rootRef = useRef<Group>(null)
   const wireRef = useRef<Mesh | null>(null)
@@ -541,28 +585,30 @@ function SelectionOverlay({ object }: { object: Object3D | null }) {
       wireRef.current = wire
     }
 
-    const axes = new Object3D()
-    axes.userData.__hierarchyIgnore = true
-    const makeArrow = (dir: Vector3, color: string) => {
-      const arrow = new ArrowHelper(dir, new Vector3(0, 0, 0), 1, color)
-      arrow.traverse(child => {
-        if (isMeshObject(child) || (child as { material?: Material }).material) {
-          const mat = (child as Mesh).material as MeshBasicMaterial | undefined
-          if (mat) {
-            mat.depthTest = false
-            mat.depthFunc = AlwaysDepth
+    if (showAxes) {
+      const axes = new Object3D()
+      axes.userData.__hierarchyIgnore = true
+      const makeArrow = (dir: Vector3, color: string) => {
+        const arrow = new ArrowHelper(dir, new Vector3(0, 0, 0), 1, color)
+        arrow.traverse(child => {
+          if (isMeshObject(child) || (child as { material?: Material }).material) {
+            const mat = (child as Mesh).material as MeshBasicMaterial | undefined
+            if (mat) {
+              mat.depthTest = false
+              mat.depthFunc = AlwaysDepth
+            }
+            child.renderOrder = 99999
           }
-          child.renderOrder = 99999
-        }
-      })
-      return arrow
+        })
+        return arrow
+      }
+      axes.add(makeArrow(new Vector3(1, 0, 0), '#EA334C'))
+      axes.add(makeArrow(new Vector3(0, 1, 0), '#80CA1E'))
+      axes.add(makeArrow(new Vector3(0, 0, 1), '#2D83E8'))
+      root.add(axes)
+      axesRef.current = axes
     }
-    axes.add(makeArrow(new Vector3(1, 0, 0), '#EA334C'))
-    axes.add(makeArrow(new Vector3(0, 1, 0), '#80CA1E'))
-    axes.add(makeArrow(new Vector3(0, 0, 1), '#2D83E8'))
-    root.add(axes)
-    axesRef.current = axes
-  }, [object, wireMaterial])
+  }, [object, wireMaterial, showAxes])
 
   useFrame(() => {
     if (!object || !isViewCamera(camera)) return
@@ -1665,6 +1711,7 @@ function ViewportCameraControls({
   cameraSettings,
   interactive,
   orbitRotate,
+  pickEnabled,
   mouseButtons,
   isProfessional,
   navGizmoApiRef,
@@ -1673,6 +1720,7 @@ function ViewportCameraControls({
   selectedObject,
   focusToken,
   onPick,
+  showSelectionAxes,
 }: {
   syncSourceRef: MutableRefObject<'panel' | 'viewport'>
   cameraSettingsRef: MutableRefObject<CameraSettings>
@@ -1681,6 +1729,7 @@ function ViewportCameraControls({
   cameraSettings: CameraSettings
   interactive: boolean
   orbitRotate: boolean
+  pickEnabled: boolean
   mouseButtons: { LEFT: number; MIDDLE: number; RIGHT: number }
   isProfessional: boolean
   navGizmoApiRef: MutableRefObject<NavGizmoApi | null>
@@ -1689,6 +1738,7 @@ function ViewportCameraControls({
   selectedObject: Object3D | null
   focusToken: number
   onPick: (object: Object3D | null) => void
+  showSelectionAxes: boolean
 }) {
   const publishCamera = useViewportCameraPublisher(
     syncSourceRef,
@@ -1722,8 +1772,8 @@ function ViewportCameraControls({
         />
       ) : null}
       <InitialModelFitter modelRoot={modelRoot} onCameraSettled={publishCamera} />
-      <ClickPicker enabled={interactive && orbitRotate} modelRoot={modelRoot} onPick={onPick} />
-      <SelectionOverlay object={selectedObject} />
+      <ClickPicker enabled={interactive && pickEnabled} modelRoot={modelRoot} onPick={onPick} />
+      <SelectionOverlay object={selectedObject} showAxes={showSelectionAxes} />
       <SelectionFocuser
         object={selectedObject}
         focusToken={focusToken}
@@ -1830,6 +1880,7 @@ type ViewerSceneProps = {
   msaa?: boolean
   maxTextureSize?: number
   autoNormalizeUnits?: boolean
+  importAssumeZUp?: boolean
   driveRef: MutableRefObject<RecordDrive>
   onLoading: (loading: boolean) => void
   onError?: (message: string) => void
@@ -1864,6 +1915,7 @@ export function ViewerScene({
   msaa = true,
   maxTextureSize = 0,
   autoNormalizeUnits = true,
+  importAssumeZUp = false,
   driveRef,
   onLoading,
   onError,
@@ -1918,7 +1970,12 @@ export function ViewerScene({
   onCameraSettingsChangeRef.current = onCameraSettingsChange
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusToken, setFocusToken] = useState(0)
-  const [activeTool, setActiveTool] = useState<ViewportToolId | null>(null)
+  const [activeInspectPanel, setActiveInspectPanel] = useState<InspectPanelId | null>(null)
+  const [activeViewportTool, setActiveViewportTool] = useState<ViewportInteractionToolId | null>(
+    null
+  )
+  const [gizmoDragging, setGizmoDragging] = useState(false)
+  const transformHistoryRef = useRef(new TransformHistory())
   const sceneRootRef = useRef<HTMLDivElement>(null)
   const [viewportAspect, setViewportAspect] = useState(1)
   const [annotateColor, setAnnotateColor] = useState('#EA334C')
@@ -1961,6 +2018,7 @@ export function ViewerScene({
     setStrokes([])
     setMeasurements([])
     objectsRef.current = new Map()
+    transformHistoryRef.current.clear()
   }, [modelKey])
 
   const handleModelReady = useCallback(() => {
@@ -2186,6 +2244,9 @@ export function ViewerScene({
   }, [innerRoot])
 
   const selectedObject = selectedId ? (objectsRef.current.get(selectedId) ?? null) : null
+  /** While transform tools are active, overlays follow the whole model (innerRoot). */
+  const overlayObject =
+    isTransformToolId(activeViewportTool) && innerRoot ? innerRoot : selectedObject
 
   const textures = useMemo(() => {
     if (!inspectRoot) return []
@@ -2214,22 +2275,33 @@ export function ViewerScene({
     setHierarchyRoot(prev => (prev ? syncHierarchyVisibility(prev, objectsRef.current) : prev))
   }, [])
 
+  const selectWholeModel = useCallback(
+    (opts?: { openHierarchy?: boolean; focus?: boolean }) => {
+      const id = innerRoot?.userData.__hierId as string | undefined
+      if (!id) return
+      if (opts?.openHierarchy) setActiveInspectPanel('hierarchy')
+      setSelectedId(id)
+      if (opts?.focus !== false) setFocusToken(token => token + 1)
+    },
+    [innerRoot]
+  )
+
   const handleHierarchySelect = useCallback((id: string | null) => {
     setSelectedId(id)
     if (id) setFocusToken(token => token + 1)
   }, [])
 
-  const handlePick = useCallback((object: Object3D | null) => {
-    if (!object) {
-      setSelectedId(null)
-      return
-    }
-    const id = object.userData.__hierId as string | undefined
-    if (!id) return
-    setActiveTool('hierarchy')
-    setSelectedId(id)
-    setFocusToken(token => token + 1)
-  }, [])
+  /** Viewport pick always selects the whole model root — transforms apply to the entire model. */
+  const handlePick = useCallback(
+    (object: Object3D | null) => {
+      if (!object) {
+        setSelectedId(null)
+        return
+      }
+      selectWholeModel({ openHierarchy: true, focus: true })
+    },
+    [selectWholeModel]
+  )
 
   useEffect(() => {
     applyShadingMode(modelRoot, shadingMode)
@@ -2258,13 +2330,25 @@ export function ViewerScene({
     [cameraSettings, modelRoot, viewportAspect]
   )
 
-  const handleToolToggle = useCallback((id: ViewportToolId) => {
-    setActiveTool(prev => (prev === id ? null : id))
+  const handleInspectToggle = useCallback((id: InspectPanelId) => {
+    setActiveInspectPanel(prev => (prev === id ? null : id))
   }, [])
 
-  const closeActiveTool = useCallback(() => setActiveTool(null), [])
+  const handleInteractionToggle = useCallback((id: ViewportInteractionToolId) => {
+    setActiveViewportTool(prev => (prev === id ? null : id))
+  }, [])
 
-  const decimateActive = activeTool === 'decimate' && !recording
+  /** Opening select/move/rotate/scale forces selection onto the whole-model root. */
+  useEffect(() => {
+    if (!isTransformToolId(activeViewportTool) || !innerRoot) return
+    const id = innerRoot.userData.__hierId as string | undefined
+    if (!id) return
+    setSelectedId(id)
+  }, [activeViewportTool, innerRoot])
+
+  const closeInspectPanel = useCallback(() => setActiveInspectPanel(null), [])
+
+  const decimateActive = activeInspectPanel === 'decimate' && !recording
   const decimate = useDecimateSession(innerRoot, decimateActive)
   const [decimateExporting, setDecimateExporting] = useState(false)
 
@@ -2316,6 +2400,47 @@ export function ViewerScene({
     []
   )
 
+  const transformGizmoActive =
+    interactive && isTransformMode(activeViewportTool) && !isSurfaceToolId(activeViewportTool)
+  // LMB is reserved for the gizmo while translate/rotate/scale is active (orbit via MMB/RMB still works).
+  const orbitRotate =
+    interactive && !isSurfaceToolId(activeViewportTool) && !isTransformMode(activeViewportTool) && !gizmoDragging
+  const pickEnabled = interactive && !isSurfaceToolId(activeViewportTool) && !gizmoDragging
+
+  useEffect(() => {
+    if (!interactive) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
+          return
+        }
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        const resolve = (hierId: string) => objectsRef.current.get(hierId) ?? null
+        if (event.shiftKey) transformHistoryRef.current.redo(resolve)
+        else transformHistoryRef.current.undo(resolve)
+        return
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+      const key = event.key.toLowerCase()
+      if (key === 'g') {
+        event.preventDefault()
+        setActiveViewportTool('translate')
+      } else if (key === 'r') {
+        event.preventDefault()
+        setActiveViewportTool('rotate')
+      } else if (key === 's') {
+        event.preventDefault()
+        setActiveViewportTool('scale')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [interactive])
+
   return (
     <div className="scene-root" ref={sceneRootRef}>
       {watermarkText && !recording ? (
@@ -2325,8 +2450,10 @@ export function ViewerScene({
       ) : null}
       {!recording ? (
         <ViewportToolbar
-          active={activeTool}
-          onToggle={handleToolToggle}
+          activeInspect={activeInspectPanel}
+          activeInteraction={activeViewportTool}
+          onToggleInspect={handleInspectToggle}
+          onToggleInteraction={handleInteractionToggle}
           disabled={!modelRoot}
           allowInspectAssets={allowInspectAssets}
         />
@@ -2336,7 +2463,7 @@ export function ViewerScene({
           projection={cameraSettings.projection}
           viewZoom={viewZoom}
           unitScale={modelRoot ? modelRoot.scale.x : null}
-          shiftDown={isSurfaceToolId(activeTool)}
+          shiftDown={isSurfaceToolId(activeViewportTool)}
         />
       ) : null}
       {!recording && animations.length > 0 ? (
@@ -2354,7 +2481,7 @@ export function ViewerScene({
       ) : null}
       {!recording ? (
         <ViewportToolOptions
-          active={activeTool}
+          active={activeViewportTool}
           annotateColor={annotateColor}
           onAnnotateColorChange={setAnnotateColor}
           canClearAnnotate={strokes.length > 0}
@@ -2368,33 +2495,33 @@ export function ViewerScene({
       ) : null}
       <div className="inspect-dock">
         <HierarchyPanel
-          open={activeTool === 'hierarchy'}
+          open={activeInspectPanel === 'hierarchy'}
           modelKey={modelKey}
           root={hierarchyRoot}
           selectedId={selectedId}
-          onOpenChange={open => setActiveTool(open ? 'hierarchy' : null)}
+          onOpenChange={open => setActiveInspectPanel(open ? 'hierarchy' : null)}
           onSelect={handleHierarchySelect}
           onToggleVisible={handleToggleVisible}
         />
         <TexturesPanel
-          open={activeTool === 'textures'}
+          open={activeInspectPanel === 'textures'}
           items={textures}
           allowInspectAssets={allowInspectAssets}
-          onClose={closeActiveTool}
+          onClose={closeInspectPanel}
         />
         <MaterialsPanel
-          open={activeTool === 'materials'}
+          open={activeInspectPanel === 'materials'}
           items={materials}
-          onClose={closeActiveTool}
+          onClose={closeInspectPanel}
           onSelectMesh={id => handleHierarchySelect(id)}
         />
         <GeometriesPanel
-          open={activeTool === 'geometries'}
+          open={activeInspectPanel === 'geometries'}
           items={geometries}
-          onClose={closeActiveTool}
+          onClose={closeInspectPanel}
           onSelectMesh={id => handleHierarchySelect(id)}
         />
-        <InfoPanel open={activeTool === 'info'} stats={sceneInfo} onClose={closeActiveTool} />
+        <InfoPanel open={activeInspectPanel === 'info'} stats={sceneInfo} onClose={closeInspectPanel} />
         <DecimatePanel
           open={decimateActive}
           stats={decimate.stats}
@@ -2407,7 +2534,7 @@ export function ViewerScene({
           onExport={() => {
             void handleDecimateExport()
           }}
-          onClose={closeActiveTool}
+          onClose={closeInspectPanel}
         />
       </div>
       <Canvas
@@ -2487,16 +2614,28 @@ export function ViewerScene({
           navGizmoOrientationRef={navGizmoOrientationRef}
           isProfessional={isProfessional}
           interactive={interactive}
-          orbitRotate={!isSurfaceToolId(activeTool)}
+          orbitRotate={orbitRotate}
+          pickEnabled={pickEnabled}
           mouseButtons={mouseButtons}
           cameraSettings={cameraSettings}
           modelRoot={modelRoot}
-          selectedObject={selectedObject}
+          selectedObject={overlayObject}
           focusToken={focusToken}
           onPick={handlePick}
+          showSelectionAxes={!transformGizmoActive}
         />
+        {isTransformMode(activeViewportTool) && interactive ? (
+          <ObjectTransformGizmo
+            object={innerRoot}
+            mode={activeViewportTool}
+            space="global"
+            enabled={!recording}
+            history={transformHistoryRef.current}
+            onDraggingChange={setGizmoDragging}
+          />
+        ) : null}
         <SurfaceAnnotate
-          enabled={interactive && activeTool === 'annotate'}
+          enabled={interactive && activeViewportTool === 'annotate'}
           visible={!recording}
           modelRoot={modelRoot}
           color={annotateColor}
@@ -2504,7 +2643,7 @@ export function ViewerScene({
           onStrokesChange={setStrokes}
         />
         <SurfaceMeasure
-          enabled={interactive && activeTool === 'measure'}
+          enabled={interactive && activeViewportTool === 'measure'}
           visible={!recording}
           modelRoot={modelRoot}
           measurements={measurements}
@@ -2518,10 +2657,11 @@ export function ViewerScene({
               groupRefOut={turntableGroupRef}
             >
               <LoadedModel
-                key={`${modelKey}:tex-${maxTextureSize}:norm-${autoNormalizeUnits ? 'on' : 'off'}`}
+                key={`${modelKey}:tex-${maxTextureSize}:norm-${autoNormalizeUnits ? 'on' : 'off'}:zup-${importAssumeZUp ? 'on' : 'off'}`}
                 model={model}
                 maxTextureSize={maxTextureSize}
                 autoNormalizeUnits={autoNormalizeUnits}
+                importAssumeZUp={importAssumeZUp}
                 onReady={handleModelReady}
                 onRootChange={handleRootChange}
               />

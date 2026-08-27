@@ -208,6 +208,7 @@ export const en = {
   'prefs.maxTextureSize.auto': 'Automatic',
   'prefs.maxTextureSize.px': '{n} px',
   'prefs.autoNormalizeUnits': 'Auto-normalize model units',
+  'prefs.importAssumeZUp': 'Import as Z-up (Blender)',
   'prefs.autoReloadOnChange': 'Reload on file change',
   'prefs.cacheLocation': 'Cache / temp folder',
   'prefs.cacheLocation.system': 'System temporary folder',
@@ -234,6 +235,8 @@ export const en = {
     'Downscale loaded textures larger than this limit to reduce GPU memory use.',
   'prefs.desc.autoNormalizeUnits':
     'Scale models authored in centimeters or millimeters to meter-sized display units. Turn off to keep file units as world units.',
+  'prefs.desc.importAssumeZUp':
+    'Rotate newly loaded models so Blender-style Z-up becomes Three.js Y-up. Default off. Already-open tabs remount when this changes.',
   'prefs.desc.autoReloadOnChange':
     'Automatically reload a tab when its model file changes on disk (desktop only).',
   'prefs.desc.cacheLocation':
@@ -344,6 +347,10 @@ export const en = {
   'tool.geometries': 'Geometries',
   'tool.info': 'Info',
   'tool.decimate': 'Reduce mesh',
+  'tool.select': 'Select',
+  'tool.translate': 'Move',
+  'tool.rotate': 'Rotate',
+  'tool.scale': 'Scale',
   'tool.annotate': 'Annotate',
   'tool.measure': 'Measure',
   'tool.annotate.hint': 'Draw in the viewport',
@@ -875,6 +882,7 @@ export const zh: Record<MessageKey, string> = {
   'prefs.maxTextureSize.auto': '自动',
   'prefs.maxTextureSize.px': '{n} 像素',
   'prefs.autoNormalizeUnits': '自动归一化模型单位',
+  'prefs.importAssumeZUp': '按 Z-up 导入（Blender）',
   'prefs.autoReloadOnChange': '文件变更自动重载',
   'prefs.cacheLocation': '缓存 / 临时目录',
   'prefs.cacheLocation.system': '系统临时目录',
@@ -896,6 +904,8 @@ export const zh: Record<MessageKey, string> = {
   'prefs.desc.maxTextureSize': '将超过该边长的纹理缩小，以降低 GPU 显存占用。',
   'prefs.desc.autoNormalizeUnits':
     '将按厘米或毫米制作的模型缩放到米制显示尺寸。关闭后按文件原始单位作为世界单位。',
+  'prefs.desc.importAssumeZUp':
+    '将新加载模型从 Blender 式 Z-up 旋转为 Three.js 的 Y-up。默认关闭。更改后已打开的标签会重新挂载显示树。',
   'prefs.desc.autoReloadOnChange': '当模型文件在磁盘上变更时自动重新加载对应标签（仅桌面端）。',
   'prefs.desc.cacheLocation': '编码与缓存临时文件的写入位置。未指定时使用系统临时目录。',
   'prefs.desc.cachePath': '用于临时文件与缓存的目录。',
@@ -1002,6 +1012,10 @@ export const zh: Record<MessageKey, string> = {
   'tool.geometries': '几何体',
   'tool.info': '信息',
   'tool.decimate': '减面',
+  'tool.select': '选择',
+  'tool.translate': '移动',
+  'tool.rotate': '旋转',
+  'tool.scale': '缩放',
   'tool.annotate': '标注',
   'tool.measure': '测量',
   'tool.annotate.hint': '在视口中绘制',

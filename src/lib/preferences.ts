@@ -117,6 +117,11 @@ export type PerformancePreferences = {
    * (or tiny models). Off keeps file units as world units.
    */
   autoNormalizeUnits: boolean
+  /**
+   * Treat imported models as Blender-style Z-up and rotate the display wrapper
+   * so +Z becomes Three.js +Y. Default off so native Y-up assets stay upright.
+   */
+  importAssumeZUp: boolean
   /** Reload tabs when their absolute model file changes on disk (desktop). */
   autoReloadOnChange: boolean
   /** Absolute dir for encode/temp files; empty = OS temp directory. */
@@ -186,6 +191,7 @@ export const DEFAULT_PERFORMANCE_PREFERENCES: PerformancePreferences = {
   msaa: true,
   maxTextureSize: 0,
   autoNormalizeUnits: true,
+  importAssumeZUp: false,
   autoReloadOnChange: false,
   cacheDir: '',
   telemetryEnabled: false,
@@ -335,6 +341,7 @@ export function normalizePreferences(raw: unknown): AppPreferences {
         ? performanceRaw.maxTextureSize
         : DEFAULT_PERFORMANCE_PREFERENCES.maxTextureSize,
       autoNormalizeUnits: performanceRaw.autoNormalizeUnits !== false,
+      importAssumeZUp: performanceRaw.importAssumeZUp === true,
       autoReloadOnChange: performanceRaw.autoReloadOnChange === true,
       cacheDir:
         typeof performanceRaw.cacheDir === 'string' ? performanceRaw.cacheDir.trim() : '',
