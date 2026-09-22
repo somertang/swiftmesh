@@ -61,7 +61,6 @@ import {
   focusCameraOnObject,
   isViewCamera,
   readCameraSettings,
-  resolveHierarchyObject,
   setOrbitElevationDegrees as applyLiveOrbitElevation,
   syncOrthoFrustum,
   viewZoomFactor,
@@ -90,6 +89,7 @@ import {
 } from '../lib/inspectScene'
 import { attachResourceUrlModifier, basenameOf, type ModelSource } from '../lib/modelSource'
 import { isMeshObject } from '../lib/isMeshObject'
+import { hierarchyMeshFromHit, isViewportClick, type PointerSample } from '../lib/viewportPick'
 import {
   buildSceneHierarchy,
   syncHierarchyVisibility,
@@ -162,12 +162,6 @@ type OrbitControlsLike = {
 /** @deprecated Prefer sceneBgCssForTheme — kept for callers expecting the simple theme. */
 export const SCENE_BG_CSS = SIMPLE_SCENE_BG_CSS
 const GROUND_COLOR = 0xcbcbcb
-/** Short LMB press vs orbit-drag: time gate (orbit may move a few px before we decide). */
-const CLICK_MAX_MS = 300
-/** Pointer jitter allowance; real orbit is rejected via camera angle delta. */
-const CLICK_MAX_MOVE_PX = 10
-/** If OrbitControls azimuth/polar moved more than this, treat as drag (not pick). */
-const CLICK_MAX_ORBIT_RAD = 0.008
 const WIRE_COLOR = '#ec7700'
 const EMPTY_CLIPS: AnimationClip[] = []
 
@@ -687,19 +681,6 @@ function InitialModelFitter({
   return null
 }
 
-type OrbitAngleControls = {
-  getAzimuthalAngle?: () => number
-  getPolarAngle?: () => number
-}
-
-function readOrbitAngles(controls: unknown): { azimuth: number; polar: number } | null {
-  const orbit = controls as OrbitAngleControls | null
-  if (!orbit || typeof orbit.getAzimuthalAngle !== 'function' || typeof orbit.getPolarAngle !== 'function') {
-    return null
-  }
-  return { azimuth: orbit.getAzimuthalAngle(), polar: orbit.getPolarAngle() }
-}
-
 function ClickPicker({
   enabled,
   modelRoot,
@@ -709,10 +690,8 @@ function ClickPicker({
   modelRoot: Object3D | null
   onPick: (object: Object3D | null) => void
 }) {
-  const { camera, gl, controls } = useThree()
-  const downAtRef = useRef(0)
-  const downPosRef = useRef({ x: 0, y: 0 })
-  const downOrbitRef = useRef<{ azimuth: number; polar: number } | null>(null)
+  const { camera, gl } = useThree()
+  const downRef = useRef<PointerSample | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -720,25 +699,14 @@ function ClickPicker({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return
-      downAtRef.current = Date.now()
-      downPosRef.current = { x: event.clientX, y: event.clientY }
-      downOrbitRef.current = readOrbitAngles(controls)
+      downRef.current = { x: event.clientX, y: event.clientY }
     }
 
     const onPointerUp = (event: PointerEvent) => {
       if (event.button !== 0) return
-      if (Date.now() - downAtRef.current >= CLICK_MAX_MS) return
-      const dx = event.clientX - downPosRef.current.x
-      const dy = event.clientY - downPosRef.current.y
-      if (dx * dx + dy * dy > CLICK_MAX_MOVE_PX * CLICK_MAX_MOVE_PX) return
-
-      const downOrbit = downOrbitRef.current
-      const upOrbit = readOrbitAngles(controls)
-      if (downOrbit && upOrbit) {
-        const dAz = Math.abs(upOrbit.azimuth - downOrbit.azimuth)
-        const dPol = Math.abs(upOrbit.polar - downOrbit.polar)
-        if (dAz > CLICK_MAX_ORBIT_RAD || dPol > CLICK_MAX_ORBIT_RAD) return
-      }
+      const down = downRef.current
+      downRef.current = null
+      if (!isViewportClick(down, { x: event.clientX, y: event.clientY })) return
 
       if (!modelRoot) {
         onPick(null)
@@ -753,17 +721,28 @@ function ClickPicker({
       const raycaster = new Raycaster()
       raycaster.setFromCamera(ndc, camera)
       const hits = raycaster.intersectObject(modelRoot, true)
-      const hit = hits.find(entry => isWorldVisible(entry.object))
-      onPick(hit ? resolveHierarchyObject(hit.object) : null)
+      let picked: Object3D | null = null
+      for (const entry of hits) {
+        if (!isWorldVisible(entry.object)) continue
+        const mesh = hierarchyMeshFromHit(entry.object)
+        if (mesh) {
+          picked = mesh
+          break
+        }
+      }
+      onPick(picked)
     }
 
-    element.addEventListener('pointerdown', onPointerDown)
+    // Capture phase: OrbitControls listens on bubble and can swallow pointerdown,
+    // which used to leave the click gate with no press to compare against.
+    element.addEventListener('pointerdown', onPointerDown, true)
     element.addEventListener('pointerup', onPointerUp)
     return () => {
-      element.removeEventListener('pointerdown', onPointerDown)
+      downRef.current = null
+      element.removeEventListener('pointerdown', onPointerDown, true)
       element.removeEventListener('pointerup', onPointerUp)
     }
-  }, [enabled, modelRoot, camera, gl, controls, onPick])
+  }, [enabled, modelRoot, camera, gl, onPick])
 
   return null
 }

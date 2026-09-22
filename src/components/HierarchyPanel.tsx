@@ -201,12 +201,21 @@ export function HierarchyPanel({
   useEffect(() => {
     if (!open || !selectedId) return
     let cancelled = false
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (cancelled) return
-        const row = document.querySelector(`.hier-tree [data-hier-id="${CSS.escape(selectedId)}"]`)
-        row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-      })
+    let attempts = 0
+    let frame = 0
+    const tryScroll = () => {
+      if (cancelled) return
+      const row = document.querySelector(`.hier-tree [data-hier-id="${CSS.escape(selectedId)}"]`)
+      if (row) {
+        row.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        return
+      }
+      // The panel may have just opened; ancestors expand on the next commit.
+      if (attempts++ < 6) frame = window.requestAnimationFrame(tryScroll)
+    }
+    frame = window.requestAnimationFrame(() => {
+      if (cancelled) return
+      frame = window.requestAnimationFrame(tryScroll)
     })
     return () => {
       cancelled = true
