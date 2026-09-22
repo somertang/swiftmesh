@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-22
+
+### Added
+
+- **Hierarchy copy:** Header button copies the full model layer tree as indented JSON (`name` / `children` only, no synthetic Scene root). Each row (except Scene) has a copy control next to visibility that copies that layer name; success briefly shows a checkmark.
+
+### Changed
+
+- **Selection camera:** Viewport and Hierarchy / Materials selection no longer auto-frames the camera (Blender-like: highlight and hierarchy only). Initial whole-model framing on load is unchanged.
+- **Large-model pick performance:** Accelerate mesh picking with `three-mesh-bvh` (AABB fallback while trees build in idle time), virtualize the Hierarchy list, avoid full-tree re-expand on selection, and use bounding-box wireframes for meshes above ~100k triangles.
+
+### Fixed
+
+- **Viewport mesh pick:** Clicking a mesh in the viewport selects the matching Hierarchy node while keeping LMB orbit for drag gestures.
+
+### Unchanged
+
+- **CI releases:** GitHub Actions still builds Windows and macOS on version tags; after both jobs finish, release notes are synced from CHANGELOG onto the GitHub Release.
+
 ## [0.4.1] - 2026-08-27
 
 ### Added
