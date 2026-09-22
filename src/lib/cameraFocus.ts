@@ -14,6 +14,7 @@ import {
   type CameraSettings,
   type RecordProjection,
 } from '../config/cameraDefaults'
+import { FIT_WORLD_BOX_KEY } from './sceneHierarchy'
 
 export type ViewCamera = PerspectiveCamera | OrthographicCamera
 
@@ -175,8 +176,14 @@ export function applyCameraSettings(
   controls.update()
 }
 
+function worldBoxForObject(object: Object3D): Box3 {
+  const cached = object.userData[FIT_WORLD_BOX_KEY]
+  if (cached instanceof Box3 && !cached.isEmpty()) return cached
+  return new Box3().setFromObject(object)
+}
+
 function objectFitMetrics(object: Object3D) {
-  const box = new Box3().setFromObject(object)
+  const box = worldBoxForObject(object)
   const center = box.getCenter(new Vector3())
   const size = box.getSize(new Vector3())
   let maxRadius = 0.01

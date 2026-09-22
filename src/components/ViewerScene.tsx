@@ -19,11 +19,15 @@ import {
   AnimationMixer,
   ArrowHelper,
   Box3,
+  BoxGeometry,
   BufferGeometry,
   CanvasTexture,
   Color,
+  EdgesGeometry,
   Fog,
   Group,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -61,7 +65,6 @@ import {
   focusCameraOnObject,
   isViewCamera,
   readCameraSettings,
-  resolveHierarchyObject,
   setOrbitElevationDegrees as applyLiveOrbitElevation,
   syncOrthoFrustum,
   viewZoomFactor,
@@ -90,6 +93,13 @@ import {
 } from '../lib/inspectScene'
 import { attachResourceUrlModifier, basenameOf, type ModelSource } from '../lib/modelSource'
 import { isMeshObject } from '../lib/isMeshObject'
+import { isViewportClick, type PointerSample } from '../lib/viewportPick'
+import {
+  buildMeshBvhForRoot,
+  disposeMeshBvhForRoot,
+  pickHierarchyObject,
+  type MeshBvhBuildHandle,
+} from '../lib/meshBvh'
 import {
   buildSceneHierarchy,
   syncHierarchyVisibility,
@@ -162,13 +172,15 @@ type OrbitControlsLike = {
 /** @deprecated Prefer sceneBgCssForTheme — kept for callers expecting the simple theme. */
 export const SCENE_BG_CSS = SIMPLE_SCENE_BG_CSS
 const GROUND_COLOR = 0xcbcbcb
-/** Short LMB press vs orbit-drag: time gate (orbit may move a few px before we decide). */
-const CLICK_MAX_MS = 300
-/** Pointer jitter allowance; real orbit is rejected via camera angle delta. */
-const CLICK_MAX_MOVE_PX = 10
-/** If OrbitControls azimuth/polar moved more than this, treat as drag (not pick). */
-const CLICK_MAX_ORBIT_RAD = 0.008
 const WIRE_COLOR = '#ec7700'
+/** Above this triangle count, selection uses a bounding-box wireframe instead of full mesh wireframe. */
+const SELECTION_WIRE_TRI_LIMIT = 100_000
+
+function geometryTriangleCount(geometry: BufferGeometry): number {
+  if (geometry.index) return Math.floor(geometry.index.count / 3)
+  const pos = geometry.getAttribute('position')
+  return pos ? Math.floor(pos.count / 3) : 0
+}
 const EMPTY_CLIPS: AnimationClip[] = []
 
 export type RecordDrive = {
@@ -222,15 +234,6 @@ function prepareModelMeshes(root: Object3D) {
       child.receiveShadow = false
     }
   })
-}
-
-function isWorldVisible(object: Object3D) {
-  let current: Object3D | null = object
-  while (current) {
-    if (!current.visible) return false
-    current = current.parent
-  }
-  return true
 }
 
 type ModelRoots = {
@@ -545,7 +548,6 @@ function SelectionOverlay({
 }) {
   const { camera, size } = useThree()
   const rootRef = useRef<Group>(null)
-  const wireRef = useRef<Mesh | null>(null)
   const axesRef = useRef<Object3D | null>(null)
   const wireMaterial = useMemo(
     () =>
@@ -560,32 +562,68 @@ function SelectionOverlay({
       }),
     []
   )
+  const boxLineMaterial = useMemo(
+    () =>
+      new LineBasicMaterial({
+        color: WIRE_COLOR,
+        depthTest: false,
+        depthFunc: AlwaysDepth,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.85,
+      }),
+    []
+  )
 
   useEffect(() => {
     return () => {
       wireMaterial.dispose()
+      boxLineMaterial.dispose()
     }
-  }, [wireMaterial])
+  }, [wireMaterial, boxLineMaterial])
 
   useLayoutEffect(() => {
     const root = rootRef.current
     if (!root) return
 
     while (root.children.length) {
-      root.remove(root.children[0])
+      const child = root.children[0]!
+      root.remove(child)
+      if (child instanceof LineSegments) child.geometry.dispose()
     }
-    wireRef.current = null
     axesRef.current = null
 
     if (!object) return
 
     if (isMeshObject(object) && object.geometry) {
-      const wire = new Mesh(object.geometry as BufferGeometry, wireMaterial)
-      wire.renderOrder = 500
-      wire.userData.__hierarchyIgnore = true
-      wire.frustumCulled = false
-      root.add(wire)
-      wireRef.current = wire
+      const geometry = object.geometry as BufferGeometry
+      const tris = geometryTriangleCount(geometry)
+      if (tris > SELECTION_WIRE_TRI_LIMIT) {
+        if (!geometry.boundingBox) geometry.computeBoundingBox()
+        const local = geometry.boundingBox
+        if (local && !local.isEmpty()) {
+          const sizeVec = new Vector3()
+          const center = new Vector3()
+          local.getSize(sizeVec)
+          local.getCenter(center)
+          const boxGeo = new BoxGeometry(1, 1, 1)
+          const edges = new EdgesGeometry(boxGeo)
+          boxGeo.dispose()
+          const lines = new LineSegments(edges, boxLineMaterial)
+          lines.position.copy(center)
+          lines.scale.copy(sizeVec)
+          lines.renderOrder = 500
+          lines.userData.__hierarchyIgnore = true
+          lines.frustumCulled = false
+          root.add(lines)
+        }
+      } else {
+        const wire = new Mesh(geometry, wireMaterial)
+        wire.renderOrder = 500
+        wire.userData.__hierarchyIgnore = true
+        wire.frustumCulled = false
+        root.add(wire)
+      }
     }
 
     if (showAxes) {
@@ -611,12 +649,12 @@ function SelectionOverlay({
       root.add(axes)
       axesRef.current = axes
     }
-  }, [object, wireMaterial, showAxes])
+  }, [object, wireMaterial, boxLineMaterial, showAxes])
 
   useFrame(() => {
     if (!object || !isViewCamera(camera)) return
-    const wire = wireRef.current
-    const axes = axesRef.current
+    const root = rootRef.current
+    if (!root) return
 
     const position = new Vector3()
     const quaternion = new Quaternion()
@@ -625,45 +663,22 @@ function SelectionOverlay({
     object.getWorldQuaternion(quaternion)
     object.getWorldScale(scale)
 
-    if (wire) {
-      wire.position.copy(position)
-      wire.quaternion.copy(quaternion)
-      wire.scale.copy(scale)
-    }
+    root.position.copy(position)
+    root.quaternion.copy(quaternion)
+    root.scale.copy(scale)
 
+    const axes = axesRef.current
     if (axes) {
-      axes.position.copy(position)
-      axes.quaternion.copy(quaternion)
+      // Counter object scale so axes stay screen-sized in world units.
       const axisScale = worldSizeFromScreenSize(100, position, camera, size.height)
-      axes.scale.setScalar(axisScale)
+      const sx = Math.max(Math.abs(scale.x), 1e-6)
+      const sy = Math.max(Math.abs(scale.y), 1e-6)
+      const sz = Math.max(Math.abs(scale.z), 1e-6)
+      axes.scale.set(axisScale / sx, axisScale / sy, axisScale / sz)
     }
   })
 
   return <group ref={rootRef} />
-}
-
-function SelectionFocuser({
-  object,
-  focusToken,
-  enabled,
-  onCameraSettled,
-}: {
-  object: Object3D | null
-  focusToken: number
-  enabled: boolean
-  onCameraSettled?: () => void
-}) {
-  const camera = useThree(s => s.camera)
-  const controls = useThree(s => s.controls) as OrbitControlsLike | null
-
-  useEffect(() => {
-    if (!enabled || !object || focusToken <= 0) return
-    if (!isViewCamera(camera)) return
-    focusCameraOnObject(object, camera, controls)
-    onCameraSettled?.()
-  }, [object, focusToken, enabled, camera, controls, onCameraSettled])
-
-  return null
 }
 
 /** Fit camera to the full model when a new display root appears. */
@@ -687,19 +702,6 @@ function InitialModelFitter({
   return null
 }
 
-type OrbitAngleControls = {
-  getAzimuthalAngle?: () => number
-  getPolarAngle?: () => number
-}
-
-function readOrbitAngles(controls: unknown): { azimuth: number; polar: number } | null {
-  const orbit = controls as OrbitAngleControls | null
-  if (!orbit || typeof orbit.getAzimuthalAngle !== 'function' || typeof orbit.getPolarAngle !== 'function') {
-    return null
-  }
-  return { azimuth: orbit.getAzimuthalAngle(), polar: orbit.getPolarAngle() }
-}
-
 function ClickPicker({
   enabled,
   modelRoot,
@@ -709,10 +711,9 @@ function ClickPicker({
   modelRoot: Object3D | null
   onPick: (object: Object3D | null) => void
 }) {
-  const { camera, gl, controls } = useThree()
-  const downAtRef = useRef(0)
-  const downPosRef = useRef({ x: 0, y: 0 })
-  const downOrbitRef = useRef<{ azimuth: number; polar: number } | null>(null)
+  const { camera, gl } = useThree()
+  const downRef = useRef<PointerSample | null>(null)
+  const raycasterRef = useRef(new Raycaster())
 
   useEffect(() => {
     if (!enabled) return
@@ -720,25 +721,14 @@ function ClickPicker({
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return
-      downAtRef.current = Date.now()
-      downPosRef.current = { x: event.clientX, y: event.clientY }
-      downOrbitRef.current = readOrbitAngles(controls)
+      downRef.current = { x: event.clientX, y: event.clientY }
     }
 
     const onPointerUp = (event: PointerEvent) => {
       if (event.button !== 0) return
-      if (Date.now() - downAtRef.current >= CLICK_MAX_MS) return
-      const dx = event.clientX - downPosRef.current.x
-      const dy = event.clientY - downPosRef.current.y
-      if (dx * dx + dy * dy > CLICK_MAX_MOVE_PX * CLICK_MAX_MOVE_PX) return
-
-      const downOrbit = downOrbitRef.current
-      const upOrbit = readOrbitAngles(controls)
-      if (downOrbit && upOrbit) {
-        const dAz = Math.abs(upOrbit.azimuth - downOrbit.azimuth)
-        const dPol = Math.abs(upOrbit.polar - downOrbit.polar)
-        if (dAz > CLICK_MAX_ORBIT_RAD || dPol > CLICK_MAX_ORBIT_RAD) return
-      }
+      const down = downRef.current
+      downRef.current = null
+      if (!isViewportClick(down, { x: event.clientX, y: event.clientY })) return
 
       if (!modelRoot) {
         onPick(null)
@@ -750,20 +740,21 @@ function ClickPicker({
         ((event.clientX - rect.left) / rect.width) * 2 - 1,
         -((event.clientY - rect.top) / rect.height) * 2 + 1
       )
-      const raycaster = new Raycaster()
+      const raycaster = raycasterRef.current
       raycaster.setFromCamera(ndc, camera)
-      const hits = raycaster.intersectObject(modelRoot, true)
-      const hit = hits.find(entry => isWorldVisible(entry.object))
-      onPick(hit ? resolveHierarchyObject(hit.object) : null)
+      onPick(pickHierarchyObject(modelRoot, raycaster))
     }
 
-    element.addEventListener('pointerdown', onPointerDown)
+    // Capture phase: OrbitControls listens on bubble and can swallow pointerdown,
+    // which used to leave the click gate with no press to compare against.
+    element.addEventListener('pointerdown', onPointerDown, true)
     element.addEventListener('pointerup', onPointerUp)
     return () => {
-      element.removeEventListener('pointerdown', onPointerDown)
+      downRef.current = null
+      element.removeEventListener('pointerdown', onPointerDown, true)
       element.removeEventListener('pointerup', onPointerUp)
     }
-  }, [enabled, modelRoot, camera, gl, controls, onPick])
+  }, [enabled, modelRoot, camera, gl, onPick])
 
   return null
 }
@@ -1745,7 +1736,6 @@ function ViewportCameraControls({
   navGizmoOrientationRef,
   modelRoot,
   selectedObject,
-  focusToken,
   onPick,
   showSelectionAxes,
 }: {
@@ -1763,7 +1753,6 @@ function ViewportCameraControls({
   navGizmoOrientationRef: ReturnType<typeof createNavGizmoOrientationRef>
   modelRoot: Object3D | null
   selectedObject: Object3D | null
-  focusToken: number
   onPick: (object: Object3D | null) => void
   showSelectionAxes: boolean
 }) {
@@ -1801,12 +1790,6 @@ function ViewportCameraControls({
       <InitialModelFitter modelRoot={modelRoot} onCameraSettled={publishCamera} />
       <ClickPicker enabled={interactive && pickEnabled} modelRoot={modelRoot} onPick={onPick} />
       <SelectionOverlay object={selectedObject} showAxes={showSelectionAxes} />
-      <SelectionFocuser
-        object={selectedObject}
-        focusToken={focusToken}
-        enabled={interactive}
-        onCameraSettled={publishCamera}
-      />
     </>
   )
 }
@@ -1970,6 +1953,8 @@ export function ViewerScene({
   const navGizmoApiRef = useRef<NavGizmoApi | null>(null)
   const navGizmoOrientationRef = useMemo(() => createNavGizmoOrientationRef(), [])
   const [hierarchyRoot, setHierarchyRoot] = useState<HierarchyNode | null>(null)
+  const [hierarchyPaths, setHierarchyPaths] = useState<Map<string, string[]> | null>(null)
+  const meshBvhBuildRef = useRef<MeshBvhBuildHandle | null>(null)
   const [modelRoot, setModelRoot] = useState<Object3D | null>(null)
   const [inspectRoot, setInspectRoot] = useState<Object3D | null>(null)
   const [innerRoot, setInnerRoot] = useState<Object3D | null>(null)
@@ -1996,7 +1981,6 @@ export function ViewerScene({
   const onCameraSettingsChangeRef = useRef(onCameraSettingsChange)
   onCameraSettingsChangeRef.current = onCameraSettingsChange
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [focusToken, setFocusToken] = useState(0)
   const [activeInspectPanel, setActiveInspectPanel] = useState<InspectPanelId | null>(null)
   const [activeViewportTool, setActiveViewportTool] = useState<ViewportInteractionToolId | null>(
     null
@@ -2031,7 +2015,6 @@ export function ViewerScene({
   useEffect(() => {
     onLoadingRef.current(true)
     setSelectedId(null)
-    setFocusToken(0)
     setHierarchyRoot(null)
     setModelRoot(null)
     setInspectRoot(null)
@@ -2057,6 +2040,10 @@ export function ViewerScene({
   }, [])
 
   const handleRootChange = useCallback((roots: ModelRoots | null) => {
+    meshBvhBuildRef.current?.abort()
+    meshBvhBuildRef.current = null
+    disposeMeshBvhForRoot(modelRootRef.current)
+
     const displayRoot = roots?.displayRoot ?? null
     modelRootRef.current = displayRoot
     setModelRoot(displayRoot)
@@ -2066,6 +2053,7 @@ export function ViewerScene({
     if (!displayRoot) {
       objectsRef.current = new Map()
       setHierarchyRoot(null)
+      setHierarchyPaths(null)
       setSelectedId(null)
       return
     }
@@ -2073,6 +2061,16 @@ export function ViewerScene({
     const built = buildSceneHierarchy(hierarchySource)
     objectsRef.current = built.objects
     setHierarchyRoot(built.root)
+    setHierarchyPaths(built.paths)
+    meshBvhBuildRef.current = buildMeshBvhForRoot(hierarchySource)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      meshBvhBuildRef.current?.abort()
+      meshBvhBuildRef.current = null
+      disposeMeshBvhForRoot(modelRootRef.current)
+    }
   }, [])
 
   animationsRef.current = animations
@@ -2304,7 +2302,6 @@ export function ViewerScene({
 
   const handleHierarchySelect = useCallback((id: string | null) => {
     setSelectedId(id)
-    if (id) setFocusToken(token => token + 1)
   }, [])
 
   /** Viewport pick selects the hierarchy node under the cursor (same as Hierarchy panel). */
@@ -2317,7 +2314,6 @@ export function ViewerScene({
     if (!id) return
     setActiveInspectPanel('hierarchy')
     setSelectedId(id)
-    setFocusToken(token => token + 1)
   }, [])
 
   useEffect(() => {
@@ -2519,6 +2515,7 @@ export function ViewerScene({
           open={activeInspectPanel === 'hierarchy'}
           modelKey={modelKey}
           root={hierarchyRoot}
+          paths={hierarchyPaths}
           selectedId={selectedId}
           onOpenChange={open => setActiveInspectPanel(open ? 'hierarchy' : null)}
           onSelect={handleHierarchySelect}
@@ -2641,7 +2638,6 @@ export function ViewerScene({
           cameraSettings={cameraSettings}
           modelRoot={modelRoot}
           selectedObject={overlayObject}
-          focusToken={focusToken}
           onPick={handlePick}
           showSelectionAxes={!transformGizmoActive}
         />

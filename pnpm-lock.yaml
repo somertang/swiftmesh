@@ -41,6 +41,9 @@ importers:
       sharp:
         specifier: ^0.35.3
         version: 0.35.3(@types/node@26.1.1)
+      three-mesh-bvh:
+        specifier: ^0.8.3
+        version: 0.8.3(three@0.170.0)
       yazl:
         specifier: ^3.3.1
         version: 3.3.1
