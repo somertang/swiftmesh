@@ -1,4 +1,4 @@
-import { type Object3D } from 'three'
+import { Box3, type Object3D } from 'three'
 import { isMeshObject } from './isMeshObject'
 
 export type HierarchyNode = {
@@ -11,10 +11,34 @@ export type HierarchyNode = {
   children: HierarchyNode[]
 }
 
+export type HierarchyClipboardNode = {
+  name: string
+  children?: HierarchyClipboardNode[]
+}
+
+/** Name-only tree for clipboard. Skips the synthetic Scene root. Leaf nodes omit `children`. */
+export function hierarchyClipboardTree(root: HierarchyNode): HierarchyClipboardNode | null {
+  const source = root.id === 'scene-root' ? root.children[0] : root
+  if (!source) return null
+  return toClipboardNode(source)
+}
+
+function toClipboardNode(node: HierarchyNode): HierarchyClipboardNode {
+  const out: HierarchyClipboardNode = { name: node.name }
+  if (node.children.length > 0) {
+    out.children = node.children.map(toClipboardNode)
+  }
+  return out
+}
+
 export type HierarchyBuildResult = {
   root: HierarchyNode
   objects: Map<string, Object3D>
+  /** Ancestor ids from scene-root → node (inclusive), for expand-to-selection. */
+  paths: Map<string, string[]>
 }
+
+export const FIT_WORLD_BOX_KEY = '__fitWorldBox'
 
 function nodeKind(object: Object3D): HierarchyNode['kind'] {
   if (isMeshObject(object)) return 'mesh'
@@ -28,19 +52,48 @@ function displayName(object: Object3D) {
   return object.type || 'Object'
 }
 
+/** World-space AABB cached on `object.userData.__fitWorldBox` for fast camera framing. */
+function cacheFitWorldBox(object: Object3D): Box3 {
+  const box = new Box3()
+  if (isMeshObject(object) && object.geometry) {
+    if (!object.geometry.boundingBox) object.geometry.computeBoundingBox()
+    const local = object.geometry.boundingBox
+    if (local && !local.isEmpty()) {
+      box.copy(local).applyMatrix4(object.matrixWorld)
+      object.userData[FIT_WORLD_BOX_KEY] = box.clone()
+      return box
+    }
+  }
+
+  for (const child of object.children) {
+    if (child.userData.__hierarchyIgnore) continue
+    const childBox = cacheFitWorldBox(child)
+    if (!childBox.isEmpty()) box.union(childBox)
+  }
+
+  if (!box.isEmpty()) object.userData[FIT_WORLD_BOX_KEY] = box.clone()
+  else delete object.userData[FIT_WORLD_BOX_KEY]
+  return box
+}
+
 /** Walk a loaded model root and build a UI tree + id→Object3D map. */
 export function buildSceneHierarchy(rootObject: Object3D): HierarchyBuildResult {
   const objects = new Map<string, Object3D>()
+  const paths = new Map<string, string[]>()
   let nextId = 0
 
-  const walk = (object: Object3D): HierarchyNode => {
+  rootObject.updateWorldMatrix(true, true)
+
+  const walk = (object: Object3D, ancestors: string[]): HierarchyNode => {
     const id = `h${nextId++}`
     object.userData.__hierId = id
     objects.set(id, object)
+    const path = [...ancestors, id]
+    paths.set(id, path)
 
     const children = object.children
       .filter(child => !child.userData.__hierarchyIgnore)
-      .map(walk)
+      .map(child => walk(child, path))
 
     return {
       id,
@@ -53,7 +106,7 @@ export function buildSceneHierarchy(rootObject: Object3D): HierarchyBuildResult 
     }
   }
 
-  const modelTree = walk(rootObject)
+  const modelTree = walk(rootObject, ['scene-root'])
   const root: HierarchyNode = {
     id: 'scene-root',
     name: 'Scene',
@@ -63,8 +116,11 @@ export function buildSceneHierarchy(rootObject: Object3D): HierarchyBuildResult 
     visible: true,
     children: [modelTree],
   }
+  paths.set('scene-root', ['scene-root'])
 
-  return { root, objects }
+  cacheFitWorldBox(rootObject)
+
+  return { root, objects, paths }
 }
 
 export function syncHierarchyVisibility(node: HierarchyNode, objects: Map<string, Object3D>): HierarchyNode {
@@ -124,4 +180,21 @@ export function collectAllExpandIds(node: HierarchyNode): Set<string> {
   }
   walk(node)
   return ids
+}
+
+export type FlatHierarchyRow = {
+  node: HierarchyNode
+  depth: number
+}
+
+/** Flatten the expanded portion of the tree for windowed rendering. */
+export function flattenHierarchy(root: HierarchyNode, expanded: Set<string>): FlatHierarchyRow[] {
+  const rows: FlatHierarchyRow[] = []
+  const walk = (node: HierarchyNode, depth: number) => {
+    rows.push({ node, depth })
+    if (node.children.length === 0 || !expanded.has(node.id)) return
+    for (const child of node.children) walk(child, depth + 1)
+  }
+  walk(root, 0)
+  return rows
 }

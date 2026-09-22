@@ -389,6 +389,9 @@ export const en = {
   'hierarchy.search': 'Search hierarchy',
   'hierarchy.searchPlaceholder': 'Search',
   'hierarchy.noMatches': 'No matches',
+  'hierarchy.copyTree': 'Copy hierarchy',
+  'hierarchy.copyName': 'Copy name',
+  'hierarchy.copied': 'Copied',
 
   'textures.title': 'Textures',
   'textures.titleCount': 'Textures ({count})',
@@ -1054,6 +1057,9 @@ export const zh: Record<MessageKey, string> = {
   'hierarchy.search': '搜索层级',
   'hierarchy.searchPlaceholder': '搜索',
   'hierarchy.noMatches': '无匹配项',
+  'hierarchy.copyTree': '复制层级',
+  'hierarchy.copyName': '复制名称',
+  'hierarchy.copied': '已复制',
 
   'textures.title': '贴图',
   'textures.titleCount': '贴图 ({count})',
